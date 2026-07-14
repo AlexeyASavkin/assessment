@@ -1,0 +1,213 @@
+package com.assessment.controller;
+
+import com.assessment.entity.*;
+import com.assessment.repository.*;
+import com.assessment.security.EmployeeTokenService;
+import com.assessment.service.QuestionSelector;
+import com.assessment.service.ScoringService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/employee")
+public class EmployeeController {
+
+    private final EmployeeTokenService tokenService;
+    private final SessionRepository sessionRepository;
+    private final QuestionSelector questionSelector;
+    private final ScoringService scoringService;
+    private final QuestionAttemptRepository questionAttemptRepository;
+    private final CriteriaRepository criteriaRepository;
+
+    public EmployeeController(EmployeeTokenService tokenService,
+                              SessionRepository sessionRepository,
+                              QuestionSelector questionSelector,
+                              ScoringService scoringService,
+                              QuestionAttemptRepository questionAttemptRepository,
+                              CriteriaRepository criteriaRepository) {
+        this.tokenService = tokenService;
+        this.sessionRepository = sessionRepository;
+        this.questionSelector = questionSelector;
+        this.scoringService = scoringService;
+        this.questionAttemptRepository = questionAttemptRepository;
+        this.criteriaRepository = criteriaRepository;
+    }
+
+    @GetMapping("/invite/{token}")
+    public ResponseEntity<Void> handleInvite(@PathVariable String token,
+                                              HttpServletRequest request,
+                                              HttpServletResponse response) {
+        Optional<Session> sessionOpt = tokenService.validateInviteToken(token);
+        if (sessionOpt.isPresent()) {
+            tokenService.addSessionCookie(response, sessionOpt.get());
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .header("Location", "/session/" + sessionOpt.get().getId())
+                    .build();
+        }
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+    }
+
+    @PostMapping("/sessions")
+    public ResponseEntity<Session> createSession(@CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                                  HttpServletRequest request) {
+        Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
+        if (sessionOpt.isPresent()) {
+            return ResponseEntity.ok(sessionOpt.get());
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    }
+
+    @GetMapping("/sessions/{sessionId}/questions")
+    public ResponseEntity<Map<String, Object>> getCurrentQuestion(@PathVariable UUID sessionId,
+                                                                   @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                                                   HttpServletRequest request) {
+        Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
+        if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Session session = sessionOpt.get();
+        if ("COMPLETED".equals(session.getStatus())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Session completed"));
+        }
+
+        List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        List<Criteria> allCriteria = criteriaRepository.findAll();
+
+        UUID nextCriteriaId = findNextCriteriaId(attempts, allCriteria);
+        if (nextCriteriaId == null) {
+            return ResponseEntity.ok(Map.of("completed", true));
+        }
+
+        String questionText = questionSelector.generateQuestion(session, nextCriteriaId);
+
+        QuestionAttempt attempt = QuestionAttempt.builder()
+                .session(session)
+                .questionText(questionText)
+                .criteria(criteriaRepository.findById(nextCriteriaId).orElse(null))
+                .followupDepth(0)
+                .build();
+        attempt = questionAttemptRepository.save(attempt);
+
+        session.setCurrentQuestionId(attempt.getId());
+        sessionRepository.save(session);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("questionId", attempt.getId());
+        response.put("questionText", questionText);
+        response.put("criteriaId", nextCriteriaId);
+        response.put("isFollowUp", false);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/sessions/{sessionId}/answers")
+    public ResponseEntity<Map<String, Object>> submitAnswer(@PathVariable UUID sessionId,
+                                                             @RequestBody Map<String, String> answer,
+                                                             @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                                             HttpServletRequest request) {
+        Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
+        if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Session session = sessionOpt.get();
+        UUID questionId = UUID.fromString(answer.get("questionAttemptId"));
+        String rawTranscript = answer.get("rawTranscript");
+        String finalTranscript = answer.get("finalTranscript");
+
+        QuestionAttempt currentAttempt = questionAttemptRepository.findById(questionId).orElseThrow();
+
+        currentAttempt.setRawTranscript(rawTranscript);
+        currentAttempt.setFinalTranscript(finalTranscript);
+        questionAttemptRepository.save(currentAttempt);
+
+        scoringService.scoreAnswer(
+                session,
+                currentAttempt.getQuestionText(),
+                finalTranscript,
+                currentAttempt.getCriteria() != null ? currentAttempt.getCriteria().getId() : null,
+                currentAttempt.getFollowupDepth(),
+                currentAttempt.getFollowupParent()
+        );
+
+        if (questionSelector.shouldAskFollowUp(session, currentAttempt.getCriteria().getId())) {
+            String followUpText = questionSelector.generateFollowUp(session, currentAttempt);
+
+            QuestionAttempt followUp = QuestionAttempt.builder()
+                    .session(session)
+                    .questionText(followUpText)
+                    .criteria(currentAttempt.getCriteria())
+                    .followupDepth(1)
+                    .followupParent(currentAttempt)
+                    .build();
+            followUp = questionAttemptRepository.save(followUp);
+
+            session.setCurrentQuestionId(followUp.getId());
+            sessionRepository.save(session);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("nextQuestionId", followUp.getId());
+            response.put("completed", false);
+            response.put("isFollowUp", true);
+            response.put("followupParentId", currentAttempt.getId());
+
+            return ResponseEntity.ok(response);
+        }
+
+        List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        List<Criteria> allCriteria = criteriaRepository.findAll();
+        UUID nextCriteriaId = findNextCriteriaId(allAttempts, allCriteria);
+
+        if (nextCriteriaId == null) {
+            session.setStatus("COMPLETED");
+            sessionRepository.save(session);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("nextQuestionId", null);
+            response.put("completed", true);
+            response.put("isFollowUp", false);
+
+            return ResponseEntity.ok(response);
+        }
+
+        String nextQuestionText = questionSelector.generateQuestion(session, nextCriteriaId);
+
+        QuestionAttempt nextAttempt = QuestionAttempt.builder()
+                .session(session)
+                .questionText(nextQuestionText)
+                .criteria(criteriaRepository.findById(nextCriteriaId).orElse(null))
+                .followupDepth(0)
+                .build();
+        nextAttempt = questionAttemptRepository.save(nextAttempt);
+
+        session.setCurrentQuestionId(nextAttempt.getId());
+        sessionRepository.save(session);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("nextQuestionId", nextAttempt.getId());
+        response.put("completed", false);
+        response.put("isFollowUp", false);
+
+        return ResponseEntity.ok(response);
+    }
+
+    private UUID findNextCriteriaId(List<QuestionAttempt> attempts, List<Criteria> allCriteria) {
+        Set<UUID> askedCriteriaIds = attempts.stream()
+                .filter(a -> a.getCriteria() != null)
+                .map(a -> a.getCriteria().getId())
+                .collect(Collectors.toSet());
+
+        return allCriteria.stream()
+                .map(Criteria::getId)
+                .filter(id -> !askedCriteriaIds.contains(id))
+                .findFirst()
+                .orElse(null);
+    }
+}
