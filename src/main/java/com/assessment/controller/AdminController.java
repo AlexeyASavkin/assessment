@@ -212,4 +212,25 @@ public class AdminController {
         aiProviderService.setActiveProvider(provider);
         return getAiSettings();
     }
+
+    @GetMapping("/settings/ai/keys")
+    public ResponseEntity<Map<String, String>> getAiKeys() {
+        Map<String, String> keys = new java.util.HashMap<>();
+        keys.put("geminiApiKey", aiProviderService.getApiKey("gemini"));
+        keys.put("gigachatApiKey", aiProviderService.getApiKey("gigachat"));
+        return ResponseEntity.ok(keys);
+    }
+
+    @PutMapping("/settings/ai/keys")
+    public ResponseEntity<Map<String, String>> updateAiKeys(@RequestBody Map<String, String> body) {
+        String geminiKey = body.get("geminiApiKey");
+        String gigachatKey = body.get("gigachatApiKey");
+        if (geminiKey != null) {
+            aiProviderService.setApiKey("gemini", geminiKey);
+        }
+        if (gigachatKey != null) {
+            aiProviderService.setApiKey("gigachat", gigachatKey);
+        }
+        return getAiKeys();
+    }
 }

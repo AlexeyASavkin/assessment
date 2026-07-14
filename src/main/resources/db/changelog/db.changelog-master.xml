@@ -7,5 +7,6 @@
 
     <include file="db/changelog/changes/001-init-schema.xml"/>
     <include file="db/changelog/changes/002-ai-settings.xml"/>
+    <include file="db/changelog/changes/003-ai-api-keys.xml"/>
 
 </databaseChangeLog>

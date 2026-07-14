@@ -33,4 +33,23 @@ public class AiProviderService {
         settings.setSettingValue(provider);
         settingsRepository.save(settings);
     }
+
+    public String getApiKey(String provider) {
+        String key = provider + "_api_key";
+        return settingsRepository.findBySettingKey(key)
+                .map(AiSettings::getSettingValue)
+                .orElse("");
+    }
+
+    public void setApiKey(String provider, String apiKey) {
+        if (!provider.equals("gemini") && !provider.equals("gigachat")) {
+            throw new IllegalArgumentException("Неизвестный провайдер: " + provider);
+        }
+        String key = provider + "_api_key";
+        AiSettings settings = settingsRepository.findBySettingKey(key)
+                .orElse(new AiSettings());
+        settings.setSettingKey(key);
+        settings.setSettingValue(apiKey != null ? apiKey : "");
+        settingsRepository.save(settings);
+    }
 }
