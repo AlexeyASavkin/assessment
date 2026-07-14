@@ -279,3 +279,50 @@ textarea {
   font-family: monospace;
   word-break: break-all;
 }
+
+/* AI Provider selector */
+.ai-provider-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ai-provider-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.ai-provider-option input[type="radio"] {
+  margin-top: 0.25rem;
+}
+
+.ai-provider-card {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  transition: border-color 0.2s;
+}
+
+.ai-provider-option input[type="radio"]:checked + .ai-provider-card {
+  border-color: #007bff;
+  background: #e7f1ff;
+}
+
+.ai-provider-card strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.ai-provider-card p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #555;
+}
+
+.success-text {
+  color: #16a34a;
+  margin-bottom: 1rem;
+}

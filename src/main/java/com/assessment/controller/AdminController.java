@@ -3,12 +3,14 @@ package com.assessment.controller;
 import com.assessment.entity.*;
 import com.assessment.repository.*;
 import com.assessment.security.HmacTokenValidator;
+import com.assessment.service.AiProviderService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -21,19 +23,22 @@ public class AdminController {
     private final EmployeeRepository employeeRepository;
     private final AssessmentInviteTokenRepository tokenRepository;
     private final HmacTokenValidator hmacValidator;
+    private final AiProviderService aiProviderService;
 
     public AdminController(CompetencyRepository competencyRepository,
                            CriteriaRepository criteriaRepository,
                            CriteriaLevelRepository criteriaLevelRepository,
                            EmployeeRepository employeeRepository,
                            AssessmentInviteTokenRepository tokenRepository,
-                           HmacTokenValidator hmacValidator) {
+                           HmacTokenValidator hmacValidator,
+                           AiProviderService aiProviderService) {
         this.competencyRepository = competencyRepository;
         this.criteriaRepository = criteriaRepository;
         this.criteriaLevelRepository = criteriaLevelRepository;
         this.employeeRepository = employeeRepository;
         this.tokenRepository = tokenRepository;
         this.hmacValidator = hmacValidator;
+        this.aiProviderService = aiProviderService;
     }
 
     @PostMapping("/competencies")
@@ -187,5 +192,24 @@ public class AdminController {
     @GetMapping("/tokens")
     public ResponseEntity<List<AssessmentInviteToken>> listTokens() {
         return ResponseEntity.ok(tokenRepository.findAll());
+    }
+
+    @GetMapping("/settings/ai")
+    public ResponseEntity<Map<String, Object>> getAiSettings() {
+        String activeProvider = aiProviderService.getActiveProvider();
+        Map<String, Object> settings = new java.util.HashMap<>();
+        settings.put("activeProvider", activeProvider);
+        settings.put("availableProviders", java.util.List.of("gemini", "gigachat"));
+        return ResponseEntity.ok(settings);
+    }
+
+    @PutMapping("/settings/ai")
+    public ResponseEntity<Map<String, Object>> updateAiSettings(@RequestBody Map<String, String> body) {
+        String provider = body.get("activeProvider");
+        if (provider == null || provider.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        aiProviderService.setActiveProvider(provider);
+        return getAiSettings();
     }
 }

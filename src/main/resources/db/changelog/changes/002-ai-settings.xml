@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="9" author="assessment">
+        <createTable tableName="ai_settings">
+            <column name="setting_key" type="VARCHAR(100)">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="setting_value" type="VARCHAR(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="10" author="assessment">
+        <insert tableName="ai_settings">
+            <column name="setting_key" value="active_provider"/>
+            <column name="setting_value" value="gemini"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
