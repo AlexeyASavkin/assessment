@@ -235,3 +235,20 @@ export async function updateAiSettings(activeProvider: string): Promise<AiSettin
     body: JSON.stringify({ activeProvider }),
   })
 }
+
+export interface AiKeys {
+  geminiApiKey: string
+  gigachatApiKey: string
+}
+
+export async function getAiKeys(): Promise<AiKeys> {
+  return adminJson<AiKeys>('/settings/ai/keys')
+}
+
+export async function updateAiKeys(keys: AiKeys): Promise<AiKeys> {
+  return adminJson<AiKeys>('/settings/ai/keys', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(keys),
+  })
+}
