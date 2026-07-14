@@ -216,3 +216,22 @@ export async function generateInvite(employeeId: string): Promise<string> {
 export async function listTokens(): Promise<InviteToken[]> {
   return adminJson<InviteToken[]>('/tokens')
 }
+
+// ---- AI Settings ----
+
+export interface AiSettings {
+  activeProvider: string
+  availableProviders: string[]
+}
+
+export async function getAiSettings(): Promise<AiSettings> {
+  return adminJson<AiSettings>('/settings/ai')
+}
+
+export async function updateAiSettings(activeProvider: string): Promise<AiSettings> {
+  return adminJson<AiSettings>('/settings/ai', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activeProvider }),
+  })
+}

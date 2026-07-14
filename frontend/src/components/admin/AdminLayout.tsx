@@ -41,6 +41,7 @@ export function AdminLayout() {
           <NavLink to="/admin/competencies" className={linkClass}>Компетенции</NavLink>
           <NavLink to="/admin/employees" className={linkClass}>Сотрудники</NavLink>
           <NavLink to="/admin/tokens" className={linkClass}>Токены</NavLink>
+          <NavLink to="/admin/settings" className={linkClass}>Настройки ИИ</NavLink>
         </nav>
         <button className="btn btn-danger admin-logout" onClick={handleLogout}>Выйти</button>
       </aside>
