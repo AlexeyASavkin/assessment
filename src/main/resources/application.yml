@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: assessment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/assessment
+    username: assessment
+    password: assessment
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY:}
+        chat:
+          options:
+            model: gemini-2.0-flash
+
+server:
+  port: 8080
+
+assessment:
+  security:
+    hmac-secret: ${HMAC_SECRET:change-me-in-production}
+    session-cookie-name: SESSION_EMPLOYEE
+    token-expiry-hours: 72
+  question:
+    max-followups-per-main: 1
+    max-questions-per-session: 20
+  rate-limiter:
+    max-requests-per-minute: 15
+
+resilience4j:
+  ratelimiter:
+    instances:
+      geminiApi:
+        limitForPeriod: 15
+        limitRefreshPeriod: 1m
+        timeoutDuration: 10s
+
+logging:
+  level:
+    com.assessment: DEBUG
+    org.springframework.ai: DEBUG
+    io.github.resilience4j: DEBUG

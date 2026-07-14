@@ -23,3 +23,4 @@ generated-src/
 .gradle-dist/
 .omo/
 /frontend/node_modules
+/frontend/dist
