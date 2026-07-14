@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- question_banks -->
+    <changeSet id="13" author="assessment">
+        <createTable tableName="question_banks">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="competency_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_qbank_competency"
+                             referencedTableName="competencies" referencedColumnNames="id"/>
+            </column>
+            <column name="criteria_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_qbank_criteria"
+                             referencedTableName="criteria" referencedColumnNames="id"/>
+            </column>
+            <column name="question_text" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="difficulty" type="VARCHAR(20)" defaultValueComputed="'ALL'"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="14" author="assessment">
+        <createIndex tableName="question_banks" indexName="idx_qbank_competency">
+            <column name="competency_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="15" author="assessment">
+        <createIndex tableName="question_banks" indexName="idx_qbank_criteria">
+            <column name="criteria_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

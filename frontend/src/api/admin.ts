@@ -252,3 +252,39 @@ export async function updateAiKeys(keys: AiKeys): Promise<AiKeys> {
     body: JSON.stringify(keys),
   })
 }
+
+// ---- Question Bank ----
+
+export interface QuestionBankItem {
+  id: string
+  competencyId: string
+  criteriaId: string
+  questionText: string
+  difficulty: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export async function generateQuestions(competencyId: string, count: number, difficulty: string): Promise<QuestionBankItem[]> {
+  return adminJson<QuestionBankItem[]>(`/competencies/${competencyId}/questions/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ count, difficulty }),
+  })
+}
+
+export async function listQuestions(competencyId: string): Promise<QuestionBankItem[]> {
+  return adminJson<QuestionBankItem[]>(`/competencies/${competencyId}/questions`)
+}
+
+export async function updateQuestion(id: string, questionText: string): Promise<QuestionBankItem> {
+  return adminJson<QuestionBankItem>(`/questions/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ questionText }),
+  })
+}
+
+export async function deleteQuestion(id: string): Promise<void> {
+  await adminJson<void>(`/questions/${id}`, { method: 'DELETE' })
+}

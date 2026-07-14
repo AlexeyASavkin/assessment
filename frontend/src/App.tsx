@@ -9,6 +9,7 @@ import LevelsPage from './pages/admin/LevelsPage'
 import EmployeesPage from './pages/admin/EmployeesPage'
 import TokensPage from './pages/admin/TokensPage'
 import AiSettingsPage from './pages/admin/AiSettingsPage'
+import QuestionsPage from './pages/admin/QuestionsPage'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute, AdminLayout } from './components/admin/AdminLayout'
 
@@ -41,6 +42,7 @@ function App() {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/competencies" element={<CompetenciesPage />} />
               <Route path="/admin/competencies/:competencyId/criteria" element={<CriteriaPage />} />
+              <Route path="/admin/competencies/:competencyId/questions" element={<QuestionsPage />} />
               <Route path="/admin/criteria/:criteriaId/levels" element={<LevelsPage />} />
               <Route path="/admin/employees" element={<EmployeesPage />} />
               <Route path="/admin/tokens" element={<TokensPage />} />

@@ -24,3 +24,4 @@ generated-src/
 .omo/
 /frontend/node_modules
 /frontend/dist
+.env

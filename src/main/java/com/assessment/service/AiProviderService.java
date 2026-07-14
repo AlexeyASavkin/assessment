@@ -36,9 +36,16 @@ public class AiProviderService {
 
     public String getApiKey(String provider) {
         String key = provider + "_api_key";
-        return settingsRepository.findBySettingKey(key)
+        String fromDb = settingsRepository.findBySettingKey(key)
                 .map(AiSettings::getSettingValue)
                 .orElse("");
+        if (fromDb != null && !fromDb.isBlank()) {
+            return fromDb;
+        }
+        // Fallback to environment variable: GEMINI_API_KEY / GIGACHAT_API_KEY
+        String envKey = provider.toUpperCase() + "_API_KEY";
+        String fromEnv = System.getenv(envKey);
+        return fromEnv != null ? fromEnv : "";
     }
 
     public void setApiKey(String provider, String apiKey) {
