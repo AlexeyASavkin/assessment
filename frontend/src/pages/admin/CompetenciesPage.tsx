@@ -134,6 +134,9 @@ export default function CompetenciesPage() {
                 <button className="btn btn-primary" onClick={() => navigate(`/admin/competencies/${item.id}/criteria`)}>
                   Критерии
                 </button>
+                <button className="btn" onClick={() => navigate(`/admin/competencies/${item.id}/questions`)}>
+                  Вопросы
+                </button>
                 <button className="btn" onClick={() => handleEdit(item)}>Изменить</button>
                 <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Удалить</button>
               </div>

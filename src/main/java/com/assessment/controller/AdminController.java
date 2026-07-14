@@ -4,6 +4,7 @@ import com.assessment.entity.*;
 import com.assessment.repository.*;
 import com.assessment.security.HmacTokenValidator;
 import com.assessment.service.AiProviderService;
+import com.assessment.service.QuestionGeneratorService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -24,6 +27,8 @@ public class AdminController {
     private final AssessmentInviteTokenRepository tokenRepository;
     private final HmacTokenValidator hmacValidator;
     private final AiProviderService aiProviderService;
+    private final QuestionGeneratorService questionGeneratorService;
+    private final QuestionBankRepository questionBankRepository;
 
     public AdminController(CompetencyRepository competencyRepository,
                            CriteriaRepository criteriaRepository,
@@ -31,7 +36,9 @@ public class AdminController {
                            EmployeeRepository employeeRepository,
                            AssessmentInviteTokenRepository tokenRepository,
                            HmacTokenValidator hmacValidator,
-                           AiProviderService aiProviderService) {
+                           AiProviderService aiProviderService,
+                           QuestionGeneratorService questionGeneratorService,
+                           QuestionBankRepository questionBankRepository) {
         this.competencyRepository = competencyRepository;
         this.criteriaRepository = criteriaRepository;
         this.criteriaLevelRepository = criteriaLevelRepository;
@@ -39,6 +46,8 @@ public class AdminController {
         this.tokenRepository = tokenRepository;
         this.hmacValidator = hmacValidator;
         this.aiProviderService = aiProviderService;
+        this.questionGeneratorService = questionGeneratorService;
+        this.questionBankRepository = questionBankRepository;
     }
 
     @PostMapping("/competencies")
@@ -232,5 +241,68 @@ public class AdminController {
             aiProviderService.setApiKey("gigachat", gigachatKey);
         }
         return getAiKeys();
+    }
+
+    // ---- Question Bank ----
+
+    private static final Set<String> VALID_DIFFICULTIES = Set.of("ALL", "JUNIOR", "MIDDLE", "SENIOR");
+
+    @PostMapping("/competencies/{competencyId}/questions/generate")
+    public ResponseEntity<?> generateQuestions(@PathVariable UUID competencyId,
+                                               @RequestBody Map<String, Object> body) {
+        Object countObj = body.get("count");
+        String difficulty = (String) body.getOrDefault("difficulty", "ALL");
+
+        int count;
+        try {
+            count = countObj instanceof Number ? ((Number) countObj).intValue() : Integer.parseInt(countObj.toString());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "count должен быть числом от 1 до 10"));
+        }
+
+        if (count < 1 || count > 10) {
+            return ResponseEntity.badRequest().body(Map.of("error", "count должен быть от 1 до 10"));
+        }
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "difficulty должен быть: ALL, JUNIOR, MIDDLE или SENIOR"));
+        }
+
+        try {
+            List<QuestionBank> questions = questionGeneratorService.generateAndSave(competencyId, count, difficulty);
+            return ResponseEntity.ok(questions);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "Ошибка генерации вопросов: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/competencies/{competencyId}/questions")
+    public ResponseEntity<List<QuestionBank>> listQuestions(@PathVariable UUID competencyId) {
+        return ResponseEntity.ok(questionBankRepository.findByCompetencyIdOrderByCreatedAtDesc(competencyId));
+    }
+
+    @PutMapping("/questions/{id}")
+    public ResponseEntity<?> updateQuestion(@PathVariable UUID id, @RequestBody Map<String, String> body) {
+        String questionText = body.get("questionText");
+        if (questionText == null || questionText.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "questionText обязателен"));
+        }
+        return questionBankRepository.findById(id)
+                .map(question -> {
+                    question.setQuestionText(questionText.trim());
+                    return ResponseEntity.ok(questionBankRepository.save(question));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/questions/{id}")
+    public ResponseEntity<Void> deleteQuestion(@PathVariable UUID id) {
+        questionBankRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
     }
 }

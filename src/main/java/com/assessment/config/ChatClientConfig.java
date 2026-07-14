@@ -4,8 +4,7 @@ import com.assessment.service.AiProviderService;
 import com.google.genai.Client;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.memory.ChatMemory;
+
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
@@ -92,9 +91,8 @@ public class ChatClientConfig {
     }
 
     @Bean
-    public ChatClient chatClient(ChatModel routingChatModel, ChatMemory chatMemory) {
+    public ChatClient chatClient(ChatModel routingChatModel) {
         return ChatClient.builder(routingChatModel)
-                .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .build();
     }
 }
