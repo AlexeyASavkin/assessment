@@ -3,9 +3,7 @@ import EmployeeSession from './pages/EmployeeSession'
 import EmployeeReport from './pages/EmployeeReport'
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
-import CompetenciesPage from './pages/admin/CompetenciesPage'
-import SectionsPage from './pages/admin/SectionsPage'
-import TopicsPage from './pages/admin/TopicsPage'
+import AdminCompetenciesTreePage from './pages/admin/AdminCompetenciesTreePage'
 import CriteriaPage from './pages/admin/CriteriaPage'
 import LevelsPage from './pages/admin/LevelsPage'
 import EmployeesPage from './pages/admin/EmployeesPage'
@@ -42,9 +40,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/competencies" element={<CompetenciesPage />} />
-              <Route path="/admin/competencies/:competencyId/sections" element={<SectionsPage />} />
-              <Route path="/admin/sections/:sectionId/topics" element={<TopicsPage />} />
+              <Route path="/admin/competencies" element={<AdminCompetenciesTreePage />} />
               <Route path="/admin/competencies/:competencyId/criteria" element={<CriteriaPage />} />
               <Route path="/admin/competencies/:competencyId/questions" element={<QuestionsPage />} />
               <Route path="/admin/criteria/:criteriaId/levels" element={<LevelsPage />} />
