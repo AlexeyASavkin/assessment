@@ -19,6 +19,7 @@ export interface Topic {
   id: string
   name: string
   description: string
+  sortOrder: number
   weight: number
 }
 
@@ -197,19 +198,19 @@ export async function listTopics(sectionId: string): Promise<Topic[]> {
   return adminJson<Topic[]>(`/sections/${sectionId}/topics`)
 }
 
-export async function createTopic(sectionId: string, name: string, weight: number): Promise<Topic> {
+export async function createTopic(sectionId: string, name: string, weight: number, sortOrder: number): Promise<Topic> {
   return adminJson<Topic>(`/sections/${sectionId}/topics`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, weight }),
+    body: JSON.stringify({ name, weight, sortOrder }),
   })
 }
 
-export async function updateTopic(id: string, name: string, weight: number): Promise<Topic> {
+export async function updateTopic(id: string, name: string, weight: number, sortOrder: number): Promise<Topic> {
   return adminJson<Topic>(`/topics/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, weight }),
+    body: JSON.stringify({ name, weight, sortOrder }),
   })
 }
 
@@ -328,6 +329,7 @@ export interface QuestionBankItem {
   topicId?: string
   questionText: string
   difficulty: string
+  sortOrder: number
   createdAt?: string
   updatedAt?: string
 }
@@ -366,4 +368,12 @@ export async function updateQuestion(id: string, questionText: string): Promise<
 
 export async function deleteQuestion(id: string): Promise<void> {
   await adminJson<void>(`/questions/${id}`, { method: 'DELETE' })
+}
+
+export async function reorderTopicQuestions(topicId: string, orderedIds: string[]): Promise<void> {
+  await adminJson<void>(`/topics/${topicId}/questions/reorder`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(orderedIds),
+  })
 }
