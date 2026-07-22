@@ -9,5 +9,7 @@
     <include file="db/changelog/changes/002-ai-settings.xml"/>
     <include file="db/changelog/changes/003-ai-api-keys.xml"/>
     <include file="db/changelog/changes/004-question-banks.xml"/>
+    <include file="db/changelog/changes/005-sections-topics.xml"/>
+    <include file="db/changelog/changes/006-drop-topic-levels.xml"/>
 
 </databaseChangeLog>

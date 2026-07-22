@@ -23,20 +23,20 @@ public class EmployeeController {
     private final QuestionSelector questionSelector;
     private final ScoringService scoringService;
     private final QuestionAttemptRepository questionAttemptRepository;
-    private final CriteriaRepository criteriaRepository;
+    private final TopicRepository topicRepository;
 
     public EmployeeController(EmployeeTokenService tokenService,
                               SessionRepository sessionRepository,
                               QuestionSelector questionSelector,
                               ScoringService scoringService,
                               QuestionAttemptRepository questionAttemptRepository,
-                              CriteriaRepository criteriaRepository) {
+                              TopicRepository topicRepository) {
         this.tokenService = tokenService;
         this.sessionRepository = sessionRepository;
         this.questionSelector = questionSelector;
         this.scoringService = scoringService;
         this.questionAttemptRepository = questionAttemptRepository;
-        this.criteriaRepository = criteriaRepository;
+        this.topicRepository = topicRepository;
     }
 
     @GetMapping("/invite/{token}")
@@ -78,19 +78,19 @@ public class EmployeeController {
         }
 
         List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
-        List<Criteria> allCriteria = criteriaRepository.findAll();
+        List<Topic> allTopics = topicRepository.findAll();
 
-        UUID nextCriteriaId = findNextCriteriaId(attempts, allCriteria);
-        if (nextCriteriaId == null) {
+        UUID nextTopicId = findNextTopicId(attempts, allTopics);
+        if (nextTopicId == null) {
             return ResponseEntity.ok(Map.of("completed", true));
         }
 
-        String questionText = questionSelector.generateQuestion(session, nextCriteriaId);
+        String questionText = questionSelector.generateQuestion(session, nextTopicId);
 
         QuestionAttempt attempt = QuestionAttempt.builder()
                 .session(session)
                 .questionText(questionText)
-                .criteria(criteriaRepository.findById(nextCriteriaId).orElse(null))
+                .topic(topicRepository.findById(nextTopicId).orElse(null))
                 .followupDepth(0)
                 .build();
         attempt = questionAttemptRepository.save(attempt);
@@ -101,7 +101,7 @@ public class EmployeeController {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("questionId", attempt.getId());
         response.put("questionText", questionText);
-        response.put("criteriaId", nextCriteriaId);
+        response.put("topicId", nextTopicId);
         response.put("isFollowUp", false);
 
         return ResponseEntity.ok(response);
@@ -132,18 +132,18 @@ public class EmployeeController {
                 session,
                 currentAttempt.getQuestionText(),
                 finalTranscript,
-                currentAttempt.getCriteria() != null ? currentAttempt.getCriteria().getId() : null,
+                currentAttempt.getTopic() != null ? currentAttempt.getTopic().getId() : null,
                 currentAttempt.getFollowupDepth(),
                 currentAttempt.getFollowupParent()
         );
 
-        if (questionSelector.shouldAskFollowUp(session, currentAttempt.getCriteria().getId())) {
+        if (questionSelector.shouldAskFollowUp(session, currentAttempt.getTopic().getId())) {
             String followUpText = questionSelector.generateFollowUp(session, currentAttempt);
 
             QuestionAttempt followUp = QuestionAttempt.builder()
                     .session(session)
                     .questionText(followUpText)
-                    .criteria(currentAttempt.getCriteria())
+                    .topic(currentAttempt.getTopic())
                     .followupDepth(1)
                     .followupParent(currentAttempt)
                     .build();
@@ -162,10 +162,10 @@ public class EmployeeController {
         }
 
         List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
-        List<Criteria> allCriteria = criteriaRepository.findAll();
-        UUID nextCriteriaId = findNextCriteriaId(allAttempts, allCriteria);
+        List<Topic> allTopics = topicRepository.findAll();
+        UUID nextTopicId = findNextTopicId(allAttempts, allTopics);
 
-        if (nextCriteriaId == null) {
+        if (nextTopicId == null) {
             session.setStatus("COMPLETED");
             sessionRepository.save(session);
 
@@ -177,12 +177,12 @@ public class EmployeeController {
             return ResponseEntity.ok(response);
         }
 
-        String nextQuestionText = questionSelector.generateQuestion(session, nextCriteriaId);
+        String nextQuestionText = questionSelector.generateQuestion(session, nextTopicId);
 
         QuestionAttempt nextAttempt = QuestionAttempt.builder()
                 .session(session)
                 .questionText(nextQuestionText)
-                .criteria(criteriaRepository.findById(nextCriteriaId).orElse(null))
+                .topic(topicRepository.findById(nextTopicId).orElse(null))
                 .followupDepth(0)
                 .build();
         nextAttempt = questionAttemptRepository.save(nextAttempt);
@@ -198,15 +198,15 @@ public class EmployeeController {
         return ResponseEntity.ok(response);
     }
 
-    private UUID findNextCriteriaId(List<QuestionAttempt> attempts, List<Criteria> allCriteria) {
-        Set<UUID> askedCriteriaIds = attempts.stream()
-                .filter(a -> a.getCriteria() != null)
-                .map(a -> a.getCriteria().getId())
+    private UUID findNextTopicId(List<QuestionAttempt> attempts, List<Topic> allTopics) {
+        Set<UUID> askedTopicIds = attempts.stream()
+                .filter(a -> a.getTopic() != null)
+                .map(a -> a.getTopic().getId())
                 .collect(Collectors.toSet());
 
-        return allCriteria.stream()
-                .map(Criteria::getId)
-                .filter(id -> !askedCriteriaIds.contains(id))
+        return allTopics.stream()
+                .map(Topic::getId)
+                .filter(id -> !askedTopicIds.contains(id))
                 .findFirst()
                 .orElse(null);
     }

@@ -6,7 +6,7 @@ import { getCurrentQuestion, submitAnswer } from '../api/employee'
 interface Question {
   questionId: string
   questionText: string
-  criteriaId: string
+  topicId: string
   isFollowUp: boolean
   completed?: boolean
   followupParentId?: string
@@ -53,7 +53,7 @@ export default function EmployeeSession() {
         setCurrentQuestion({
           questionId: data.nextQuestionId,
           questionText: data.nextQuestionText || '',
-          criteriaId: data.criteriaId || '',
+          topicId: data.topicId || '',
           isFollowUp: data.isFollowUp,
           followupParentId: data.followupParentId,
         })

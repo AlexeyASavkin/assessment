@@ -31,22 +31,22 @@ public class ReportService {
                 .filter(a -> Boolean.TRUE.equals(a.getValidJudge()))
                 .collect(Collectors.toList());
 
-        Map<String, List<QuestionAttempt>> byCriteria = validAttempts.stream()
-                .filter(a -> a.getCriteria() != null)
-                .collect(Collectors.groupingBy(a -> a.getCriteria().getId().toString()));
+        Map<String, List<QuestionAttempt>> byTopic = validAttempts.stream()
+                .filter(a -> a.getTopic() != null)
+                .collect(Collectors.groupingBy(a -> a.getTopic().getId().toString()));
 
         List<Map<String, Object>> competencyReports = new ArrayList<>();
         BigDecimal totalScore = BigDecimal.ZERO;
         int competencyCount = 0;
 
-        for (Map.Entry<String, List<QuestionAttempt>> entry : byCriteria.entrySet()) {
-            List<QuestionAttempt> criteriaAttempts = entry.getValue();
+        for (Map.Entry<String, List<QuestionAttempt>> entry : byTopic.entrySet()) {
+            List<QuestionAttempt> topicAttempts = entry.getValue();
 
-            List<QuestionAttempt> mainAttempts = criteriaAttempts.stream()
+            List<QuestionAttempt> mainAttempts = topicAttempts.stream()
                     .filter(a -> a.getFollowupDepth() == 0)
                     .collect(Collectors.toList());
 
-            List<QuestionAttempt> followUpAttempts = criteriaAttempts.stream()
+            List<QuestionAttempt> followUpAttempts = topicAttempts.stream()
                     .filter(a -> a.getFollowupDepth() > 0)
                     .collect(Collectors.toList());
 
@@ -58,15 +58,16 @@ public class ReportService {
 
             String achievedLevel = determineLevel(avgScore);
 
-            List<String> feedbacks = criteriaAttempts.stream()
+            List<String> feedbacks = topicAttempts.stream()
                     .map(QuestionAttempt::getFeedback)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
 
             Map<String, Object> competencyReport = new LinkedHashMap<>();
-            competencyReport.put("criteriaId", entry.getKey());
-            competencyReport.put("criteriaName", criteriaAttempts.get(0).getCriteria().getName());
-            competencyReport.put("competencyName", criteriaAttempts.get(0).getCriteria().getCompetency().getName());
+            competencyReport.put("topicId", entry.getKey());
+            competencyReport.put("topicName", topicAttempts.get(0).getTopic().getName());
+            competencyReport.put("sectionName", topicAttempts.get(0).getTopic().getSection().getName());
+            competencyReport.put("competencyName", topicAttempts.get(0).getTopic().getSection().getCompetency().getName());
             competencyReport.put("averageScore", avgScore);
             competencyReport.put("achievedLevel", achievedLevel);
             competencyReport.put("followUpScores", followUpAttempts.stream()

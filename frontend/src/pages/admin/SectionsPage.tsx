@@ -1,24 +1,27 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
-  listCompetencies,
-  createCompetency,
-  updateCompetency,
-  deleteCompetency,
-  type Competency,
+  listSections,
+  createSection,
+  updateSection,
+  deleteSection,
+  getCompetency,
+  type Section,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
 interface FormState {
   name: string
-  description: string
+  sortOrder: number
 }
 
-const emptyForm: FormState = { name: '', description: '' }
+const emptyForm: FormState = { name: '', sortOrder: 0 }
 
-export default function CompetenciesPage() {
+export default function SectionsPage() {
   const navigate = useNavigate()
-  const [items, setItems] = useState<Competency[]>([])
+  const { competencyId } = useParams<{ competencyId: string }>()
+  const [competencyName, setCompetencyName] = useState('')
+  const [items, setItems] = useState<Section[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -26,11 +29,16 @@ export default function CompetenciesPage() {
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
+    if (!competencyId) return
     setIsLoading(true)
     setError(null)
     try {
-      const data = await listCompetencies()
-      setItems(data)
+      const [sections, competency] = await Promise.all([
+        listSections(competencyId),
+        getCompetency(competencyId),
+      ])
+      setItems(sections)
+      setCompetencyName(competency.name)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки')
     } finally {
@@ -40,7 +48,7 @@ export default function CompetenciesPage() {
 
   useEffect(() => {
     load()
-  }, [])
+  }, [competencyId])
 
   const resetForm = () => {
     setForm(emptyForm)
@@ -49,13 +57,14 @@ export default function CompetenciesPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (!competencyId) return
     setSaving(true)
     setError(null)
     try {
       if (editingId) {
-        await updateCompetency(editingId, form.name, form.description)
+        await updateSection(editingId, form.name, form.sortOrder)
       } else {
-        await createCompetency(form.name, form.description)
+        await createSection(competencyId, form.name, form.sortOrder)
       }
       resetForm()
       await load()
@@ -66,15 +75,15 @@ export default function CompetenciesPage() {
     }
   }
 
-  const handleEdit = (item: Competency) => {
+  const handleEdit = (item: Section) => {
     setEditingId(item.id)
-    setForm({ name: item.name, description: item.description })
+    setForm({ name: item.name, sortOrder: item.sortOrder })
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Удалить компетенцию?')) return
+    if (!confirm('Удалить секцию?')) return
     try {
-      await deleteCompetency(id)
+      await deleteSection(id)
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка удаления')
@@ -83,11 +92,14 @@ export default function CompetenciesPage() {
 
   return (
     <AdminPageWrapper>
-      <h1>Компетенции</h1>
+      <button className="btn admin-back" onClick={() => navigate('/admin/competencies')}>
+        ← К компетенциям
+      </button>
+      <h1>Секции — {competencyName}</h1>
       {error && <p className="error-text">{error}</p>}
 
       <div className="card">
-        <h2>{editingId ? 'Редактировать' : 'Создать'} компетенцию</h2>
+        <h2>{editingId ? 'Редактировать' : 'Создать'} секцию</h2>
         <form onSubmit={handleSubmit} className="admin-form">
           <div className="form-field">
             <label htmlFor="name">Название</label>
@@ -100,11 +112,12 @@ export default function CompetenciesPage() {
             />
           </div>
           <div className="form-field">
-            <label htmlFor="description">Описание</label>
-            <textarea
-              id="description"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            <label htmlFor="sortOrder">Порядок</label>
+            <input
+              id="sortOrder"
+              type="number"
+              value={form.sortOrder}
+              onChange={(e) => setForm({ ...form, sortOrder: parseInt(e.target.value) || 0 })}
             />
           </div>
           <div className="form-actions">
@@ -121,18 +134,18 @@ export default function CompetenciesPage() {
       {isLoading ? (
         <p>Загрузка...</p>
       ) : items.length === 0 ? (
-        <p>Компетенций пока нет.</p>
+        <p>Секций пока нет.</p>
       ) : (
         <div className="admin-list">
           {items.map((item) => (
             <div key={item.id} className="card admin-list-item">
               <div className="admin-list-info">
                 <h3>{item.name}</h3>
-                {item.description && <p>{item.description}</p>}
+                <span className="badge">Порядок: {item.sortOrder}</span>
               </div>
               <div className="admin-list-actions">
-                <button className="btn btn-primary" onClick={() => navigate(`/admin/competencies/${item.id}/sections`)}>
-                  Секции
+                <button className="btn btn-primary" onClick={() => navigate(`/admin/sections/${item.id}/topics`)}>
+                  Темы
                 </button>
                 <button className="btn" onClick={() => handleEdit(item)}>Изменить</button>
                 <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Удалить</button>

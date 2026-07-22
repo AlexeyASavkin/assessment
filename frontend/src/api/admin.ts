@@ -8,6 +8,20 @@ export interface Competency {
   description: string
 }
 
+export interface Section {
+  id: string
+  name: string
+  description: string
+  sortOrder: number
+}
+
+export interface Topic {
+  id: string
+  name: string
+  description: string
+  weight: number
+}
+
 export interface Criterion {
   id: string
   name: string
@@ -151,7 +165,59 @@ export async function deleteCriterion(id: string): Promise<void> {
   await adminJson<void>(`/criteria/${id}`, { method: 'DELETE' })
 }
 
-// ---- Levels ----
+// ---- Sections ----
+
+export async function listSections(competencyId: string): Promise<Section[]> {
+  return adminJson<Section[]>(`/competencies/${competencyId}/sections`)
+}
+
+export async function createSection(competencyId: string, name: string, sortOrder: number): Promise<Section> {
+  return adminJson<Section>(`/competencies/${competencyId}/sections`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, sortOrder }),
+  })
+}
+
+export async function updateSection(id: string, name: string, sortOrder: number): Promise<Section> {
+  return adminJson<Section>(`/sections/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, sortOrder }),
+  })
+}
+
+export async function deleteSection(id: string): Promise<void> {
+  await adminJson<void>(`/sections/${id}`, { method: 'DELETE' })
+}
+
+// ---- Topics ----
+
+export async function listTopics(sectionId: string): Promise<Topic[]> {
+  return adminJson<Topic[]>(`/sections/${sectionId}/topics`)
+}
+
+export async function createTopic(sectionId: string, name: string, weight: number): Promise<Topic> {
+  return adminJson<Topic>(`/sections/${sectionId}/topics`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, weight }),
+  })
+}
+
+export async function updateTopic(id: string, name: string, weight: number): Promise<Topic> {
+  return adminJson<Topic>(`/topics/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, weight }),
+  })
+}
+
+export async function deleteTopic(id: string): Promise<void> {
+  await adminJson<void>(`/topics/${id}`, { method: 'DELETE' })
+}
+
+// ---- Legacy Criteria/Levels (保留向后兼容) ----
 
 export async function listLevels(criteriaId: string): Promise<CriteriaLevel[]> {
   return adminJson<CriteriaLevel[]>(`/criteria/${criteriaId}/levels`)
@@ -258,7 +324,8 @@ export async function updateAiKeys(keys: AiKeys): Promise<AiKeys> {
 export interface QuestionBankItem {
   id: string
   competencyId: string
-  criteriaId: string
+  criteriaId?: string
+  topicId?: string
   questionText: string
   difficulty: string
   createdAt?: string
@@ -275,6 +342,18 @@ export async function generateQuestions(competencyId: string, count: number, dif
 
 export async function listQuestions(competencyId: string): Promise<QuestionBankItem[]> {
   return adminJson<QuestionBankItem[]>(`/competencies/${competencyId}/questions`)
+}
+
+export async function generateTopicQuestions(topicId: string, count: number, difficulty: string): Promise<QuestionBankItem[]> {
+  return adminJson<QuestionBankItem[]>(`/topics/${topicId}/questions/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ count, difficulty }),
+  })
+}
+
+export async function listTopicQuestions(topicId: string): Promise<QuestionBankItem[]> {
+  return adminJson<QuestionBankItem[]>(`/topics/${topicId}/questions`)
 }
 
 export async function updateQuestion(id: string, questionText: string): Promise<QuestionBankItem> {

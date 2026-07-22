@@ -1,8 +1,7 @@
 package com.assessment.service;
 
 import com.assessment.entity.*;
-import com.assessment.repository.CriteriaLevelRepository;
-import com.assessment.repository.CriteriaRepository;
+import com.assessment.repository.TopicRepository;
 import com.assessment.repository.QuestionAttemptRepository;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,48 +15,36 @@ import java.util.UUID;
 public class QuestionSelector {
 
     private final ChatClient chatClient;
-    private final CriteriaRepository criteriaRepository;
-    private final CriteriaLevelRepository criteriaLevelRepository;
+    private final TopicRepository topicRepository;
     private final QuestionAttemptRepository questionAttemptRepository;
     private final int maxFollowupsPerMain;
 
     public QuestionSelector(
             ObjectProvider<ChatClient> chatClientProvider,
-            CriteriaRepository criteriaRepository,
-            CriteriaLevelRepository criteriaLevelRepository,
+            TopicRepository topicRepository,
             QuestionAttemptRepository questionAttemptRepository,
             @Value("${assessment.question.max-followups-per-main}") int maxFollowupsPerMain) {
         this.chatClient = chatClientProvider.getIfAvailable();
-        this.criteriaRepository = criteriaRepository;
-        this.criteriaLevelRepository = criteriaLevelRepository;
+        this.topicRepository = topicRepository;
         this.questionAttemptRepository = questionAttemptRepository;
         this.maxFollowupsPerMain = maxFollowupsPerMain;
     }
 
-    public String generateQuestion(Session session, UUID criteriaId) {
-        Criteria criteria = criteriaRepository.findById(criteriaId).orElseThrow();
-        List<CriteriaLevel> levels = criteriaLevelRepository.findByCriteriaId(criteriaId);
-
-        String levelRequirements = levels.stream()
-                .map(l -> l.getLevel() + ": " + l.getRequirements())
-                .reduce((a, b) -> a + "\n" + b)
-                .orElse("Нет требований");
+    public String generateQuestion(Session session, UUID topicId) {
+        Topic topic = topicRepository.findById(topicId).orElseThrow();
 
         String prompt = String.format("""
                 Ты — эксперт по оценке компетенций. Сгенерируй вопрос для сотрудника.
 
                 Компетенция: %s
-                Критерий: %s
-                Уровни требований:
-                %s
+                Тема: %s
 
-                Сгенерируй один вопрос на русском языке для оценки этого критерия.
+                Сгенерируй один вопрос на русском языке для оценки этой темы.
                 Вопрос должен быть конкретным и позволять оценить уровень сотрудника.
                 Верни ТОЛЬКО текст вопроса без лишних объяснений.
                 """,
-                criteria.getCompetency().getName(),
-                criteria.getName(),
-                levelRequirements);
+                topic.getSection().getCompetency().getName(),
+                topic.getName());
 
         if (chatClient == null) {
             throw new IllegalStateException("ChatClient не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
@@ -89,12 +76,12 @@ public class QuestionSelector {
                 .content();
     }
 
-    public boolean shouldAskFollowUp(Session session, UUID criteriaId) {
+    public boolean shouldAskFollowUp(Session session, UUID topicId) {
         List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
 
         long followUpCount = attempts.stream()
                 .filter(a -> a.getFollowupDepth() > 0)
-                .filter(a -> a.getCriteria() != null && a.getCriteria().getId().equals(criteriaId))
+                .filter(a -> a.getTopic() != null && a.getTopic().getId().equals(topicId))
                 .count();
 
         QuestionAttempt lastAttempt = attempts.isEmpty() ? null : attempts.get(attempts.size() - 1);

@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom'
 import { getReport } from '../api/employee'
 
 interface CompetencyReport {
-  criteriaId: string
-  criteriaName: string
+  topicId: string
+  topicName: string
+  sectionName: string
   competencyName: string
   averageScore: number
   achievedLevel: string
@@ -82,10 +83,10 @@ export default function EmployeeReport() {
         <p>{report.overallRecommendation}</p>
       </div>
 
-      <h2>Оценки по критериям</h2>
+      <h2>Оценки по темам</h2>
       {report.competencies.map((comp) => (
-        <div key={comp.criteriaId} className="card">
-          <h3>{comp.competencyName} — {comp.criteriaName}</h3>
+        <div key={comp.topicId} className="card">
+          <h3>{comp.competencyName} — {comp.sectionName} — {comp.topicName}</h3>
           <p><strong>Средний балл:</strong> {comp.averageScore}</p>
           <p><strong>Уровень:</strong> <span style={{ color: getLevelColor(comp.achievedLevel) }}>{comp.achievedLevel}</span></p>
           {comp.followUpScores.length > 0 && (
