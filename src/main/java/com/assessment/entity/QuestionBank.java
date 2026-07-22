@@ -34,6 +34,9 @@ public class QuestionBank {
     @Column(name = "difficulty", nullable = false, length = 20)
     private String difficulty;
 
+    @Column(name = "sort_order")
+    private Integer sortOrder = 0;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -58,6 +61,8 @@ public class QuestionBank {
     public void setQuestionText(String questionText) { this.questionText = questionText; }
     public String getDifficulty() { return difficulty; }
     public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
+    public Integer getSortOrder() { return sortOrder; }
+    public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

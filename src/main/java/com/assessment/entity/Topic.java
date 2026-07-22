@@ -34,6 +34,10 @@ public class Topic {
 
     private String description;
 
+    @Column(name = "sort_order")
+    @Builder.Default
+    private Integer sortOrder = 0;
+
     @Column(precision = 3, scale = 2)
     @Builder.Default
     private BigDecimal weight = BigDecimal.ONE;
