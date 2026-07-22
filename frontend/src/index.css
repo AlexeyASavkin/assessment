@@ -178,6 +178,34 @@ textarea {
   flex-wrap: wrap;
 }
 
+.draggable-question {
+  cursor: grab;
+  position: relative;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.draggable-question:active {
+  cursor: grabbing;
+}
+
+.draggable-question.drag-over {
+  border-top: 3px solid #4a90d9;
+  background-color: #eef4fb;
+}
+
+.drag-handle {
+  color: #aaa;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 2px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.draggable-question:hover .drag-handle {
+  color: #666;
+}
+
 .admin-list-info {
   flex: 1;
   min-width: 200px;
@@ -325,4 +353,283 @@ textarea {
 .success-text {
   color: #16a34a;
   margin-bottom: 1rem;
+}
+
+/* ---- Competencies tree (master-detail) ---- */
+
+.tree-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tree-header h1 {
+  margin: 0;
+}
+
+.tree-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.tree-sidebar {
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 12px;
+  background-color: #fafbfc;
+  position: sticky;
+  top: 20px;
+}
+
+.tree-empty {
+  color: #777;
+  font-size: 14px;
+  margin: 4px 0;
+}
+
+.tree-list,
+.tree-children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-children {
+  padding-left: 18px;
+  margin-top: 4px;
+}
+
+.tree-node {
+  margin-bottom: 2px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 5px;
+}
+
+.tree-row:hover {
+  background-color: #eaecef;
+}
+
+.tree-row-selected {
+  background-color: #d7e9ff;
+}
+
+.tree-toggle,
+.tree-toggle-placeholder {
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  padding: 0;
+}
+
+.tree-toggle-placeholder {
+  display: inline-block;
+}
+
+.tree-actions {
+  display: none;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tree-row:hover .tree-actions {
+  display: flex;
+}
+
+.tree-action-btn {
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  padding: 1px 5px;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 3px;
+  color: #666;
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.tree-action-btn:hover {
+  background-color: #d0d5dd;
+  color: #222;
+}
+
+.tree-action-danger:hover {
+  background-color: #f8d7da;
+  color: #c0392b;
+}
+
+.tree-label {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  color: #222;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-label:hover {
+  text-decoration: underline;
+}
+
+.tree-label-selected {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.tree-leaf-muted {
+  color: #999;
+  font-size: 13px;
+  padding: 2px 6px 2px 26px;
+  font-style: italic;
+}
+
+.tree-detail-panel {
+  min-width: 0;
+}
+
+.tree-detail-empty {
+  color: #777;
+  font-size: 15px;
+  padding: 32px 16px;
+  text-align: center;
+  border: 1px dashed #ddd;
+  border-radius: 8px;
+}
+
+.tree-detail {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.tree-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tree-detail-header h2 {
+  margin: 0;
+}
+
+.tree-detail-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tree-detail-breadcrumb {
+  margin: 0 0 4px 0;
+  color: #777;
+  font-size: 13px;
+}
+
+.tree-detail-desc {
+  color: #555;
+  margin: 12px 0;
+}
+
+.tree-detail-stats {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.tree-detail-subtitle {
+  margin: 20px 0 8px 0;
+  font-size: 16px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 4px;
+}
+
+.tree-gen-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.tree-gen-row label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tree-gen-input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+/* ---- Modal ---- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.modal-card h3 {
+  margin-top: 0;
+}
+
+/* Responsive: stack tree on narrow screens */
+@media (max-width: 800px) {
+  .tree-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .tree-sidebar {
+    position: static;
+    max-height: 300px;
+  }
 }
