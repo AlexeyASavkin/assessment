@@ -23,6 +23,8 @@ public class AdminController {
     private final CompetencyRepository competencyRepository;
     private final CriteriaRepository criteriaRepository;
     private final CriteriaLevelRepository criteriaLevelRepository;
+    private final SectionRepository sectionRepository;
+    private final TopicRepository topicRepository;
     private final EmployeeRepository employeeRepository;
     private final AssessmentInviteTokenRepository tokenRepository;
     private final HmacTokenValidator hmacValidator;
@@ -33,6 +35,8 @@ public class AdminController {
     public AdminController(CompetencyRepository competencyRepository,
                            CriteriaRepository criteriaRepository,
                            CriteriaLevelRepository criteriaLevelRepository,
+                           SectionRepository sectionRepository,
+                           TopicRepository topicRepository,
                            EmployeeRepository employeeRepository,
                            AssessmentInviteTokenRepository tokenRepository,
                            HmacTokenValidator hmacValidator,
@@ -42,6 +46,8 @@ public class AdminController {
         this.competencyRepository = competencyRepository;
         this.criteriaRepository = criteriaRepository;
         this.criteriaLevelRepository = criteriaLevelRepository;
+        this.sectionRepository = sectionRepository;
+        this.topicRepository = topicRepository;
         this.employeeRepository = employeeRepository;
         this.tokenRepository = tokenRepository;
         this.hmacValidator = hmacValidator;
@@ -147,6 +153,117 @@ public class AdminController {
     public ResponseEntity<Void> deleteLevel(@PathVariable UUID id) {
         criteriaLevelRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ---- Sections ----
+
+    @PostMapping("/competencies/{competencyId}/sections")
+    public ResponseEntity<Section> createSection(@PathVariable UUID competencyId, @RequestBody Section section) {
+        return competencyRepository.findById(competencyId)
+                .map(competency -> {
+                    section.setCompetency(competency);
+                    return ResponseEntity.status(HttpStatus.CREATED).body(sectionRepository.save(section));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/competencies/{competencyId}/sections")
+    public ResponseEntity<List<Section>> listSections(@PathVariable UUID competencyId) {
+        return ResponseEntity.ok(sectionRepository.findByCompetencyId(competencyId));
+    }
+
+    @PutMapping("/sections/{id}")
+    public ResponseEntity<Section> updateSection(@PathVariable UUID id, @RequestBody Section updated) {
+        return sectionRepository.findById(id)
+                .map(section -> {
+                    section.setName(updated.getName());
+                    section.setDescription(updated.getDescription());
+                    section.setSortOrder(updated.getSortOrder());
+                    return ResponseEntity.ok(sectionRepository.save(section));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/sections/{id}")
+    public ResponseEntity<Void> deleteSection(@PathVariable UUID id) {
+        sectionRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ---- Topics ----
+
+    @PostMapping("/sections/{sectionId}/topics")
+    public ResponseEntity<Topic> createTopic(@PathVariable UUID sectionId, @RequestBody Topic topic) {
+        return sectionRepository.findById(sectionId)
+                .map(section -> {
+                    topic.setSection(section);
+                    return ResponseEntity.status(HttpStatus.CREATED).body(topicRepository.save(topic));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/sections/{sectionId}/topics")
+    public ResponseEntity<List<Topic>> listTopics(@PathVariable UUID sectionId) {
+        return ResponseEntity.ok(topicRepository.findBySectionId(sectionId));
+    }
+
+    @PutMapping("/topics/{id}")
+    public ResponseEntity<Topic> updateTopic(@PathVariable UUID id, @RequestBody Topic updated) {
+        return topicRepository.findById(id)
+                .map(topic -> {
+                    topic.setName(updated.getName());
+                    topic.setDescription(updated.getDescription());
+                    topic.setWeight(updated.getWeight());
+                    return ResponseEntity.ok(topicRepository.save(topic));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/topics/{id}")
+    public ResponseEntity<Void> deleteTopic(@PathVariable UUID id) {
+        topicRepository.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ---- Topic Question Bank ----
+
+    @PostMapping("/topics/{topicId}/questions/generate")
+    public ResponseEntity<?> generateTopicQuestions(@PathVariable UUID topicId,
+                                                     @RequestBody Map<String, Object> body) {
+        Object countObj = body.get("count");
+        String difficulty = (String) body.getOrDefault("difficulty", "ALL");
+
+        int count;
+        try {
+            count = countObj instanceof Number ? ((Number) countObj).intValue() : Integer.parseInt(countObj.toString());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "count должен быть числом от 1 до 10"));
+        }
+
+        if (count < 1 || count > 10) {
+            return ResponseEntity.badRequest().body(Map.of("error", "count должен быть от 1 до 10"));
+        }
+        if (!VALID_DIFFICULTIES.contains(difficulty)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "difficulty должен быть: ALL, JUNIOR, MIDDLE или SENIOR"));
+        }
+
+        try {
+            List<QuestionBank> questions = questionGeneratorService.generateAndSaveForTopic(topicId, count, difficulty);
+            return ResponseEntity.ok(questions);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "Ошибка генерации вопросов: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/topics/{topicId}/questions")
+    public ResponseEntity<List<QuestionBank>> listTopicQuestions(@PathVariable UUID topicId) {
+        return ResponseEntity.ok(questionBankRepository.findByTopicIdOrderByCreatedAtDesc(topicId));
     }
 
     @PostMapping("/employees")

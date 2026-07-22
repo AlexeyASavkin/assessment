@@ -56,6 +56,10 @@ public class QuestionAttempt {
     @JoinColumn(name = "criteria_id")
     private Criteria criteria;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "topic_id")
+    private Topic topic;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

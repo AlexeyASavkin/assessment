@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface QuestionAttemptRepository extends JpaRepository<QuestionAttempt, UUID> {
     List<QuestionAttempt> findBySessionIdOrderByCreatedAtAsc(UUID sessionId);
+    List<QuestionAttempt> findByTopicId(UUID topicId);
 }

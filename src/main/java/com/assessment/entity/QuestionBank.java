@@ -20,8 +20,13 @@ public class QuestionBank {
 
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "criteria_id", nullable = false)
+    @JoinColumn(name = "criteria_id")
     private Criteria criteria;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "topic_id")
+    private Topic topic;
 
     @Column(name = "question_text", nullable = false, columnDefinition = "TEXT")
     private String questionText;
@@ -47,6 +52,8 @@ public class QuestionBank {
     public void setCompetency(Competency competency) { this.competency = competency; }
     public Criteria getCriteria() { return criteria; }
     public void setCriteria(Criteria criteria) { this.criteria = criteria; }
+    public Topic getTopic() { return topic; }
+    public void setTopic(Topic topic) { this.topic = topic; }
     public String getQuestionText() { return questionText; }
     public void setQuestionText(String questionText) { this.questionText = questionText; }
     public String getDifficulty() { return difficulty; }

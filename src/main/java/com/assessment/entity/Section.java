@@ -1,38 +1,45 @@
 package com.assessment.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "competencies")
+@Table(name = "sections")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Competency {
+public class Section {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "competency_id", nullable = false)
+    private Competency competency;
+
+    @Column(nullable = false)
     private String name;
 
     private String description;
 
-    @OneToMany(mappedBy = "competency", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "sort_order")
     @Builder.Default
-    private List<Section> sections = new java.util.ArrayList<>();
+    private Integer sortOrder = 0;
 
-    @OneToMany(mappedBy = "competency", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "section", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<QuestionBank> questionBanks = new java.util.ArrayList<>();
+    private List<Topic> topics = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

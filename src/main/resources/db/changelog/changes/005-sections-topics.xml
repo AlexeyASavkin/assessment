@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- sections -->
+    <changeSet id="16" author="assessment">
+        <createTable tableName="sections">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="competency_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_sections_competency"
+                             referencedTableName="competencies" referencedColumnNames="id"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="sort_order" type="INTEGER" defaultValueNumeric="0"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+        </createTable>
+    </changeSet>
+
+    <!-- topics -->
+    <changeSet id="17" author="assessment">
+        <createTable tableName="topics">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="section_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_topics_section"
+                             referencedTableName="sections" referencedColumnNames="id"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="TEXT"/>
+            <column name="weight" type="DECIMAL(3,2)" defaultValueNumeric="1.0"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+        </createTable>
+    </changeSet>
+
+    <!-- topic_levels -->
+    <changeSet id="18" author="assessment">
+        <createTable tableName="topic_levels">
+            <column name="id" type="UUID" defaultValueComputed="gen_random_uuid()">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="topic_id" type="UUID">
+                <constraints nullable="false" foreignKeyName="fk_levels_topic"
+                             referencedTableName="topics" referencedColumnNames="id"/>
+            </column>
+            <column name="level" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="requirements" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="now()"/>
+        </createTable>
+    </changeSet>
+
+    <!-- question_banks: add topic_id -->
+    <changeSet id="19" author="assessment">
+        <addColumn tableName="question_banks">
+            <column name="topic_id" type="UUID">
+                <constraints foreignKeyName="fk_qbank_topic"
+                             referencedTableName="topics" referencedColumnNames="id"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- question_attempts: add topic_id -->
+    <changeSet id="20" author="assessment">
+        <addColumn tableName="question_attempts">
+            <column name="topic_id" type="UUID">
+                <constraints foreignKeyName="fk_attempts_topic"
+                             referencedTableName="topics" referencedColumnNames="id"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Performance indexes for new columns -->
+    <changeSet id="21" author="assessment">
+        <createIndex tableName="question_banks" indexName="idx_qbank_topic">
+            <column name="topic_id"/>
+        </createIndex>
+        <createIndex tableName="question_attempts" indexName="idx_attempts_topic">
+            <column name="topic_id"/>
+        </createIndex>
+        <createIndex tableName="topics" indexName="idx_topics_section">
+            <column name="section_id"/>
+        </createIndex>
+        <createIndex tableName="sections" indexName="idx_sections_competency">
+            <column name="competency_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Make criteria_id nullable in question_banks to support topic-based questions -->
+    <changeSet id="22" author="assessment">
+        <dropNotNullConstraint tableName="question_banks" columnName="criteria_id" columnDataType="UUID"/>
+    </changeSet>
+
+</databaseChangeLog>
