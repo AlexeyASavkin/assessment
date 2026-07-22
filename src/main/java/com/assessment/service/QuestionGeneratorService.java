@@ -78,6 +78,8 @@ public class QuestionGeneratorService {
 
         Competency competency = topic.getSection().getCompetency();
 
+        int startOrder = questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId).size();
+
         List<QuestionBank> saved = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
@@ -88,6 +90,7 @@ public class QuestionGeneratorService {
             question.setTopic(topic);
             question.setQuestionText(questionText.trim());
             question.setDifficulty(difficulty);
+            question.setSortOrder(startOrder + i);
 
             saved.add(questionBankRepository.save(question));
         }
