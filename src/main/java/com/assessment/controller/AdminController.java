@@ -214,6 +214,7 @@ public class AdminController {
                     topic.setName(updated.getName());
                     topic.setDescription(updated.getDescription());
                     topic.setWeight(updated.getWeight());
+                    topic.setSortOrder(updated.getSortOrder());
                     return ResponseEntity.ok(topicRepository.save(topic));
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -263,7 +264,23 @@ public class AdminController {
 
     @GetMapping("/topics/{topicId}/questions")
     public ResponseEntity<List<QuestionBank>> listTopicQuestions(@PathVariable UUID topicId) {
-        return ResponseEntity.ok(questionBankRepository.findByTopicIdOrderByCreatedAtDesc(topicId));
+        return ResponseEntity.ok(questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId));
+    }
+
+    @PutMapping("/topics/{topicId}/questions/reorder")
+    public ResponseEntity<Void> reorderTopicQuestions(@PathVariable UUID topicId,
+                                                      @RequestBody List<UUID> orderedIds) {
+        List<QuestionBank> questions = questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId);
+        for (int i = 0; i < orderedIds.size(); i++) {
+            UUID id = orderedIds.get(i);
+            int sortOrder = i;
+            questions.stream()
+                    .filter(q -> q.getId().equals(id))
+                    .findFirst()
+                    .ifPresent(q -> q.setSortOrder(sortOrder));
+        }
+        questionBankRepository.saveAll(questions);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/employees")
