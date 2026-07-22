@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface QuestionBankRepository extends JpaRepository<QuestionBank, UUID> {
     List<QuestionBank> findByCompetencyIdOrderByCreatedAtDesc(UUID competencyId);
     List<QuestionBank> findByTopicIdOrderByCreatedAtDesc(UUID topicId);
+    List<QuestionBank> findByTopicIdOrderBySortOrderAsc(UUID topicId);
 }
