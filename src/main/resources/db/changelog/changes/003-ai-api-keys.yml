@@ -1,0 +1,28 @@
+databaseChangeLog:
+  - changeSet:
+      id: '11'
+      author: assessment
+      changes:
+        - insert:
+            tableName: ai_settings
+            columns:
+              - column:
+                  name: setting_key
+                  value: gemini_api_key
+              - column:
+                  name: setting_value
+                  value: ''
+
+  - changeSet:
+      id: '12'
+      author: assessment
+      changes:
+        - insert:
+            tableName: ai_settings
+            columns:
+              - column:
+                  name: setting_key
+                  value: gigachat_api_key
+              - column:
+                  name: setting_value
+                  value: ''

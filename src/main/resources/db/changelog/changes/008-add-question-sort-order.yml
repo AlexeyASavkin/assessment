@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: '24'
+      author: assessment
+      changes:
+        - addColumn:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: sort_order
+                  type: integer
+                  defaultValueNumeric: 0

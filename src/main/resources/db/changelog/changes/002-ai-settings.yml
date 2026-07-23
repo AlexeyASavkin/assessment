@@ -1,0 +1,37 @@
+databaseChangeLog:
+  - changeSet:
+      id: '9'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: ai_settings
+            columns:
+              - column:
+                  name: setting_key
+                  type: varchar(100)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: setting_value
+                  type: varchar(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '10'
+      author: assessment
+      changes:
+        - insert:
+            tableName: ai_settings
+            columns:
+              - column:
+                  name: setting_key
+                  value: active_provider
+              - column:
+                  name: setting_value
+                  value: gemini
