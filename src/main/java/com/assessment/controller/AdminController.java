@@ -280,7 +280,7 @@ public class AdminController {
                     .ifPresent(q -> q.setSortOrder(sortOrder));
         }
         questionBankRepository.saveAll(questions);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/employees")
