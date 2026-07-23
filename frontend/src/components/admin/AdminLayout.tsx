@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
@@ -23,27 +23,66 @@ export function ProtectedRoute() {
 export function AdminLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem('sidebar-collapsed') === 'true'
+  )
 
   const handleLogout = () => {
     logout()
     navigate('/admin/login', { replace: true })
   }
 
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem('sidebar-collapsed', String(next))
+      return next
+    })
+  }
+
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `admin-nav-link${isActive ? ' admin-nav-link-active' : ''}`
 
+  const navItems = [
+    { to: '/admin', label: 'Дашборд', end: true },
+    { to: '/admin/competencies', label: 'Компетенции', end: false },
+    { to: '/admin/employees', label: 'Сотрудники', end: false },
+    { to: '/admin/tokens', label: 'Токены', end: false },
+    { to: '/admin/settings', label: 'Настройки ИИ', end: false },
+  ]
+
   return (
     <div className="admin-shell">
-      <aside className="admin-sidebar">
+      <aside className={`admin-sidebar${collapsed ? ' admin-sidebar--collapsed' : ''}`}>
+        <button
+          className="admin-sidebar-toggle"
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Развернуть' : 'Свернуть'}
+          aria-label={collapsed ? 'Развернуть' : 'Свернуть'}
+        >
+          {collapsed ? '»' : '«'}
+        </button>
         <h2 className="admin-sidebar-title">Админка</h2>
         <nav className="admin-nav">
-          <NavLink to="/admin" end className={linkClass}>Дашборд</NavLink>
-          <NavLink to="/admin/competencies" className={linkClass}>Компетенции</NavLink>
-          <NavLink to="/admin/employees" className={linkClass}>Сотрудники</NavLink>
-          <NavLink to="/admin/tokens" className={linkClass}>Токены</NavLink>
-          <NavLink to="/admin/settings" className={linkClass}>Настройки ИИ</NavLink>
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={linkClass}
+              title={collapsed ? item.label : undefined}
+            >
+              {collapsed ? item.label.charAt(0) : item.label}
+            </NavLink>
+          ))}
         </nav>
-        <button className="btn btn-danger admin-logout" onClick={handleLogout}>Выйти</button>
+        <button
+          className="btn btn-danger admin-logout"
+          onClick={handleLogout}
+          title={collapsed ? 'Выйти' : undefined}
+        >
+          {collapsed ? '✕' : 'Выйти'}
+        </button>
       </aside>
       <main className="admin-content">
         <Outlet />
