@@ -3,8 +3,8 @@ spring:
     name: assessment-service
   datasource:
     url: jdbc:postgresql://localhost:5432/assessment
-    username: assessment
-    password: assessment
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -17,17 +17,20 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.xml
+    parameters:
+      adminUsername: ${ADMIN_USERNAME}
+      adminPasswordHash: ${ADMIN_PASSWORD_HASH}
   ai:
     google:
       genai:
-        api-key: ${GEMINI_API_KEY:}
+        api-key: ${GEMINI_API_KEY}
         chat:
           options:
             model: gemini-2.0-flash
     gigachat:
       auth:
         bearer:
-          api-key: ${GIGACHAT_API_KEY:}
+          api-key: ${GIGACHAT_API_KEY}
         scope: GIGACHAT_API_PERS
         unsafe-ssl: true
       chat:
@@ -40,7 +43,7 @@ server:
 
 assessment:
   security:
-    hmac-secret: ${HMAC_SECRET:change-me-in-production}
+    hmac-secret: ${HMAC_SECRET}
     session-cookie-name: SESSION_EMPLOYEE
     token-expiry-hours: 72
   question:

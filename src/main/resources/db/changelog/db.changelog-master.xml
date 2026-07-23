@@ -13,5 +13,6 @@
     <include file="db/changelog/changes/006-drop-topic-levels.xml"/>
     <include file="db/changelog/changes/007-add-topic-sort-order.xml"/>
     <include file="db/changelog/changes/008-add-question-sort-order.xml"/>
+    <include file="db/changelog/changes/009-admin-users.xml"/>
 
 </databaseChangeLog>
