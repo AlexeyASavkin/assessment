@@ -16,7 +16,7 @@ spring:
     show-sql: false
   liquibase:
     enabled: true
-    change-log: classpath:db/changelog/db.changelog-master.xml
+    change-log: classpath:db/changelog/db.changelog-master.yml
     parameters:
       adminUsername: ${ADMIN_USERNAME}
       adminPasswordHash: ${ADMIN_PASSWORD_HASH}
