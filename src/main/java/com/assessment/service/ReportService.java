@@ -59,20 +59,7 @@ public class ReportService {
         for (Map.Entry<String, List<QuestionAttempt>> entry : byTopic.entrySet()) {
             List<QuestionAttempt> topicAttempts = entry.getValue();
 
-            List<QuestionAttempt> mainAttempts = topicAttempts.stream()
-                    .filter(a -> a.getFollowupDepth() == 0)
-                    .collect(Collectors.toList());
-
-            List<QuestionAttempt> followUpAttempts = topicAttempts.stream()
-                    .filter(a -> a.getFollowupDepth() > 0)
-                    .collect(Collectors.toList());
-
-            BigDecimal avgScore = mainAttempts.stream()
-                    .map(QuestionAttempt::getScore)
-                    .filter(Objects::nonNull)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(BigDecimal.valueOf(Math.max(mainAttempts.size(), 1)), 2, RoundingMode.HALF_UP);
-
+            BigDecimal avgScore = computeTopicAverage(topicAttempts);
             String achievedLevel = determineLevel(avgScore);
 
             List<String> feedbacks = topicAttempts.stream()
@@ -87,7 +74,8 @@ public class ReportService {
             competencyReport.put("competencyName", topicAttempts.get(0).getTopic().getSection().getCompetency().getName());
             competencyReport.put("averageScore", avgScore);
             competencyReport.put("achievedLevel", achievedLevel);
-            competencyReport.put("followUpScores", followUpAttempts.stream()
+            competencyReport.put("followUpScores", topicAttempts.stream()
+                    .filter(a -> a.getFollowupDepth() > 0)
                     .map(QuestionAttempt::getScore)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList()));
@@ -112,6 +100,119 @@ public class ReportService {
 
         return report;
     }
+
+    /**
+     * Расширенный отчёт для администратора: отчёт по темам + все попытки
+     * с текстом вопроса, ответом сотрудника, оценкой и feedback.
+     *
+     * @param sessionId идентификатор сессии
+     * @return карта с полным отчётом для админ-панели
+     */
+    public Map<String, Object> generateAdminReport(UUID sessionId) {
+        Session session = sessionRepository.findById(sessionId).orElseThrow();
+        Map<String, Object> base = generateReport(sessionId);
+
+        List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        List<Map<String, Object>> attemptDetails = attempts.stream()
+                .map(this::toAttemptDetail)
+                .collect(Collectors.toList());
+
+        Map<String, Object> report = new LinkedHashMap<>(base);
+        report.put("sessionId", sessionId);
+        report.put("employeeId", session.getEmployee().getId());
+        report.put("employeeName", session.getEmployee().getFullName());
+        report.put("competencyName", session.getEmployee().getCompetency() != null
+                ? session.getEmployee().getCompetency().getName() : null);
+        report.put("sessionStatus", session.getStatus());
+        report.put("createdAt", session.getCreatedAt());
+        report.put("updatedAt", session.getUpdatedAt());
+        report.put("attempts", attemptDetails);
+        return report;
+    }
+
+    /**
+     * Превращает попытку ответа в детальный словарь для отчёта администратора.
+     *
+     * @param a попытка ответа
+     * @return карта с полями попытки
+     */
+    private Map<String, Object> toAttemptDetail(QuestionAttempt a) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("attemptId", a.getId());
+        detail.put("questionText", a.getQuestionText());
+        detail.put("rawTranscript", a.getRawTranscript());
+        detail.put("finalTranscript", a.getFinalTranscript());
+        detail.put("score", a.getScore());
+        detail.put("confidence", a.getConfidence());
+        detail.put("validJudge", a.getValidJudge());
+        detail.put("feedback", a.getFeedback());
+        detail.put("followupDepth", a.getFollowupDepth());
+        detail.put("followupParentId", a.getFollowupParent() != null ? a.getFollowupParent().getId() : null);
+        detail.put("topicId", a.getTopic() != null ? a.getTopic().getId() : null);
+        detail.put("topicName", a.getTopic() != null ? a.getTopic().getName() : null);
+        detail.put("sectionName", a.getTopic() != null && a.getTopic().getSection() != null
+                ? a.getTopic().getSection().getName() : null);
+        detail.put("competencyName", a.getTopic() != null
+                && a.getTopic().getSection() != null
+                && a.getTopic().getSection().getCompetency() != null
+                ? a.getTopic().getSection().getCompetency().getName() : null);
+        detail.put("createdAt", a.getCreatedAt());
+        return detail;
+    }
+
+    /**
+     * Считает средний балл по основным (не уточняющим) попыткам темы.
+     *
+     * @param topicAttempts список попыток по теме
+     * @return средний балл с округлением до 2 знаков
+     */
+    private BigDecimal computeTopicAverage(List<QuestionAttempt> topicAttempts) {
+        List<QuestionAttempt> mainAttempts = topicAttempts.stream()
+                .filter(a -> a.getFollowupDepth() == 0)
+                .collect(Collectors.toList());
+        return mainAttempts.stream()
+                .map(QuestionAttempt::getScore)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(Math.max(mainAttempts.size(), 1)), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Сводная статистика по сессии для списка заявок:
+     * средний балл и итоговый уровень.
+     *
+     * @param sessionId идентификатор сессии
+     * @return запись {@link SessionSummary} (значения null, если оценок нет)
+     */
+    public SessionSummary computeSummary(UUID sessionId) {
+        List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        List<QuestionAttempt> validAttempts = attempts.stream()
+                .filter(a -> Boolean.TRUE.equals(a.getValidJudge()))
+                .collect(Collectors.toList());
+
+        Map<String, List<QuestionAttempt>> byTopic = validAttempts.stream()
+                .filter(a -> a.getTopic() != null)
+                .collect(Collectors.groupingBy(a -> a.getTopic().getId().toString()));
+
+        BigDecimal totalScore = BigDecimal.ZERO;
+        int topicCount = 0;
+        for (List<QuestionAttempt> topicAttempts : byTopic.values()) {
+            BigDecimal avg = computeTopicAverage(topicAttempts);
+            totalScore = totalScore.add(avg);
+            topicCount++;
+        }
+
+        if (topicCount == 0) {
+            return new SessionSummary(null, null);
+        }
+        BigDecimal overallAvg = totalScore.divide(BigDecimal.valueOf(topicCount), 2, RoundingMode.HALF_UP);
+        return new SessionSummary(overallAvg, determineLevel(overallAvg));
+    }
+
+    /**
+     * Запись сводной статистики по сессии: средний балл и итоговый уровень.
+     */
+    public record SessionSummary(BigDecimal averageScore, String compositeLevel) {}
 
     /**
      * Определяет уровень компетенции на основе среднего балла.

@@ -1,16 +1,21 @@
 package com.assessment.controller;
 
+import com.assessment.dto.ApplicationSummary;
 import com.assessment.entity.*;
 import com.assessment.repository.*;
 import com.assessment.security.HmacTokenValidator;
 import com.assessment.service.AiProviderService;
 import com.assessment.service.QuestionGeneratorService;
+import com.assessment.service.ReportService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -37,6 +42,7 @@ public class AdminController {
     private final QuestionGeneratorService questionGeneratorService;
     private final QuestionBankRepository questionBankRepository;
     private final SessionRepository sessionRepository;
+    private final ReportService reportService;
 
     /**
      * Конструктор с внедрением зависимостей репозиториев и сервисов.
@@ -51,6 +57,7 @@ public class AdminController {
      * @param questionGeneratorService  сервис генерации вопросов
      * @param questionBankRepository    репозиторий банка вопросов
      * @param sessionRepository         репозиторий сессий оценки
+     * @param reportService             сервис формирования отчётов
      */
     public AdminController(CompetencyRepository competencyRepository,
                            SectionRepository sectionRepository,
@@ -61,7 +68,8 @@ public class AdminController {
                            AiProviderService aiProviderService,
                            QuestionGeneratorService questionGeneratorService,
                            QuestionBankRepository questionBankRepository,
-                           com.assessment.repository.SessionRepository sessionRepository) {
+                           com.assessment.repository.SessionRepository sessionRepository,
+                           ReportService reportService) {
         this.competencyRepository = competencyRepository;
         this.sectionRepository = sectionRepository;
         this.topicRepository = topicRepository;
@@ -72,6 +80,7 @@ public class AdminController {
         this.questionGeneratorService = questionGeneratorService;
         this.questionBankRepository = questionBankRepository;
         this.sessionRepository = sessionRepository;
+        this.reportService = reportService;
     }
 
     /**
@@ -474,6 +483,67 @@ public class AdminController {
     @GetMapping("/tokens")
     public ResponseEntity<List<AssessmentInviteToken>> listTokens() {
         return ResponseEntity.ok(tokenRepository.findAll());
+    }
+
+    /**
+     * Возвращает список всех заявок на оценку.
+     * Заявка связывает пригласительный токен, сотрудника, сессию и агрегированные метрики результата.
+     *
+     * @return список заявок с HTTP 200
+     */
+    @GetMapping("/applications")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ApplicationSummary>> listApplications() {
+        List<AssessmentInviteToken> tokens = tokenRepository.findAll();
+        List<ApplicationSummary> summaries = new ArrayList<>();
+        for (AssessmentInviteToken token : tokens) {
+            Employee employee = token.getEmployee();
+            Session session = token.getSession();
+            UUID sessionId = session != null ? session.getId() : null;
+            String sessionStatus = session != null ? session.getStatus() : null;
+            LocalDateTime completedAt = session != null && "COMPLETED".equals(session.getStatus())
+                    ? session.getUpdatedAt() : null;
+            String competencyName = employee != null && employee.getCompetency() != null
+                    ? employee.getCompetency().getName() : null;
+
+            BigDecimal averageScore = null;
+            String compositeLevel = null;
+            if (sessionId != null && "COMPLETED".equals(sessionStatus)) {
+                ReportService.SessionSummary summary = reportService.computeSummary(sessionId);
+                averageScore = summary.averageScore();
+                compositeLevel = summary.compositeLevel();
+            }
+
+            summaries.add(new ApplicationSummary(
+                    token.getId(),
+                    employee != null ? employee.getId() : null,
+                    employee != null ? employee.getFullName() : null,
+                    competencyName,
+                    sessionStatus,
+                    sessionId,
+                    averageScore,
+                    compositeLevel,
+                    token.getCreatedAt(),
+                    completedAt
+            ));
+        }
+        return ResponseEntity.ok(summaries);
+    }
+
+    /**
+     * Возвращает детальный отчёт по заявке.
+     * Включает оценки по темам, все попытки ответов с текстом вопроса,
+     * ответом сотрудника, оценкой и feedback, а также общую рекомендацию.
+     *
+     * @param sessionId идентификатор сессии
+     * @return отчёт с HTTP 200 или HTTP 404, если сессия не найдена
+     */
+    @GetMapping("/applications/{sessionId}/report")
+    public ResponseEntity<Map<String, Object>> getApplicationReport(@PathVariable UUID sessionId) {
+        if (!sessionRepository.existsById(sessionId)) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(reportService.generateAdminReport(sessionId));
     }
 
     /**
