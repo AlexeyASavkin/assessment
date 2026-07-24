@@ -7,6 +7,7 @@ import com.assessment.service.AiProviderService;
 import com.assessment.service.QuestionGeneratorService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ public class AdminController {
     private final AiProviderService aiProviderService;
     private final QuestionGeneratorService questionGeneratorService;
     private final QuestionBankRepository questionBankRepository;
+    private final SessionRepository sessionRepository;
 
     public AdminController(CompetencyRepository competencyRepository,
                            CriteriaRepository criteriaRepository,
@@ -42,7 +44,8 @@ public class AdminController {
                            HmacTokenValidator hmacValidator,
                            AiProviderService aiProviderService,
                            QuestionGeneratorService questionGeneratorService,
-                           QuestionBankRepository questionBankRepository) {
+                           QuestionBankRepository questionBankRepository,
+                           com.assessment.repository.SessionRepository sessionRepository) {
         this.competencyRepository = competencyRepository;
         this.criteriaRepository = criteriaRepository;
         this.criteriaLevelRepository = criteriaLevelRepository;
@@ -54,6 +57,7 @@ public class AdminController {
         this.aiProviderService = aiProviderService;
         this.questionGeneratorService = questionGeneratorService;
         this.questionBankRepository = questionBankRepository;
+        this.sessionRepository = sessionRepository;
     }
 
     @PostMapping("/competencies")
@@ -285,12 +289,20 @@ public class AdminController {
 
     @PostMapping("/employees")
     public ResponseEntity<Employee> createEmployee(@RequestBody Employee employee) {
+        // Resolve competency from ID if provided
+        if (employee.getCompetency() != null && employee.getCompetency().getId() != null) {
+            Competency comp = competencyRepository.findById(employee.getCompetency().getId())
+                    .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + employee.getCompetency().getId()));
+            employee.setCompetency(comp);
+        } else {
+            employee.setCompetency(null);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body(employeeRepository.save(employee));
     }
 
     @GetMapping("/employees")
     public ResponseEntity<List<Employee>> listEmployees() {
-        return ResponseEntity.ok(employeeRepository.findAll());
+        return ResponseEntity.ok(employeeRepository.findAllByOrderByCreatedAtAsc());
     }
 
     @GetMapping("/employees/{id}")
@@ -307,15 +319,45 @@ public class AdminController {
                     employee.setFullName(updated.getFullName());
                     employee.setPosition(updated.getPosition());
                     employee.setDepartment(updated.getDepartment());
+                    // Resolve competency from ID if provided
+                    if (updated.getCompetency() != null && updated.getCompetency().getId() != null) {
+                        Competency comp = competencyRepository.findById(updated.getCompetency().getId())
+                                .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + updated.getCompetency().getId()));
+                        employee.setCompetency(comp);
+                    } else {
+                        employee.setCompetency(null);
+                    }
                     return ResponseEntity.ok(employeeRepository.save(employee));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @Transactional
+    @DeleteMapping("/employees/{id}")
+    public ResponseEntity<Void> deleteEmployee(@PathVariable UUID id) {
+        return employeeRepository.findById(id)
+                .map(employee -> {
+                    // Delete invite tokens first (FK → employees, no ON DELETE CASCADE)
+                    tokenRepository.deleteByEmployeeId(employee.getId());
+                    // Delete sessions (FK → employees, no ON DELETE CASCADE)
+                    // Sessions cascade-delete question_attempts via JPA CascadeType.ALL
+                    new java.util.ArrayList<>(sessionRepository.findByEmployeeId(employee.getId()))
+                            .forEach(session -> sessionRepository.deleteById(session.getId()));
+                    // Delete the employee
+                    employeeRepository.delete(employee);
+                    return ResponseEntity.noContent().<Void>build();
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Transactional
     @PostMapping("/employees/{employeeId}/invite")
     public ResponseEntity<String> generateInviteLink(@PathVariable UUID employeeId) {
         return employeeRepository.findById(employeeId)
                 .map(employee -> {
+                    // Delete any existing tokens for this employee to avoid unique constraint violation
+                    tokenRepository.deleteByEmployeeId(employeeId);
+
                     String token = hmacValidator.generateToken(employeeId.toString());
                     String hash = hmacValidator.generateToken(token);
 
