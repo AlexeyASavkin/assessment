@@ -14,6 +14,7 @@ import {
   updateTopic,
   deleteTopic,
   generateTopicQuestions,
+  updateQuestion,
   deleteQuestion,
   reorderTopicQuestions,
   type Competency,
@@ -60,6 +61,9 @@ export default function AdminCompetenciesTreePage() {
   const [modal, setModal] = useState<ModalState>(emptyModal)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragIndexRef = useRef<number | null>(null)
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
+  const [editQuestionText, setEditQuestionText] = useState('')
+  const [savingQuestion, setSavingQuestion] = useState(false)
 
 /**
    * Загружает список компетенций с сервера.
@@ -199,6 +203,32 @@ export default function AdminCompetenciesTreePage() {
       await loadQuestions(topicId)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка удаления')
+    }
+  }
+
+  // ---- Question editing ----
+  const startEditQuestion = (q: QuestionBankItem) => {
+    setEditingQuestionId(q.id)
+    setEditQuestionText(q.questionText)
+  }
+
+  const cancelEditQuestion = () => {
+    setEditingQuestionId(null)
+    setEditQuestionText('')
+  }
+
+  const handleSaveQuestion = async (questionId: string, topicId: string) => {
+    if (!editQuestionText.trim()) return
+    setSavingQuestion(true)
+    try {
+      await updateQuestion(questionId, editQuestionText.trim())
+      setEditingQuestionId(null)
+      setEditQuestionText('')
+      await loadQuestions(topicId)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения вопроса')
+    } finally {
+      setSavingQuestion(false)
     }
   }
 
@@ -404,19 +434,48 @@ export default function AdminCompetenciesTreePage() {
                 <div
                   key={q.id}
                   className={`card admin-list-item draggable-question ${dragOverIndex === index ? 'drag-over' : ''}`}
-                  draggable
+                  draggable={editingQuestionId !== q.id}
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, index)}
                 >
                   <div className="drag-handle" title="Перетащить">⠿</div>
-                  <div className="admin-list-info">
-                    <p>{q.questionText}</p>
-                  </div>
-                  <button className="btn btn-danger" onClick={() => handleDeleteQuestion(q.id, t.id)}>
-                    Удалить
-                  </button>
+                  {editingQuestionId === q.id ? (
+                    <>
+                      <textarea
+                        className="question-edit-textarea"
+                        value={editQuestionText}
+                        onChange={(e) => setEditQuestionText(e.target.value)}
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="question-edit-actions">
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={savingQuestion || !editQuestionText.trim()}
+                          onClick={() => handleSaveQuestion(q.id, t.id)}
+                        >
+                          {savingQuestion ? '...' : 'Сохранить'}
+                        </button>
+                        <button className="btn btn-sm" onClick={cancelEditQuestion} disabled={savingQuestion}>
+                          Отмена
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="admin-list-info">
+                        <p>{q.questionText}</p>
+                      </div>
+                      <button className="btn btn-sm" onClick={() => startEditQuestion(q)}>
+                        Ред.
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteQuestion(q.id, t.id)}>
+                        Удалить
+                      </button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
