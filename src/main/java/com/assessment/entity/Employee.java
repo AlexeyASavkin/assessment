@@ -1,5 +1,6 @@
 package com.assessment.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,6 +17,7 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonIgnoreProperties({"sessions"})
 public class Employee {
 
     @Id
@@ -28,6 +30,11 @@ public class Employee {
     private String position;
 
     private String department;
+
+    @ManyToOne
+    @JoinColumn(name = "competency_id")
+    @JsonIgnoreProperties({"sections", "questionBanks"})
+    private Competency competency;
 
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL)
     @Builder.Default
