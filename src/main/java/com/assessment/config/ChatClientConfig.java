@@ -2,15 +2,16 @@ package com.assessment.config;
 
 import com.assessment.service.AiProviderService;
 import com.google.genai.Client;
+import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import org.springframework.ai.chat.client.ChatClient;
-
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.retry.RetryTemplate;
 
 import chat.giga.springai.GigaChatModel;
@@ -111,13 +112,45 @@ public class ChatClientConfig {
 
     /**
      * Создает клиент чата на основе маршрутизируемой модели.
+     * <p>
+     * Оборачивает модель в {@link RateLimitingChatModelDecorator} для ограничения
+     * частоты запросов к LLM.
      *
      * @param routingChatModel маршрутизируемая модель чата
+     * @param rateLimiterRegistry реестр rate limiter'ов Resilience4j
      * @return настроенный {@link ChatClient}
      */
     @Bean
-    public ChatClient chatClient(ChatModel routingChatModel) {
-        return ChatClient.builder(routingChatModel)
+    public ChatClient chatClient(
+            ChatModel routingChatModel,
+            RateLimiterRegistry rateLimiterRegistry) {
+
+        ChatModel rateLimitedModel = new RateLimitingChatModelDecorator(
+                routingChatModel, rateLimiterRegistry, "geminiApi");
+
+        return ChatClient.builder(rateLimitedModel)
                 .build();
+    }
+
+    /**
+     * Создает модель чата с rate limiting для прямого вызова из сервисов.
+     * <p>
+     * {@link ChatClient} в Spring AI 2.0 заменяет опции модели на
+     * {@code DefaultChatOptions}, что вызывает {@code ClassCastException}
+     * в {@code GoogleGenAiChatModel}. Поэтому сервисы используют
+     * {@code ChatModel.call(Prompt)} напрямую, минуя {@code ChatClient}.
+     *
+     * @param routingChatModel маршрутизируемая модель чата
+     * @param rateLimiterRegistry реестр rate limiter'ов Resilience4j
+     * @return модель чата с rate limiting
+     */
+    @Bean
+    @Primary
+    public ChatModel rateLimitedChatModel(
+            ChatModel routingChatModel,
+            RateLimiterRegistry rateLimiterRegistry) {
+
+        return new RateLimitingChatModelDecorator(
+                routingChatModel, rateLimiterRegistry, "geminiApi");
     }
 }
