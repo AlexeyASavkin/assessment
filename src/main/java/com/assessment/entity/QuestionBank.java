@@ -8,7 +8,7 @@ import java.util.UUID;
 /**
  * Банк вопросов.
  * Хранит вопросы, сгенерированные LLM или добавленные вручную,
- * привязанные к компетенции, критерию и теме.
+ * привязанные к компетенции и теме.
  */
 @Entity
 @Table(name = "question_banks")
@@ -23,12 +23,6 @@ public class QuestionBank {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "competency_id", nullable = false)
     private Competency competency;
-
-    /** Критерий оценки, по которому сформулирован вопрос. */
-    @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "criteria_id")
-    private Criteria criteria;
 
     /** Тема, по которой сгенерирован вопрос. */
     @JsonIgnore
@@ -67,8 +61,6 @@ public class QuestionBank {
     public void setId(UUID id) { this.id = id; }
     public Competency getCompetency() { return competency; }
     public void setCompetency(Competency competency) { this.competency = competency; }
-    public Criteria getCriteria() { return criteria; }
-    public void setCriteria(Criteria criteria) { this.criteria = criteria; }
     public Topic getTopic() { return topic; }
     public void setTopic(Topic topic) { this.topic = topic; }
     public String getQuestionText() { return questionText; }

@@ -20,7 +20,7 @@ import java.util.UUID;
 /**
  * REST-контроллер для административных операций.
  * Обрабатывает все запросы по пути {@code /api/admin} и требует аутентификации с ролью ADMIN.
- * Управляет компетенциями, критериями, уровнями требований, разделами, темами,
+ * Управляет компетенциями, разделами, темами,
  * банком вопросов, сотрудниками и настройками ИИ.
  */
 @RestController
@@ -28,8 +28,6 @@ import java.util.UUID;
 public class AdminController {
 
     private final CompetencyRepository competencyRepository;
-    private final CriteriaRepository criteriaRepository;
-    private final CriteriaLevelRepository criteriaLevelRepository;
     private final SectionRepository sectionRepository;
     private final TopicRepository topicRepository;
     private final EmployeeRepository employeeRepository;
@@ -44,8 +42,6 @@ public class AdminController {
      * Конструктор с внедрением зависимостей репозиториев и сервисов.
      *
      * @param competencyRepository      репозиторий компетенций
-     * @param criteriaRepository        репозиторий критериев
-     * @param criteriaLevelRepository   репозиторий уровней требований
      * @param sectionRepository         репозиторий разделов
      * @param topicRepository           репозиторий тем
      * @param employeeRepository        репозиторий сотрудников
@@ -57,8 +53,6 @@ public class AdminController {
      * @param sessionRepository         репозиторий сессий оценки
      */
     public AdminController(CompetencyRepository competencyRepository,
-                           CriteriaRepository criteriaRepository,
-                           CriteriaLevelRepository criteriaLevelRepository,
                            SectionRepository sectionRepository,
                            TopicRepository topicRepository,
                            EmployeeRepository employeeRepository,
@@ -69,8 +63,6 @@ public class AdminController {
                            QuestionBankRepository questionBankRepository,
                            com.assessment.repository.SessionRepository sessionRepository) {
         this.competencyRepository = competencyRepository;
-        this.criteriaRepository = criteriaRepository;
-        this.criteriaLevelRepository = criteriaLevelRepository;
         this.sectionRepository = sectionRepository;
         this.topicRepository = topicRepository;
         this.employeeRepository = employeeRepository;
@@ -143,123 +135,6 @@ public class AdminController {
     @DeleteMapping("/competencies/{id}")
     public ResponseEntity<Void> deleteCompetency(@PathVariable UUID id) {
         competencyRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Создает критерий внутри указанной компетенции.
-     *
-     * @param competencyId идентификатор компетенции
-     * @param criteria     данные критерия из тела запроса
-     * @return созданный критерий с HTTP 201 или HTTP 404, если компетенция не найдена
-     */
-    @PostMapping("/competencies/{competencyId}/criteria")
-    public ResponseEntity<Criteria> createCriteria(@PathVariable UUID competencyId, @RequestBody Criteria criteria) {
-        return competencyRepository.findById(competencyId)
-                .map(competency -> {
-                    criteria.setCompetency(competency);
-                    return ResponseEntity.status(HttpStatus.CREATED).body(criteriaRepository.save(criteria));
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    /**
-     * Возвращает список критериев для указанной компетенции.
-     *
-     * @param competencyId идентификатор компетенции
-     * @return список критериев с HTTP 200
-     */
-    @GetMapping("/competencies/{competencyId}/criteria")
-    public ResponseEntity<List<Criteria>> listCriteria(@PathVariable UUID competencyId) {
-        return ResponseEntity.ok(criteriaRepository.findByCompetencyId(competencyId));
-    }
-
-    /**
-     * Обновляет название, описание и вес критерия.
-     *
-     * @param id      идентификатор обновляемого критерия
-     * @param updated новые данные критерия из тела запроса
-     * @return обновленный критерий с HTTP 200 или HTTP 404
-     */
-    @PutMapping("/criteria/{id}")
-    public ResponseEntity<Criteria> updateCriteria(@PathVariable UUID id, @RequestBody Criteria updated) {
-        return criteriaRepository.findById(id)
-                .map(criteria -> {
-                    criteria.setName(updated.getName());
-                    criteria.setDescription(updated.getDescription());
-                    criteria.setWeight(updated.getWeight());
-                    return ResponseEntity.ok(criteriaRepository.save(criteria));
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    /**
-     * Удаляет критерий по идентификатору.
-     *
-     * @param id идентификатор удаляемого критерия
-     * @return HTTP 204 при успешном удалении
-     */
-    @DeleteMapping("/criteria/{id}")
-    public ResponseEntity<Void> deleteCriteria(@PathVariable UUID id) {
-        criteriaRepository.deleteById(id);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Создает уровень требований для указанного критерия.
-     *
-     * @param criteriaId идентификатор критерия
-     * @param level      данные уровня из тела запроса
-     * @return созданный уровень с HTTP 201 или HTTP 404, если критерий не найден
-     */
-    @PostMapping("/criteria/{criteriaId}/levels")
-    public ResponseEntity<CriteriaLevel> createLevel(@PathVariable UUID criteriaId, @RequestBody CriteriaLevel level) {
-        return criteriaRepository.findById(criteriaId)
-                .map(criteria -> {
-                    level.setCriteria(criteria);
-                    return ResponseEntity.status(HttpStatus.CREATED).body(criteriaLevelRepository.save(level));
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    /**
-     * Возвращает список уровней требований для указанного критерия.
-     *
-     * @param criteriaId идентификатор критерия
-     * @return список уровней с HTTP 200
-     */
-    @GetMapping("/criteria/{criteriaId}/levels")
-    public ResponseEntity<List<CriteriaLevel>> listLevels(@PathVariable UUID criteriaId) {
-        return ResponseEntity.ok(criteriaLevelRepository.findByCriteriaId(criteriaId));
-    }
-
-    /**
-     * Обновляет уровень и требования уровня критерия.
-     *
-     * @param id      идентификатор обновляемого уровня
-     * @param updated новые данные уровня из тела запроса
-     * @return обновленный уровень с HTTP 200 или HTTP 404
-     */
-    @PutMapping("/criteria/levels/{id}")
-    public ResponseEntity<CriteriaLevel> updateLevel(@PathVariable UUID id, @RequestBody CriteriaLevel updated) {
-        return criteriaLevelRepository.findById(id)
-                .map(level -> {
-                    level.setLevel(updated.getLevel());
-                    level.setRequirements(updated.getRequirements());
-                    return ResponseEntity.ok(criteriaLevelRepository.save(level));
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    /**
-     * Удаляет уровень требований по идентификатору.
-     *
-     * @param id идентификатор удаляемого уровня
-     * @return HTTP 204 при успешном удалении
-     */
-    @DeleteMapping("/criteria/levels/{id}")
-    public ResponseEntity<Void> deleteLevel(@PathVariable UUID id) {
-        criteriaLevelRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 

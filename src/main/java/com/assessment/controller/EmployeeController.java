@@ -235,7 +235,6 @@ public class EmployeeController {
                 session,
                 currentAttempt.getQuestionText(),
                 finalTranscript,
-                currentAttempt.getTopic() != null ? currentAttempt.getTopic().getId() : null,
                 currentAttempt.getFollowupDepth(),
                 currentAttempt.getFollowupParent()
         );

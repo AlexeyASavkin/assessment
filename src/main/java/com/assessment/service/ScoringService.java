@@ -8,7 +8,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 /**
  * Сервис оценки ответов сотрудников с помощью LLM.
@@ -37,14 +36,13 @@ public class ScoringService {
      * @param session          текущая сессия оценки
      * @param questionText     текст вопроса
      * @param finalTranscript  итоговый транскрипт ответа сотрудника
-     * @param criteriaId       идентификатор критерия оценки
      * @param followupDepth    глубина уточняющего вопроса (0 для основного)
      * @param parentAttempt    родительская попытка ответа (для уточняющих вопросов)
      * @return сохраненная попытка ответа с оценкой
      * @throws IllegalStateException если ChatClient не настроен
      */
     public QuestionAttempt scoreAnswer(Session session, String questionText, String finalTranscript,
-                                        UUID criteriaId, int followupDepth, QuestionAttempt parentAttempt) {
+                                        int followupDepth, QuestionAttempt parentAttempt) {
 
         String prompt = String.format("""
                 Ты — эксперт по оценке компетенций. Оцени ответ сотрудника.

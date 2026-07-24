@@ -4,8 +4,6 @@ import EmployeeReport from './pages/EmployeeReport'
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminCompetenciesTreePage from './pages/admin/AdminCompetenciesTreePage'
-import CriteriaPage from './pages/admin/CriteriaPage'
-import LevelsPage from './pages/admin/LevelsPage'
 import EmployeesPage from './pages/admin/EmployeesPage'
 import TokensPage from './pages/admin/TokensPage'
 import AiSettingsPage from './pages/admin/AiSettingsPage'
@@ -47,9 +45,7 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/competencies" element={<AdminCompetenciesTreePage />} />
-              <Route path="/admin/competencies/:competencyId/criteria" element={<CriteriaPage />} />
               <Route path="/admin/competencies/:competencyId/questions" element={<QuestionsPage />} />
-              <Route path="/admin/criteria/:criteriaId/levels" element={<LevelsPage />} />
               <Route path="/admin/employees" element={<EmployeesPage />} />
               <Route path="/admin/tokens" element={<TokensPage />} />
               <Route path="/admin/settings" element={<AiSettingsPage />} />

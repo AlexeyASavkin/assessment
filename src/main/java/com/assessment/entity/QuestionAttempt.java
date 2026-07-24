@@ -74,11 +74,6 @@ public class QuestionAttempt {
     @JoinColumn(name = "followup_parent_id")
     private QuestionAttempt followupParent;
 
-    /** Критерий оценки, по которому задан вопрос. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "criteria_id")
-    private Criteria criteria;
-
     /** Тема, по которой сгенерирован вопрос. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id")
