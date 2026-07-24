@@ -20,6 +20,11 @@ body {
   font-size: 16px;
 }
 
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
 .btn-primary {
   background-color: #007bff;
   color: white;
@@ -268,7 +273,23 @@ textarea {
 .admin-list-info p {
   margin: 2px 0;
   color: #555;
+}
+
+.question-edit-textarea {
+  flex: 1;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid #4a90d9;
+  border-radius: 4px;
   font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.question-edit-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .admin-list-actions {
