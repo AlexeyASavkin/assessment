@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
-import { getReport } from '../api/employee'
+import { useParams, useNavigate } from 'react-router-dom'
 
 interface CompetencyReport {
   topicId: string
@@ -23,6 +22,7 @@ interface Report {
 
 export default function EmployeeReport() {
   const { sessionId } = useParams<{ sessionId: string }>()
+  const navigate = useNavigate()
   const [report, setReport] = useState<Report | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,10 +36,16 @@ export default function EmployeeReport() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await getReport(sessionId)
+      const response = await fetch(`/api/employee/sessions/${sessionId}/report`, { credentials: 'include' })
+      if (response.status === 403) {
+        navigate(`/session/${sessionId}`)
+        return
+      }
+      if (!response.ok) throw new Error('Ошибка загрузки отчёта')
+      const data = await response.json()
       setReport(data)
     } catch (err) {
-      setError('Ошибка загрузки отчёта')
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки отчёта')
     } finally {
       setIsLoading(false)
     }
