@@ -154,6 +154,11 @@ textarea {
   color: white;
 }
 
+.admin-nav-link-active:hover {
+  background-color: #0056b3;
+  color: white;
+}
+
 .admin-logout {
   margin-top: auto;
 }
