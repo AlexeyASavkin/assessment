@@ -3,7 +3,11 @@ package com.assessment.service;
 import com.assessment.entity.*;
 import com.assessment.repository.TopicRepository;
 import com.assessment.repository.QuestionAttemptRepository;
-import org.springframework.ai.chat.client.ChatClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,7 +22,9 @@ import java.util.UUID;
 @Service
 public class QuestionSelector {
 
-    private final ChatClient chatClient;
+    private static final Logger logger = LoggerFactory.getLogger(QuestionSelector.class);
+
+    private final ChatModel chatModel;
     private final TopicRepository topicRepository;
     private final QuestionAttemptRepository questionAttemptRepository;
     private final int maxFollowupsPerMain;
@@ -26,17 +32,17 @@ public class QuestionSelector {
     /**
      * Конструктор сервиса выбора вопросов.
      *
-     * @param chatClientProvider           провайдер ChatClient для вызова LLM
+     * @param chatModelProvider            провайдер ChatModel для вызова LLM
      * @param topicRepository              репозиторий тем
      * @param questionAttemptRepository    репозиторий попыток ответов
      * @param maxFollowupsPerMain          максимальное количество уточняющих вопросов на один основной
      */
     public QuestionSelector(
-            ObjectProvider<ChatClient> chatClientProvider,
+            ObjectProvider<ChatModel> chatModelProvider,
             TopicRepository topicRepository,
             QuestionAttemptRepository questionAttemptRepository,
             @Value("${assessment.question.max-followups-per-main}") int maxFollowupsPerMain) {
-        this.chatClient = chatClientProvider.getIfAvailable();
+        this.chatModel = chatModelProvider.getIfAvailable();
         this.topicRepository = topicRepository;
         this.questionAttemptRepository = questionAttemptRepository;
         this.maxFollowupsPerMain = maxFollowupsPerMain;
@@ -65,13 +71,15 @@ public class QuestionSelector {
                 topic.getSection().getCompetency().getName(),
                 topic.getName());
 
-        if (chatClient == null) {
-            throw new IllegalStateException("ChatClient не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
+        if (chatModel == null) {
+            throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
         }
-        return chatClient.prompt()
-                .user(prompt)
-                .call()
-                .content();
+        try {
+            return chatModel.call(new Prompt(new UserMessage(prompt))).getResult().getOutput().getText();
+        } catch (Exception e) {
+            logger.error("Ошибка генерации вопроса через LLM: {}", e.getMessage(), e);
+            throw new RuntimeException("Ошибка генерации вопроса: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -93,13 +101,15 @@ public class QuestionSelector {
                 previousAttempt.getQuestionText(),
                 previousAttempt.getFinalTranscript());
 
-        if (chatClient == null) {
-            throw new IllegalStateException("ChatClient не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
+        if (chatModel == null) {
+            throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
         }
-        return chatClient.prompt()
-                .user(prompt)
-                .call()
-                .content();
+        try {
+            return chatModel.call(new Prompt(new UserMessage(prompt))).getResult().getOutput().getText();
+        } catch (Exception e) {
+            logger.error("Ошибка генерации уточняющего вопроса через LLM: {}", e.getMessage(), e);
+            throw new RuntimeException("Ошибка генерации уточняющего вопроса: " + e.getMessage(), e);
+        }
     }
 
     /**

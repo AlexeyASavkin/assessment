@@ -3,7 +3,9 @@ package com.assessment.service;
 import com.assessment.entity.QuestionAttempt;
 import com.assessment.entity.Session;
 import com.assessment.repository.QuestionAttemptRepository;
-import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -16,17 +18,18 @@ import java.math.BigDecimal;
 @Service
 public class ScoringService {
 
-    private final ChatClient chatClient;
+    private final ChatModel chatModel;
     private final QuestionAttemptRepository questionAttemptRepository;
 
     /**
      * Конструктор сервиса оценки ответов.
      *
-     * @param chatClientProvider           провайдер ChatClient для вызова LLM
+     * @param chatModelProvider              провайдер ChatModel для вызова LLM
      * @param questionAttemptRepository      репозиторий попыток ответов
      */
-    public ScoringService(ObjectProvider<ChatClient> chatClientProvider, QuestionAttemptRepository questionAttemptRepository) {
-        this.chatClient = chatClientProvider.getIfAvailable();
+    public ScoringService(ObjectProvider<ChatModel> chatModelProvider,
+                          QuestionAttemptRepository questionAttemptRepository) {
+        this.chatModel = chatModelProvider.getIfAvailable();
         this.questionAttemptRepository = questionAttemptRepository;
     }
 
@@ -39,7 +42,7 @@ public class ScoringService {
      * @param followupDepth    глубина уточняющего вопроса (0 для основного)
      * @param parentAttempt    родительская попытка ответа (для уточняющих вопросов)
      * @return сохраненная попытка ответа с оценкой
-     * @throws IllegalStateException если ChatClient не настроен
+     * @throws IllegalStateException если ChatModel не настроен
      */
     public QuestionAttempt scoreAnswer(Session session, String questionText, String finalTranscript,
                                         int followupDepth, QuestionAttempt parentAttempt) {
@@ -63,13 +66,10 @@ public class ScoringService {
                 """,
                 questionText, finalTranscript);
 
-        if (chatClient == null) {
-            throw new IllegalStateException("ChatClient не настроен. Укажите GEMINI_API_KEY для оценки ответов.");
+        if (chatModel == null) {
+            throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для оценки ответов.");
         }
-        String response = chatClient.prompt()
-                .user(prompt)
-                .call()
-                .content();
+        String response = chatModel.call(new Prompt(new UserMessage(prompt))).getResult().getOutput().getText();
 
         int score = parseScore(response);
         String confidence = parseConfidence(response);

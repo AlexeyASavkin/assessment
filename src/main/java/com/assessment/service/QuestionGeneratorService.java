@@ -2,8 +2,6 @@ package com.assessment.service;
 
 import com.assessment.entity.*;
 import com.assessment.repository.*;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,7 +16,6 @@ import java.util.UUID;
 @Service
 public class QuestionGeneratorService {
 
-    private final ChatClient chatClient;
     private final QuestionSelector questionSelector;
     private final CompetencyRepository competencyRepository;
     private final TopicRepository topicRepository;
@@ -27,19 +24,16 @@ public class QuestionGeneratorService {
     /**
      * Конструктор сервиса генерации вопросов.
      *
-     * @param chatClientProvider       провайдер ChatClient для вызова LLM
      * @param questionSelector         сервис выбора вопросов
      * @param competencyRepository     репозиторий компетенций
      * @param topicRepository          репозиторий тем
      * @param questionBankRepository   репозиторий банка вопросов
      */
     public QuestionGeneratorService(
-            ObjectProvider<ChatClient> chatClientProvider,
             QuestionSelector questionSelector,
             CompetencyRepository competencyRepository,
             TopicRepository topicRepository,
             QuestionBankRepository questionBankRepository) {
-        this.chatClient = chatClientProvider.getIfAvailable();
         this.questionSelector = questionSelector;
         this.competencyRepository = competencyRepository;
         this.topicRepository = topicRepository;
@@ -53,14 +47,9 @@ public class QuestionGeneratorService {
      * @param count         количество вопросов на каждую тему
      * @param difficulty    уровень сложности вопросов
      * @return список сохраненных вопросов
-     * @throws IllegalStateException    если ChatClient не настроен
      * @throws NoSuchElementException   если компетенция не найдена
      */
     public List<QuestionBank> generateAndSave(UUID competencyId, int count, String difficulty) {
-        if (chatClient == null) {
-            throw new IllegalStateException("ChatClient не настроен. Укажите API ключ для генерации вопросов.");
-        }
-
         Competency competency = competencyRepository.findById(competencyId)
                 .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + competencyId));
 
@@ -98,14 +87,9 @@ public class QuestionGeneratorService {
      * @param count       количество вопросов для генерации
      * @param difficulty  уровень сложности вопросов
      * @return список сохраненных вопросов
-     * @throws IllegalStateException    если ChatClient не настроен
      * @throws NoSuchElementException   если тема не найдена
      */
     public List<QuestionBank> generateAndSaveForTopic(UUID topicId, int count, String difficulty) {
-        if (chatClient == null) {
-            throw new IllegalStateException("ChatClient не настроен. Укажите API ключ для генерации вопросов.");
-        }
-
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new NoSuchElementException("Тема не найдена: " + topicId));
 
