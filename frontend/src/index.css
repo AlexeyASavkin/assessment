@@ -193,6 +193,12 @@ textarea {
   font-size: 14px;
 }
 
+.hint {
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+}
+
 .form-actions {
   display: flex;
   gap: 10px;

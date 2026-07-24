@@ -41,6 +41,7 @@ export interface Employee {
   fullName: string
   position: string
   department: string
+  competency?: Competency
 }
 
 export interface InviteToken {
@@ -254,20 +255,26 @@ export async function getEmployee(id: string): Promise<Employee> {
   return adminJson<Employee>(`/employees/${id}`)
 }
 
-export async function createEmployee(fullName: string, position: string, department: string): Promise<Employee> {
+export async function createEmployee(fullName: string, position: string, department: string, competencyId: string | null): Promise<Employee> {
+  const competency = competencyId ? { id: competencyId } : null
   return adminJson<Employee>('/employees', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName, position, department }),
+    body: JSON.stringify({ fullName, position, department, competency }),
   })
 }
 
-export async function updateEmployee(id: string, fullName: string, position: string, department: string): Promise<Employee> {
+export async function updateEmployee(id: string, fullName: string, position: string, department: string, competencyId: string | null): Promise<Employee> {
+  const competency = competencyId ? { id: competencyId } : null
   return adminJson<Employee>(`/employees/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName, position, department }),
+    body: JSON.stringify({ fullName, position, department, competency }),
   })
+}
+
+export async function deleteEmployee(id: string): Promise<void> {
+  await adminJson<void>(`/employees/${id}`, { method: 'DELETE' })
 }
 
 // ---- Invite tokens ----
