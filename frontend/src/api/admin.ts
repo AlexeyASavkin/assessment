@@ -4,11 +4,6 @@
 const API_BASE = '/api/admin'
 
 /**
- * Возможные уровни компетенций сотрудника.
- */
-export type LevelValue = 'JUNIOR' | 'MIDDLE' | 'SENIOR'
-
-/**
  * Компетенция — область знаний или навыков для оценки.
  */
 export interface Competency {
@@ -36,25 +31,6 @@ export interface Topic {
   description: string
   sortOrder: number
   weight: number
-}
-
-/**
- * Критерий оценки внутри компетенции.
- */
-export interface Criterion {
-  id: string
-  name: string
-  description: string
-  weight: number
-}
-
-/**
- * Уровень требований для критерия оценки.
- */
-export interface CriteriaLevel {
-  id: string
-  level: LevelValue
-  requirements: string
 }
 
 /**
@@ -222,57 +198,6 @@ export async function deleteCompetency(id: string): Promise<void> {
   await adminJson<void>(`/competencies/${id}`, { method: 'DELETE' })
 }
 
-// ---- Criteria ----
-
-/**
- * Возвращает список критериев для указанной компетенции.
- * @param competencyId - идентификатор компетенции
- * @return массив критериев
- */
-export async function listCriteria(competencyId: string): Promise<Criterion[]> {
-  return adminJson<Criterion[]>(`/competencies/${competencyId}/criteria`)
-}
-
-/**
- * Создает новый критерий внутри компетенции.
- * @param competencyId - идентификатор компетенции
- * @param name - название критерия
- * @param description - описание критерия
- * @param weight - вес критерия
- * @return созданный критерий
- */
-export async function createCriterion(competencyId: string, name: string, description: string, weight: number): Promise<Criterion> {
-  return adminJson<Criterion>(`/competencies/${competencyId}/criteria`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description, weight }),
-  })
-}
-
-/**
- * Обновляет существующий критерий.
- * @param id - идентификатор критерия
- * @param name - новое название
- * @param description - новое описание
- * @param weight - новый вес
- * @return обновленный критерий
- */
-export async function updateCriterion(id: string, name: string, description: string, weight: number): Promise<Criterion> {
-  return adminJson<Criterion>(`/criteria/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, description, weight }),
-  })
-}
-
-/**
- * Удаляет критерий по идентификатору.
- * @param id - идентификатор критерия
- */
-export async function deleteCriterion(id: string): Promise<void> {
-  await adminJson<void>(`/criteria/${id}`, { method: 'DELETE' })
-}
-
 // ---- Sections ----
 
 /**
@@ -371,55 +296,6 @@ export async function updateTopic(id: string, name: string, weight: number, sort
  */
 export async function deleteTopic(id: string): Promise<void> {
   await adminJson<void>(`/topics/${id}`, { method: 'DELETE' })
-}
-
-// ---- Legacy Criteria/Levels (保留向后兼容) ----
-
-/**
- * Возвращает список уровней требований для критерия.
- * @param criteriaId - идентификатор критерия
- * @return массив уровней требований
- */
-export async function listLevels(criteriaId: string): Promise<CriteriaLevel[]> {
-  return adminJson<CriteriaLevel[]>(`/criteria/${criteriaId}/levels`)
-}
-
-/**
- * Создает новый уровень требований для критерия.
- * @param criteriaId - идентификатор критерия
- * @param level - уровень (JUNIOR, MIDDLE, SENIOR)
- * @param requirements - описание требований
- * @return созданный уровень требований
- */
-export async function createLevel(criteriaId: string, level: LevelValue, requirements: string): Promise<CriteriaLevel> {
-  return adminJson<CriteriaLevel>(`/criteria/${criteriaId}/levels`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level, requirements }),
-  })
-}
-
-/**
- * Обновляет существующий уровень требований.
- * @param id - идентификатор уровня
- * @param level - новый уровень
- * @param requirements - новое описание требований
- * @return обновленный уровень требований
- */
-export async function updateLevel(id: string, level: LevelValue, requirements: string): Promise<CriteriaLevel> {
-  return adminJson<CriteriaLevel>(`/criteria/levels/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level, requirements }),
-  })
-}
-
-/**
- * Удаляет уровень требований по идентификатору.
- * @param id - идентификатор уровня
- */
-export async function deleteLevel(id: string): Promise<void> {
-  await adminJson<void>(`/criteria/levels/${id}`, { method: 'DELETE' })
 }
 
 // ---- Employees ----
@@ -576,7 +452,6 @@ export async function updateAiKeys(keys: AiKeys): Promise<AiKeys> {
 export interface QuestionBankItem {
   id: string
   competencyId: string
-  criteriaId?: string
   topicId?: string
   questionText: string
   difficulty: string
