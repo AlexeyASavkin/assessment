@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-employee-competencies-drop-jointable
+      author: assessment
+      preConditions:
+        - onFail: MARK_RAN
+        - tableExists:
+            tableName: employee_competencies
+      changes:
+        - dropTable:
+            tableName: employee_competencies
+  - changeSet:
+      id: 010-employee-competency-add-column
+      author: assessment
+      changes:
+        - sqlFile:
+            path: db/changelog/changes/010-add-competency-id.sql
