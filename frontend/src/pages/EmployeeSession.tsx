@@ -12,17 +12,30 @@ interface Question {
   followupParentId?: string
 }
 
+/**
+ * Страница сессии оценки сотрудника.
+ * Показывает текущий вопрос, поддерживает голосовой ввод через SpeechRecognition API,
+ * отправляет ответы на сервер. При завершении сессии перенаправляет на страницу отчёта.
+ * Автоматически озвучивает текст вопроса через SpeechSynthesis.
+ */
 export default function EmployeeSession() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  /** Текущий вопрос сессии, получаемый с сервера */
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null)
+  /** Флаг загрузки данных с сервера */
   const [isLoading, setIsLoading] = useState(false)
+  /** Сообщение об ошибке при загрузке или отправке данных */
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadQuestion()
   }, [sessionId])
 
+  /**
+   * Загружает текущий вопрос с сервера.
+   * Если сессия завершена, перенаправляет на страницу отчёта.
+   */
   const loadQuestion = async () => {
     if (!sessionId) return
     setIsLoading(true)
@@ -43,6 +56,12 @@ export default function EmployeeSession() {
     }
   }
 
+  /**
+   * Отправляет ответ сотрудника на сервер и загружает следующий вопрос.
+   * При завершении сессии перенаправляет на страницу отчёта.
+   * @param rawTranscript - Неотредактированный распознанный текст
+   * @param finalTranscript - Отредактированный итоговый текст ответа
+   */
   const handleSubmitAnswer = async (rawTranscript: string, finalTranscript: string) => {
     if (!sessionId || !currentQuestion) return
     setIsLoading(true)

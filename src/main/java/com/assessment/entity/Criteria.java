@@ -12,6 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Критерий оценки внутри компетенции.
+ * Определяет конкретный навык или знание, которое проверяется у сотрудника.
+ */
 @Entity
 @Table(name = "criteria")
 @Data
@@ -24,20 +28,25 @@ public class Criteria {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Компетенция, к которой относится критерий. */
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "competency_id", nullable = false)
     private Competency competency;
 
+    /** Название критерия. */
     @Column(nullable = false)
     private String name;
 
+    /** Описание критерия. */
     private String description;
 
+    /** Вес критерия при расчёте итоговой оценки. */
     @Column(precision = 3, scale = 2)
     @Builder.Default
     private BigDecimal weight = BigDecimal.ONE;
 
+    /** Список уровней требований для данного критерия (JUNIOR, MIDDLE, SENIOR). */
     @OneToMany(mappedBy = "criteria", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CriteriaLevel> levels = new ArrayList<>();

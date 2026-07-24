@@ -1,6 +1,10 @@
 import { Link } from 'react-router-dom'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/**
+ * Главная панель администратора.
+ * Отображает карточки с основными разделами: компетенции, заявки (сотрудники) и токены.
+ */
 export default function AdminDashboard() {
   const cards = [
     { to: '/admin/competencies', title: 'Компетенции', desc: 'Управление компетенциями, критериями и уровнями требований' },

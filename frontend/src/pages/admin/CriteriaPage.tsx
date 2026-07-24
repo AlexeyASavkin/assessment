@@ -9,6 +9,9 @@ import {
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/**
+ * Состояние формы создания и редактирования критерия.
+ */
 interface FormState {
   name: string
   description: string
@@ -17,6 +20,10 @@ interface FormState {
 
 const emptyForm: FormState = { name: '', description: '', weight: '1' }
 
+/**
+ * Страница управления критериями компетенции.
+ * Позволяет создавать, редактировать и удалять критерии, а также переходить к управлению уровнями требований.
+ */
 export default function CriteriaPage() {
   const { competencyId } = useParams<{ competencyId: string }>()
   const navigate = useNavigate()
@@ -27,6 +34,9 @@ export default function CriteriaPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+/**
+   * Загружает список критериев для текущей компетенции.
+   */
   const load = async () => {
     if (!competencyId) return
     setIsLoading(true)
@@ -45,11 +55,17 @@ export default function CriteriaPage() {
     load()
   }, [competencyId])
 
+/**
+   * Сбрасывает форму в начальное состояние и отменяет режим редактирования.
+   */
   const resetForm = () => {
     setForm(emptyForm)
     setEditingId(null)
   }
 
+/**
+   * Создаёт новый критерий или обновляет существующий, затем перезагружает список.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!competencyId) return
@@ -71,11 +87,17 @@ export default function CriteriaPage() {
     }
   }
 
+/**
+   * Переключает форму в режим редактирования выбранного критерия.
+   */
   const handleEdit = (item: Criterion) => {
     setEditingId(item.id)
     setForm({ name: item.name, description: item.description, weight: String(item.weight) })
   }
 
+/**
+   * Удаляет критерий после подтверждения и обновляет список.
+   */
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить критерий?')) return
     try {

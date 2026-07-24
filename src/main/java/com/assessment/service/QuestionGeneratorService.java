@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
 
+/**
+ * Сервис генерации вопросов для банка вопросов с помощью LLM.
+ * Создает вопросы по компетенциям и темам для последующего использования в оценке.
+ */
 @Service
 public class QuestionGeneratorService {
 
@@ -20,6 +24,15 @@ public class QuestionGeneratorService {
     private final TopicRepository topicRepository;
     private final QuestionBankRepository questionBankRepository;
 
+    /**
+     * Конструктор сервиса генерации вопросов.
+     *
+     * @param chatClientProvider       провайдер ChatClient для вызова LLM
+     * @param questionSelector         сервис выбора вопросов
+     * @param competencyRepository     репозиторий компетенций
+     * @param topicRepository          репозиторий тем
+     * @param questionBankRepository   репозиторий банка вопросов
+     */
     public QuestionGeneratorService(
             ObjectProvider<ChatClient> chatClientProvider,
             QuestionSelector questionSelector,
@@ -33,6 +46,16 @@ public class QuestionGeneratorService {
         this.questionBankRepository = questionBankRepository;
     }
 
+    /**
+     * Генерирует и сохраняет вопросы для всех тем указанной компетенции.
+     *
+     * @param competencyId  идентификатор компетенции
+     * @param count         количество вопросов на каждую тему
+     * @param difficulty    уровень сложности вопросов
+     * @return список сохраненных вопросов
+     * @throws IllegalStateException    если ChatClient не настроен
+     * @throws NoSuchElementException   если компетенция не найдена
+     */
     public List<QuestionBank> generateAndSave(UUID competencyId, int count, String difficulty) {
         if (chatClient == null) {
             throw new IllegalStateException("ChatClient не настроен. Укажите API ключ для генерации вопросов.");
@@ -68,6 +91,16 @@ public class QuestionGeneratorService {
         return saved;
     }
 
+    /**
+     * Генерирует и сохраняет вопросы для конкретной темы.
+     *
+     * @param topicId     идентификатор темы
+     * @param count       количество вопросов для генерации
+     * @param difficulty  уровень сложности вопросов
+     * @return список сохраненных вопросов
+     * @throws IllegalStateException    если ChatClient не настроен
+     * @throws NoSuchElementException   если тема не найдена
+     */
     public List<QuestionBank> generateAndSaveForTopic(UUID topicId, int count, String difficulty) {
         if (chatClient == null) {
             throw new IllegalStateException("ChatClient не настроен. Укажите API ключ для генерации вопросов.");

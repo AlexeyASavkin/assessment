@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Сервис выбора и генерации вопросов для оценки компетенций сотрудников.
+ * Использует LLM для генерации основных и уточняющих вопросов по темам компетенций.
+ */
 @Service
 public class QuestionSelector {
 
@@ -19,6 +23,14 @@ public class QuestionSelector {
     private final QuestionAttemptRepository questionAttemptRepository;
     private final int maxFollowupsPerMain;
 
+    /**
+     * Конструктор сервиса выбора вопросов.
+     *
+     * @param chatClientProvider           провайдер ChatClient для вызова LLM
+     * @param topicRepository              репозиторий тем
+     * @param questionAttemptRepository    репозиторий попыток ответов
+     * @param maxFollowupsPerMain          максимальное количество уточняющих вопросов на один основной
+     */
     public QuestionSelector(
             ObjectProvider<ChatClient> chatClientProvider,
             TopicRepository topicRepository,
@@ -30,6 +42,13 @@ public class QuestionSelector {
         this.maxFollowupsPerMain = maxFollowupsPerMain;
     }
 
+    /**
+     * Генерирует основной вопрос по указанной теме с помощью LLM.
+     *
+     * @param session  текущая сессия оценки
+     * @param topicId  идентификатор темы
+     * @return текст сгенерированного вопроса
+     */
     public String generateQuestion(Session session, UUID topicId) {
         Topic topic = topicRepository.findById(topicId).orElseThrow();
 
@@ -55,6 +74,13 @@ public class QuestionSelector {
                 .content();
     }
 
+    /**
+     * Генерирует уточняющий вопрос на основе предыдущего ответа сотрудника.
+     *
+     * @param session          текущая сессия оценки
+     * @param previousAttempt  предыдущая попытка ответа
+     * @return текст уточняющего вопроса
+     */
     public String generateFollowUp(Session session, QuestionAttempt previousAttempt) {
         String prompt = String.format("""
                 Сотрудник ответил на вопрос, но ответ требует уточнения.
@@ -76,6 +102,14 @@ public class QuestionSelector {
                 .content();
     }
 
+    /**
+     * Определяет, нужно ли задать уточняющий вопрос по указанной теме.
+     * Уточняющий вопрос задается только после основного и не более заданного лимита.
+     *
+     * @param session  текущая сессия оценки
+     * @param topicId  идентификатор темы
+     * @return true, если уточняющий вопрос нужен
+     */
     public boolean shouldAskFollowUp(Session session, UUID topicId) {
         List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
 

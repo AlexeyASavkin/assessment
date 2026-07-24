@@ -23,11 +23,17 @@ import {
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/**
+ * Тип выбранного узла в дереве компетенций.
+ */
 type SelectedNode =
   | { type: 'competency'; competency: Competency }
   | { type: 'section'; section: Section; competencyId: string; competencyName: string }
   | { type: 'topic'; topic: Topic; sectionId: string; sectionName: string; competencyName: string }
 
+/**
+ * Состояние модального окна для создания или редактирования элемента дерева.
+ */
 interface ModalState {
   kind: 'competency' | 'section' | 'topic' | null
   mode: 'create' | 'edit'
@@ -37,6 +43,11 @@ interface ModalState {
 
 const emptyModal: ModalState = { kind: null, mode: 'create' }
 
+/**
+ * Страница управления деревом компетенций.
+ * Отображает иерархию компетенций, секций и тем с возможностью создания, редактирования, удаления,
+ * генерации вопросов через ИИ и изменения порядка вопросов перетаскиванием.
+ */
 export default function AdminCompetenciesTreePage() {
   const [competencies, setCompetencies] = useState<Competency[]>([])
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -50,6 +61,9 @@ export default function AdminCompetenciesTreePage() {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragIndexRef = useRef<number | null>(null)
 
+/**
+   * Загружает список компетенций с сервера.
+   */
   const loadCompetencies = useCallback(async () => {
     setIsLoading(true)
     setError(null)
@@ -76,8 +90,11 @@ export default function AdminCompetenciesTreePage() {
     })
   }
 
-  // ---- Section loading ----
   const [sectionsByCompetency, setSectionsByCompetency] = useState<Record<string, Section[]>>({})
+
+  /**
+   * Загружает секции для указанной компетенции.
+   */
   const loadSections = useCallback(async (competencyId: string) => {
     try {
       const sections = await listSections(competencyId)
@@ -87,8 +104,11 @@ export default function AdminCompetenciesTreePage() {
     }
   }, [])
 
-  // ---- Topic loading ----
   const [topicsBySection, setTopicsBySection] = useState<Record<string, Topic[]>>({})
+
+  /**
+   * Загружает темы для указанной секции.
+   */
   const loadTopics = useCallback(async (sectionId: string) => {
     try {
       const topics = await listTopics(sectionId)
@@ -98,6 +118,9 @@ export default function AdminCompetenciesTreePage() {
     }
   }, [])
 
+/**
+   * Разворачивает или сворачивает компетенцию и загружает её секции при первом раскрытии.
+   */
   const handleExpandCompetency = (competency: Competency) => {
     toggleExpand(competency.id)
     if (!sectionsByCompetency[competency.id]) {
@@ -105,6 +128,9 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
+/**
+   * Разворачивает или сворачивает секцию, загружает темы при первом раскрытии и выбирает секцию.
+   */
   const handleExpandSection = (section: Section, competencyId: string, competencyName: string) => {
     toggleExpand(section.id)
     if (!topicsBySection[section.id]) {
@@ -126,6 +152,9 @@ export default function AdminCompetenciesTreePage() {
   }
 
   // ---- Question handling ----
+/**
+   * Загружает вопросы для указанной темы.
+   */
   const loadQuestions = async (topicId: string) => {
     try {
       const questions = await listTopicQuestions(topicId)
@@ -135,12 +164,18 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
+/**
+   * Выбирает тему и загружает её вопросы для отображения в правой панели.
+   */
   const handleSelectTopic = (topic: Topic, sectionId: string, sectionName: string, competencyName: string) => {
     setSelected({ type: 'topic', topic, sectionId, sectionName, competencyName })
     setTopicQuestions([])
     loadQuestions(topic.id)
   }
 
+/**
+   * Генерирует вопросы для темы через ИИ и обновляет список вопросов.
+   */
   const handleGenerate = async (topicId: string) => {
     setGenerating(true)
     setError(null)
@@ -154,6 +189,9 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
+/**
+   * Удаляет вопрос из темы после подтверждения и обновляет список.
+   */
   const handleDeleteQuestion = async (questionId: string, topicId: string) => {
     if (!confirm('Удалить вопрос?')) return
     try {
@@ -165,6 +203,9 @@ export default function AdminCompetenciesTreePage() {
   }
 
   // ---- Delete handlers ----
+/**
+   * Удаляет компетенцию вместе со всеми секциями и темами после подтверждения.
+   */
   const handleDeleteCompetency = async (id: string) => {
     if (!confirm('Удалить компетенцию вместе со всеми секциями и темами?')) return
     try {
@@ -176,6 +217,9 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
+/**
+   * Удаляет секцию вместе со всеми темами после подтверждения.
+   */
   const handleDeleteSection = async (id: string, competencyId: string) => {
     if (!confirm('Удалить секцию вместе со всеми темами?')) return
     try {
@@ -192,6 +236,9 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
+/**
+   * Удаляет тему вместе со всеми вопросами после подтверждения.
+   */
   const handleDeleteTopic = async (id: string, sectionId: string) => {
     if (!confirm('Удалить тему вместе со всеми вопросами?')) return
     try {
@@ -203,23 +250,34 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
-  // ---- Drag-and-drop for questions ----
+/**
+   * Начинает перетаскивание вопроса для изменения порядка.
+   */
   const handleDragStart = (e: React.DragEvent, index: number) => {
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', String(index))
     dragIndexRef.current = index
   }
 
+/**
+   * Обрабатывает наведение перетаскиваемого вопроса на другую позицию.
+   */
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverIndex(index)
   }
 
+/**
+   * Сбрасывает индикатор перетаскивания при уходе курсора из зоны вопроса.
+   */
   const handleDragLeave = () => {
     setDragOverIndex(null)
   }
 
+/**
+   * Завершает перетаскивание вопроса, меняет порядок и сохраняет новый порядок на сервере.
+   */
   const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault()
     setDragOverIndex(null)
@@ -245,7 +303,9 @@ export default function AdminCompetenciesTreePage() {
     }
   }
 
-  // ---- Right panel ----
+/**
+   * Отображает детальную информацию о выбранном элементе дерева в правой панели.
+   */
   const renderDetail = () => {
     if (!selected) {
       return (
@@ -368,7 +428,9 @@ export default function AdminCompetenciesTreePage() {
     return null
   }
 
-  // ---- Modal form ----
+/**
+   * Отображает модальное окно с формой создания или редактирования элемента дерева.
+   */
   const renderModal = () => {
     if (!modal.kind) return null
 
@@ -532,6 +594,9 @@ export default function AdminCompetenciesTreePage() {
 
 // ---- Modal form component ----
 
+/**
+ * Пропсы модальной формы для создания и редактирования элементов дерева.
+ */
 interface ModalFormProps {
   modal: ModalState
   onClose: () => void
@@ -543,6 +608,9 @@ interface ModalFormProps {
   topic?: Topic
 }
 
+/**
+ * Модальное окно с формой для создания или редактирования компетенции, секции или темы.
+ */
 function ModalForm({ modal, onClose, onCompetencySaved, onSectionSaved, onTopicSaved, competency, section, topic }: ModalFormProps) {
   if (!modal.kind) return null
 
@@ -579,6 +647,9 @@ function ModalForm({ modal, onClose, onCompetencySaved, onSectionSaved, onTopicS
 
 // ---- Competency form ----
 
+/**
+ * Форма создания и редактирования компетенции.
+ */
 function CompetencyForm({ editCompetency, onCancel, onSaved }: {
   editCompetency?: Competency
   onCancel: () => void
@@ -589,6 +660,9 @@ function CompetencyForm({ editCompetency, onCancel, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  /**
+   * Сохраняет компетенцию: создаёт новую или обновляет существующую.
+   */
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -629,8 +703,9 @@ function CompetencyForm({ editCompetency, onCancel, onSaved }: {
   )
 }
 
-// ---- Section form ----
-
+/**
+ * Форма создания и редактирования секции внутри компетенции.
+ */
 function SectionForm({ editSection, parentId, onCancel, onSaved }: {
   editSection?: Section
   parentId?: string
@@ -642,6 +717,9 @@ function SectionForm({ editSection, parentId, onCancel, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  /**
+   * Сохраняет секцию: создаёт новую или обновляет существующую.
+   */
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -684,8 +762,9 @@ function SectionForm({ editSection, parentId, onCancel, onSaved }: {
   )
 }
 
-// ---- Topic form ----
-
+/**
+ * Форма создания и редактирования темы внутри секции.
+ */
 function TopicForm({ editTopic, parentId, onCancel, onSaved }: {
   editTopic?: Topic
   parentId?: string
@@ -698,6 +777,9 @@ function TopicForm({ editTopic, parentId, onCancel, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
+  /**
+   * Сохраняет тему: создаёт новую или обновляет существующую.
+   */
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)

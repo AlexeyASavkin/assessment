@@ -5,6 +5,11 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Банк вопросов.
+ * Хранит вопросы, сгенерированные LLM или добавленные вручную,
+ * привязанные к компетенции, критерию и теме.
+ */
 @Entity
 @Table(name = "question_banks")
 public class QuestionBank {
@@ -13,27 +18,33 @@ public class QuestionBank {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Компетенция, к которой относится вопрос. */
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "competency_id", nullable = false)
     private Competency competency;
 
+    /** Критерий оценки, по которому сформулирован вопрос. */
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "criteria_id")
     private Criteria criteria;
 
+    /** Тема, по которой сгенерирован вопрос. */
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "topic_id")
     private Topic topic;
 
+    /** Текст вопроса. */
     @Column(name = "question_text", nullable = false, columnDefinition = "TEXT")
     private String questionText;
 
+    /** Уровень сложности вопроса (например, JUNIOR, MIDDLE, SENIOR). */
     @Column(name = "difficulty", nullable = false, length = 20)
     private String difficulty;
 
+    /** Порядковый номер для сортировки вопросов. */
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
 
@@ -43,6 +54,9 @@ public class QuestionBank {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /**
+     * Автоматически обновляет поле updatedAt перед сохранением или изменением записи.
+     */
     @PrePersist
     @PreUpdate
     protected void onUpdate() {

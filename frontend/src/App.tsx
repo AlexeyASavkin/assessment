@@ -13,6 +13,12 @@ import QuestionsPage from './pages/admin/QuestionsPage'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute, AdminLayout } from './components/admin/AdminLayout'
 
+/**
+ * Корневой компонент приложения.
+ * Настраивает React Router, проверяет браузер (только Chrome),
+ * и определяет маршруты для сотрудников и администраторов.
+ * @return JSX-элемент с маршрутизацией или предупреждением о браузере
+ */
 function App() {
   const isChrome = navigator.userAgent.includes('Chrome') && !navigator.userAgent.includes('Edg')
 

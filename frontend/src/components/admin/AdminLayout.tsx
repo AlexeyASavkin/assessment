@@ -2,6 +2,12 @@ import { type ReactNode, useState } from 'react'
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
+/**
+ * Защищенный маршрут для административных страниц.
+ * Проверяет состояние аутентификации и перенаправляет на страницу входа,
+ * если администратор не авторизован.
+ * @return JSX-элемент с индикатором загрузки, редиректом или дочерними маршрутами
+ */
 export function ProtectedRoute() {
   const { isAuthenticated, isChecking } = useAuth()
 
@@ -20,6 +26,12 @@ export function ProtectedRoute() {
   return <Outlet />
 }
 
+/**
+ * Основной лейаут административной панели.
+ * Содержит боковую панель навигации с возможностью сворачивания,
+ * ссылки на разделы админки и кнопку выхода.
+ * @return JSX-элемент с лейаутом админ-панели
+ */
 export function AdminLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
@@ -91,6 +103,12 @@ export function AdminLayout() {
   )
 }
 
+/**
+ * Обертка для страниц административной панели.
+ * Применяет стандартные CSS-классы контейнера.
+ * @param props.children - содержимое страницы
+ * @return JSX-элемент обертки страницы
+ */
 export function AdminPageWrapper({ children }: { children: ReactNode }) {
   return <div className="container admin-container">{children}</div>
 }

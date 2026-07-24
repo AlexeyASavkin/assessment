@@ -10,17 +10,39 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+/**
+ * Сервис оценки ответов сотрудников с помощью LLM.
+ * Анализирует ответы на вопросы и выставляет баллы по шкале 0-5 с уровнем уверенности и рекомендацией.
+ */
 @Service
 public class ScoringService {
 
     private final ChatClient chatClient;
     private final QuestionAttemptRepository questionAttemptRepository;
 
+    /**
+     * Конструктор сервиса оценки ответов.
+     *
+     * @param chatClientProvider           провайдер ChatClient для вызова LLM
+     * @param questionAttemptRepository      репозиторий попыток ответов
+     */
     public ScoringService(ObjectProvider<ChatClient> chatClientProvider, QuestionAttemptRepository questionAttemptRepository) {
         this.chatClient = chatClientProvider.getIfAvailable();
         this.questionAttemptRepository = questionAttemptRepository;
     }
 
+    /**
+     * Оценивает ответ сотрудника с помощью LLM и сохраняет результат.
+     *
+     * @param session          текущая сессия оценки
+     * @param questionText     текст вопроса
+     * @param finalTranscript  итоговый транскрипт ответа сотрудника
+     * @param criteriaId       идентификатор критерия оценки
+     * @param followupDepth    глубина уточняющего вопроса (0 для основного)
+     * @param parentAttempt    родительская попытка ответа (для уточняющих вопросов)
+     * @return сохраненная попытка ответа с оценкой
+     * @throws IllegalStateException если ChatClient не настроен
+     */
     public QuestionAttempt scoreAnswer(Session session, String questionText, String finalTranscript,
                                         UUID criteriaId, int followupDepth, QuestionAttempt parentAttempt) {
 
@@ -71,6 +93,12 @@ public class ScoringService {
         return questionAttemptRepository.save(attempt);
     }
 
+    /**
+     * Извлекает оценку из JSON-ответа LLM.
+     *
+     * @param response JSON-ответ от LLM
+     * @return числовая оценка или 0 при ошибке парсинга
+     */
     private int parseScore(String response) {
         try {
             String scoreStr = extractJsonValue(response, "score");
@@ -80,6 +108,12 @@ public class ScoringService {
         }
     }
 
+    /**
+     * Извлекает уровень уверенности из JSON-ответа LLM.
+     *
+     * @param response JSON-ответ от LLM
+     * @return уровень уверенности (HIGH, MEDIUM, LOW) или LOW при ошибке
+     */
     private String parseConfidence(String response) {
         try {
             return extractJsonValue(response, "confidence");
@@ -88,6 +122,12 @@ public class ScoringService {
         }
     }
 
+    /**
+     * Извлекает рекомендацию из JSON-ответа LLM.
+     *
+     * @param response JSON-ответ от LLM
+     * @return текст рекомендации или сообщение об ошибке при неудаче парсинга
+     */
     private String parseFeedback(String response) {
         try {
             return extractJsonValue(response, "feedback");
@@ -96,6 +136,13 @@ public class ScoringService {
         }
     }
 
+    /**
+     * Извлекает строковое значение по ключу из JSON-строки.
+     *
+     * @param json JSON-строка
+     * @param key  ключ для поиска
+     * @return найденное значение или пустую строку, если ключ не найден
+     */
     private String extractJsonValue(String json, String key) {
         String searchKey = "\"" + key + "\"";
         int keyIndex = json.indexOf(searchKey);

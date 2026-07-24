@@ -2,6 +2,10 @@ import { useState, useEffect, FormEvent } from 'react'
 import { getAiSettings, updateAiSettings, getAiKeys, updateAiKeys, type AiSettings, type AiKeys } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/**
+ * Страница настройки ИИ-провайдера.
+ * Позволяет выбрать активного провайдера (Gemini или GigaChat), а также управлять API-ключами.
+ */
 export default function AiSettingsPage() {
   const [settings, setSettings] = useState<AiSettings | null>(null)
   const [selectedProvider, setSelectedProvider] = useState('')
@@ -13,6 +17,9 @@ export default function AiSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+/**
+   * Загружает текущие настройки ИИ и API-ключи с сервера.
+   */
   const load = async () => {
     setIsLoading(true)
     setError(null)
@@ -30,6 +37,9 @@ export default function AiSettingsPage() {
 
   useEffect(() => { load() }, [])
 
+/**
+   * Сохраняет выбранного активного провайдера ИИ.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
@@ -47,6 +57,9 @@ export default function AiSettingsPage() {
     }
   }
 
+/**
+   * Сохраняет API-ключи для выбранных провайдеров.
+   */
   const handleKeysSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
@@ -63,6 +76,9 @@ export default function AiSettingsPage() {
     }
   }
 
+/**
+   * Возвращает человекочитаемое название провайдера по его ключу.
+   */
   const providerLabel = (key: string) => {
     switch (key) {
       case 'gemini': return 'Google Gemini'

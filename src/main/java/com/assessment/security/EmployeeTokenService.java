@@ -16,9 +16,21 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Сервис для управления пригласительными токенами и сессиями сотрудников.
+ * <p>
+ * Проверяет HMAC-подпись пригласительных ссылок, создает или повторно использует
+ * сессии оценки, а также управляет cookie аутентификации сотрудника.
+ */
 @Component
 public class EmployeeTokenService {
 
+    /**
+     * Результат валидации пригласительного токена: сессия и флаг повторного использования.
+     *
+     * @param session сессия оценки
+     * @param reused true, если сессия уже существовала
+     */
     public record InviteResult(Session session, boolean reused) {}
 
     private final AssessmentInviteTokenRepository tokenRepository;
@@ -28,6 +40,16 @@ public class EmployeeTokenService {
     private final String cookieName;
     private final int tokenExpiryHours;
 
+    /**
+     * Конструктор сервиса токенов сотрудников.
+     *
+     * @param tokenRepository репозиторий пригласительных токенов
+     * @param employeeRepository репозиторий сотрудников
+     * @param sessionRepository репозиторий сессий оценки
+     * @param hmacValidator валидатор HMAC-подписей
+     * @param cookieName имя cookie сессии
+     * @param tokenExpiryHours время жизни токена в часах
+     */
     public EmployeeTokenService(
             AssessmentInviteTokenRepository tokenRepository,
             EmployeeRepository employeeRepository,
@@ -43,6 +65,15 @@ public class EmployeeTokenService {
         this.tokenExpiryHours = tokenExpiryHours;
     }
 
+    /**
+     * Проверяет пригласительный токен и возвращает сессию оценки.
+     * <p>
+     * Если токен уже использовался и привязан к сессии, возвращает эту сессию.
+     * При первом использовании ищет существующую сессию сотрудника или создает новую.
+     *
+     * @param token строковое значение пригласительного токена
+     * @return результат валидации с сессией, или {@link Optional#empty()} при невалидном/просроченном токене
+     */
     public Optional<InviteResult> validateInviteToken(String token) {
         String hash = hmacValidator.generateToken(token);
         return tokenRepository.findByTokenHash(hash)
@@ -82,6 +113,14 @@ public class EmployeeTokenService {
                 });
     }
 
+    /**
+     * Проверяет cookie сессии сотрудника в HTTP-запросе.
+     * <p>
+     * Cookie содержит идентификатор сессии и HMAC-подпись, разделенные символом '|'.
+     *
+     * @param request HTTP-запрос с cookie
+     * @return сессия, если cookie валиден, иначе {@link Optional#empty()}
+     */
     public Optional<Session> validateSessionCookie(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) return Optional.empty();
@@ -102,6 +141,15 @@ public class EmployeeTokenService {
         return Optional.empty();
     }
 
+    /**
+     * Устанавливает cookie сессии сотрудника в HTTP-ответе.
+     * <p>
+     * Cookie содержит идентификатор сессии и HMAC-подпись, защищен флагами HttpOnly и Secure.
+     *
+     * @param request HTTP-запрос для определения флага Secure
+     * @param response HTTP-ответ, в который добавляется cookie
+     * @param session сессия, для которой создается cookie
+     */
     public void addSessionCookie(HttpServletRequest request, HttpServletResponse response, Session session) {
         String signature = hmacValidator.generateToken(session.getId().toString());
         String value = session.getId().toString() + "|" + signature;

@@ -25,9 +25,28 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Конфигурация Spring AI ChatClient с поддержкой маршрутизации между LLM-провайдерами.
+ * <p>
+ * Создает делегаты для Gemini и GigaChat на основе наличия API-ключей,
+ * объединяет их в {@link RoutingChatModel} и предоставляет готовый {@link ChatClient}.
+ */
 @Configuration
 public class ChatClientConfig {
 
+    /**
+     * Создает маршрутизируемую модель чата, которая переключается между Gemini и GigaChat.
+     * <p>
+     * Для каждого провайдера, у которого задан API-ключ, создается отдельная модель
+     * с настроенным retry, observation registry и tool calling. Активный провайдер
+     * выбирается через переменную окружения {@code AI_PROVIDER}.
+     *
+     * @param aiProviderService сервис, предоставляющий API-ключи и активный провайдер
+     * @param toolCallingManager менеджер вызова инструментов
+     * @param retryTemplate шаблон повторных попыток при сбоях
+     * @param observationRegistry реестр наблюдений Micrometer
+     * @return маршрутизируемая модель {@link ChatModel}
+     */
     @Bean
     public ChatModel routingChatModel(
             AiProviderService aiProviderService,
@@ -90,6 +109,12 @@ public class ChatClientConfig {
         return new RoutingChatModel(delegates, aiProviderService);
     }
 
+    /**
+     * Создает клиент чата на основе маршрутизируемой модели.
+     *
+     * @param routingChatModel маршрутизируемая модель чата
+     * @return настроенный {@link ChatClient}
+     */
     @Bean
     public ChatClient chatClient(ChatModel routingChatModel) {
         return ChatClient.builder(routingChatModel)

@@ -12,6 +12,9 @@ import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
 const LEVELS: LevelValue[] = ['JUNIOR', 'MIDDLE', 'SENIOR']
 
+/**
+ * Состояние формы создания и редактирования уровня требований.
+ */
 interface FormState {
   level: LevelValue
   requirements: string
@@ -19,6 +22,10 @@ interface FormState {
 
 const emptyForm: FormState = { level: 'JUNIOR', requirements: '' }
 
+/**
+ * Страница управления уровнями требований критерия.
+ * Позволяет добавлять, редактировать и удалять уровни JUNIOR, MIDDLE и SENIOR.
+ */
 export default function LevelsPage() {
   const { criteriaId } = useParams<{ criteriaId: string }>()
   const navigate = useNavigate()
@@ -29,6 +36,9 @@ export default function LevelsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+/**
+   * Загружает список уровней требований для текущего критерия.
+   */
   const load = async () => {
     if (!criteriaId) return
     setIsLoading(true)
@@ -47,11 +57,17 @@ export default function LevelsPage() {
     load()
   }, [criteriaId])
 
+/**
+   * Сбрасывает форму в начальное состояние и отменяет режим редактирования.
+   */
   const resetForm = () => {
     setForm(emptyForm)
     setEditingId(null)
   }
 
+/**
+   * Создаёт новый уровень требований или обновляет существующий, затем перезагружает список.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!criteriaId) return
@@ -72,11 +88,17 @@ export default function LevelsPage() {
     }
   }
 
+/**
+   * Переключает форму в режим редактирования выбранного уровня.
+   */
   const handleEdit = (item: CriteriaLevel) => {
     setEditingId(item.id)
     setForm({ level: item.level, requirements: item.requirements })
   }
 
+/**
+   * Удаляет уровень требований после подтверждения и обновляет список.
+   */
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить уровень?')) return
     try {

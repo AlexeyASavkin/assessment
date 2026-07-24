@@ -11,6 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Секция внутри компетенции.
+ * Используется для логического разделения компетенции на части (например, "Основы", "Продвинутый уровень").
+ */
 @Entity
 @Table(name = "sections")
 @Data
@@ -23,20 +27,25 @@ public class Section {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Компетенция, к которой относится секция. */
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "competency_id", nullable = false)
     private Competency competency;
 
+    /** Название секции. */
     @Column(nullable = false)
     private String name;
 
+    /** Описание секции. */
     private String description;
 
+    /** Порядковый номер для сортировки секций внутри компетенции. */
     @Column(name = "sort_order")
     @Builder.Default
     private Integer sortOrder = 0;
 
+    /** Список тем, входящих в секцию. */
     @OneToMany(mappedBy = "section", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Topic> topics = new ArrayList<>();
