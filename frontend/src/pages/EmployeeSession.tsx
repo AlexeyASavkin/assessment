@@ -31,6 +31,8 @@ export default function EmployeeSession() {
       const data = await getCurrentQuestion(sessionId)
       if (data.completed) {
         navigate(`/session/${sessionId}/report`)
+      } else if (data.error === 'Session completed') {
+        navigate(`/session/${sessionId}/report`)
       } else {
         setCurrentQuestion(data)
       }
