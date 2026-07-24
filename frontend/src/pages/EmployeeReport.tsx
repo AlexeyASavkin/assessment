@@ -20,17 +20,29 @@ interface Report {
   overallRecommendation: string
 }
 
+/**
+ * Страница итогового отчёта по оценке компетенций.
+ * Отображает баллы по каждой компетенции, общий уровень и рекомендации ИИ.
+ * Обрабатывает 403 (редирект на сессию, если оценка не завершена) и 404 (формирование отчёта).
+ */
 export default function EmployeeReport() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  /** Данные итогового отчёта, полученные с сервера */
   const [report, setReport] = useState<Report | null>(null)
+  /** Флаг загрузки отчёта с сервера */
   const [isLoading, setIsLoading] = useState(true)
+  /** Сообщение об ошибке при загрузке отчёта */
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadReport()
   }, [sessionId])
 
+  /**
+   * Загружает итоговый отчёт с сервера.
+   * При статусе 403 перенаправляет на страницу сессии (оценка ещё не завершена).
+   */
   const loadReport = async () => {
     if (!sessionId) return
     setIsLoading(true)
@@ -71,6 +83,11 @@ export default function EmployeeReport() {
     )
   }
 
+  /**
+   * Возвращает цветовой код для визуального отображения уровня компетенции.
+   * @param level - Уровень компетенции (SENIOR, MIDDLE или другой)
+   * @returns CSS-цвет в формате hex
+   */
   const getLevelColor = (level: string) => {
     switch (level) {
       case 'SENIOR': return '#28a745'

@@ -17,6 +17,12 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * REST-контроллер для административных операций.
+ * Обрабатывает все запросы по пути {@code /api/admin} и требует аутентификации с ролью ADMIN.
+ * Управляет компетенциями, критериями, уровнями требований, разделами, темами,
+ * банком вопросов, сотрудниками и настройками ИИ.
+ */
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
@@ -34,6 +40,22 @@ public class AdminController {
     private final QuestionBankRepository questionBankRepository;
     private final SessionRepository sessionRepository;
 
+    /**
+     * Конструктор с внедрением зависимостей репозиториев и сервисов.
+     *
+     * @param competencyRepository      репозиторий компетенций
+     * @param criteriaRepository        репозиторий критериев
+     * @param criteriaLevelRepository   репозиторий уровней требований
+     * @param sectionRepository         репозиторий разделов
+     * @param topicRepository           репозиторий тем
+     * @param employeeRepository        репозиторий сотрудников
+     * @param tokenRepository           репозиторий пригласительных токенов
+     * @param hmacValidator             сервис валидации HMAC-токенов
+     * @param aiProviderService         сервис переключения провайдера ИИ
+     * @param questionGeneratorService  сервис генерации вопросов
+     * @param questionBankRepository    репозиторий банка вопросов
+     * @param sessionRepository         репозиторий сессий оценки
+     */
     public AdminController(CompetencyRepository competencyRepository,
                            CriteriaRepository criteriaRepository,
                            CriteriaLevelRepository criteriaLevelRepository,
@@ -60,16 +82,33 @@ public class AdminController {
         this.sessionRepository = sessionRepository;
     }
 
+    /**
+     * Создает новую компетенцию.
+     *
+     * @param competency данные компетенции из тела запроса
+     * @return созданная компетенция с HTTP 201
+     */
     @PostMapping("/competencies")
     public ResponseEntity<Competency> createCompetency(@RequestBody Competency competency) {
         return ResponseEntity.status(HttpStatus.CREATED).body(competencyRepository.save(competency));
     }
 
+    /**
+     * Возвращает список всех компетенций.
+     *
+     * @return список компетенций с HTTP 200
+     */
     @GetMapping("/competencies")
     public ResponseEntity<List<Competency>> listCompetencies() {
         return ResponseEntity.ok(competencyRepository.findAll());
     }
 
+    /**
+     * Возвращает компетенцию по идентификатору.
+     *
+     * @param id идентификатор компетенции
+     * @return компетенция с HTTP 200 или HTTP 404, если не найдена
+     */
     @GetMapping("/competencies/{id}")
     public ResponseEntity<Competency> getCompetency(@PathVariable UUID id) {
         return competencyRepository.findById(id)
@@ -77,6 +116,13 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Обновляет название и описание компетенции.
+     *
+     * @param id      идентификатор обновляемой компетенции
+     * @param updated новые данные компетенции из тела запроса
+     * @return обновленная компетенция с HTTP 200 или HTTP 404
+     */
     @PutMapping("/competencies/{id}")
     public ResponseEntity<Competency> updateCompetency(@PathVariable UUID id, @RequestBody Competency updated) {
         return competencyRepository.findById(id)
@@ -88,12 +134,25 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет компетенцию по идентификатору.
+     *
+     * @param id идентификатор удаляемой компетенции
+     * @return HTTP 204 при успешном удалении
+     */
     @DeleteMapping("/competencies/{id}")
     public ResponseEntity<Void> deleteCompetency(@PathVariable UUID id) {
         competencyRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Создает критерий внутри указанной компетенции.
+     *
+     * @param competencyId идентификатор компетенции
+     * @param criteria     данные критерия из тела запроса
+     * @return созданный критерий с HTTP 201 или HTTP 404, если компетенция не найдена
+     */
     @PostMapping("/competencies/{competencyId}/criteria")
     public ResponseEntity<Criteria> createCriteria(@PathVariable UUID competencyId, @RequestBody Criteria criteria) {
         return competencyRepository.findById(competencyId)
@@ -104,11 +163,24 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Возвращает список критериев для указанной компетенции.
+     *
+     * @param competencyId идентификатор компетенции
+     * @return список критериев с HTTP 200
+     */
     @GetMapping("/competencies/{competencyId}/criteria")
     public ResponseEntity<List<Criteria>> listCriteria(@PathVariable UUID competencyId) {
         return ResponseEntity.ok(criteriaRepository.findByCompetencyId(competencyId));
     }
 
+    /**
+     * Обновляет название, описание и вес критерия.
+     *
+     * @param id      идентификатор обновляемого критерия
+     * @param updated новые данные критерия из тела запроса
+     * @return обновленный критерий с HTTP 200 или HTTP 404
+     */
     @PutMapping("/criteria/{id}")
     public ResponseEntity<Criteria> updateCriteria(@PathVariable UUID id, @RequestBody Criteria updated) {
         return criteriaRepository.findById(id)
@@ -121,12 +193,25 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет критерий по идентификатору.
+     *
+     * @param id идентификатор удаляемого критерия
+     * @return HTTP 204 при успешном удалении
+     */
     @DeleteMapping("/criteria/{id}")
     public ResponseEntity<Void> deleteCriteria(@PathVariable UUID id) {
         criteriaRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Создает уровень требований для указанного критерия.
+     *
+     * @param criteriaId идентификатор критерия
+     * @param level      данные уровня из тела запроса
+     * @return созданный уровень с HTTP 201 или HTTP 404, если критерий не найден
+     */
     @PostMapping("/criteria/{criteriaId}/levels")
     public ResponseEntity<CriteriaLevel> createLevel(@PathVariable UUID criteriaId, @RequestBody CriteriaLevel level) {
         return criteriaRepository.findById(criteriaId)
@@ -137,11 +222,24 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Возвращает список уровней требований для указанного критерия.
+     *
+     * @param criteriaId идентификатор критерия
+     * @return список уровней с HTTP 200
+     */
     @GetMapping("/criteria/{criteriaId}/levels")
     public ResponseEntity<List<CriteriaLevel>> listLevels(@PathVariable UUID criteriaId) {
         return ResponseEntity.ok(criteriaLevelRepository.findByCriteriaId(criteriaId));
     }
 
+    /**
+     * Обновляет уровень и требования уровня критерия.
+     *
+     * @param id      идентификатор обновляемого уровня
+     * @param updated новые данные уровня из тела запроса
+     * @return обновленный уровень с HTTP 200 или HTTP 404
+     */
     @PutMapping("/criteria/levels/{id}")
     public ResponseEntity<CriteriaLevel> updateLevel(@PathVariable UUID id, @RequestBody CriteriaLevel updated) {
         return criteriaLevelRepository.findById(id)
@@ -153,6 +251,12 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет уровень требований по идентификатору.
+     *
+     * @param id идентификатор удаляемого уровня
+     * @return HTTP 204 при успешном удалении
+     */
     @DeleteMapping("/criteria/levels/{id}")
     public ResponseEntity<Void> deleteLevel(@PathVariable UUID id) {
         criteriaLevelRepository.deleteById(id);
@@ -161,6 +265,13 @@ public class AdminController {
 
     // ---- Sections ----
 
+    /**
+     * Создает раздел внутри указанной компетенции.
+     *
+     * @param competencyId идентификатор компетенции
+     * @param section      данные раздела из тела запроса
+     * @return созданный раздел с HTTP 201 или HTTP 404, если компетенция не найдена
+     */
     @PostMapping("/competencies/{competencyId}/sections")
     public ResponseEntity<Section> createSection(@PathVariable UUID competencyId, @RequestBody Section section) {
         return competencyRepository.findById(competencyId)
@@ -171,11 +282,24 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Возвращает список разделов для указанной компетенции.
+     *
+     * @param competencyId идентификатор компетенции
+     * @return список разделов с HTTP 200
+     */
     @GetMapping("/competencies/{competencyId}/sections")
     public ResponseEntity<List<Section>> listSections(@PathVariable UUID competencyId) {
         return ResponseEntity.ok(sectionRepository.findByCompetencyId(competencyId));
     }
 
+    /**
+     * Обновляет название, описание и порядок сортировки раздела.
+     *
+     * @param id      идентификатор обновляемого раздела
+     * @param updated новые данные раздела из тела запроса
+     * @return обновленный раздел с HTTP 200 или HTTP 404
+     */
     @PutMapping("/sections/{id}")
     public ResponseEntity<Section> updateSection(@PathVariable UUID id, @RequestBody Section updated) {
         return sectionRepository.findById(id)
@@ -188,6 +312,12 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет раздел по идентификатору.
+     *
+     * @param id идентификатор удаляемого раздела
+     * @return HTTP 204 при успешном удалении
+     */
     @DeleteMapping("/sections/{id}")
     public ResponseEntity<Void> deleteSection(@PathVariable UUID id) {
         sectionRepository.deleteById(id);
@@ -196,6 +326,13 @@ public class AdminController {
 
     // ---- Topics ----
 
+    /**
+     * Создает тему внутри указанного раздела.
+     *
+     * @param sectionId идентификатор раздела
+     * @param topic     данные темы из тела запроса
+     * @return созданная тема с HTTP 201 или HTTP 404, если раздел не найден
+     */
     @PostMapping("/sections/{sectionId}/topics")
     public ResponseEntity<Topic> createTopic(@PathVariable UUID sectionId, @RequestBody Topic topic) {
         return sectionRepository.findById(sectionId)
@@ -206,11 +343,24 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Возвращает список тем для указанного раздела.
+     *
+     * @param sectionId идентификатор раздела
+     * @return список тем с HTTP 200
+     */
     @GetMapping("/sections/{sectionId}/topics")
     public ResponseEntity<List<Topic>> listTopics(@PathVariable UUID sectionId) {
         return ResponseEntity.ok(topicRepository.findBySectionId(sectionId));
     }
 
+    /**
+     * Обновляет название, описание, вес и порядок сортировки темы.
+     *
+     * @param id      идентификатор обновляемой темы
+     * @param updated новые данные темы из тела запроса
+     * @return обновленная тема с HTTP 200 или HTTP 404
+     */
     @PutMapping("/topics/{id}")
     public ResponseEntity<Topic> updateTopic(@PathVariable UUID id, @RequestBody Topic updated) {
         return topicRepository.findById(id)
@@ -224,6 +374,12 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет тему по идентификатору.
+     *
+     * @param id идентификатор удаляемой темы
+     * @return HTTP 204 при успешном удалении
+     */
     @DeleteMapping("/topics/{id}")
     public ResponseEntity<Void> deleteTopic(@PathVariable UUID id) {
         topicRepository.deleteById(id);
@@ -232,6 +388,16 @@ public class AdminController {
 
     // ---- Topic Question Bank ----
 
+    /**
+     * Генерирует вопросы для указанной темы с помощью ИИ и сохраняет их в банк вопросов.
+     *
+     * @param topicId идентификатор темы
+     * @param body    тело запроса с полями {@code count} (количество, 1–10) и {@code difficulty} (ALL, JUNIOR, MIDDLE, SENIOR)
+     * @return список сгенерированных вопросов с HTTP 200,
+     *         HTTP 404 если тема не найдена,
+     *         HTTP 400 при неверных параметрах,
+     *         HTTP 503 при ошибке генерации
+     */
     @PostMapping("/topics/{topicId}/questions/generate")
     public ResponseEntity<?> generateTopicQuestions(@PathVariable UUID topicId,
                                                      @RequestBody Map<String, Object> body) {
@@ -266,11 +432,24 @@ public class AdminController {
         }
     }
 
+    /**
+     * Возвращает список вопросов банка для указанной темы, отсортированных по порядку.
+     *
+     * @param topicId идентификатор темы
+     * @return список вопросов с HTTP 200
+     */
     @GetMapping("/topics/{topicId}/questions")
     public ResponseEntity<List<QuestionBank>> listTopicQuestions(@PathVariable UUID topicId) {
         return ResponseEntity.ok(questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId));
     }
 
+    /**
+     * Переупорядочивает вопросы банка для указанной темы.
+     *
+     * @param topicId   идентификатор темы
+     * @param orderedIds список идентификаторов вопросов в новом порядке
+     * @return HTTP 204 при успешном обновлении
+     */
     @PutMapping("/topics/{topicId}/questions/reorder")
     public ResponseEntity<Void> reorderTopicQuestions(@PathVariable UUID topicId,
                                                       @RequestBody List<UUID> orderedIds) {
@@ -287,6 +466,12 @@ public class AdminController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Создает нового сотрудника. При указании компетенции разрешает ее по идентификатору.
+     *
+     * @param employee данные сотрудника из тела запроса
+     * @return созданный сотрудник с HTTP 201
+     */
     @PostMapping("/employees")
     public ResponseEntity<Employee> createEmployee(@RequestBody Employee employee) {
         // Resolve competency from ID if provided
@@ -300,11 +485,22 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(employeeRepository.save(employee));
     }
 
+    /**
+     * Возвращает список всех сотрудников, отсортированных по дате создания.
+     *
+     * @return список сотрудников с HTTP 200
+     */
     @GetMapping("/employees")
     public ResponseEntity<List<Employee>> listEmployees() {
         return ResponseEntity.ok(employeeRepository.findAllByOrderByCreatedAtAsc());
     }
 
+    /**
+     * Возвращает сотрудника по идентификатору.
+     *
+     * @param id идентификатор сотрудника
+     * @return сотрудник с HTTP 200 или HTTP 404, если не найден
+     */
     @GetMapping("/employees/{id}")
     public ResponseEntity<Employee> getEmployee(@PathVariable UUID id) {
         return employeeRepository.findById(id)
@@ -312,6 +508,13 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Обновляет данные сотрудника, включая ФИО, должность, отдел и компетенцию.
+     *
+     * @param id      идентификатор обновляемого сотрудника
+     * @param updated новые данные сотрудника из тела запроса
+     * @return обновленный сотрудник с HTTP 200 или HTTP 404
+     */
     @PutMapping("/employees/{id}")
     public ResponseEntity<Employee> updateEmployee(@PathVariable UUID id, @RequestBody Employee updated) {
         return employeeRepository.findById(id)
@@ -332,6 +535,13 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет сотрудника вместе с его пригласительными токенами и сессиями.
+     * Сессии каскадно удаляют попытки ответов через JPA CascadeType.ALL.
+     *
+     * @param id идентификатор удаляемого сотрудника
+     * @return HTTP 204 при успешном удалении или HTTP 404
+     */
     @Transactional
     @DeleteMapping("/employees/{id}")
     public ResponseEntity<Void> deleteEmployee(@PathVariable UUID id) {
@@ -350,6 +560,13 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Генерирует одноразовую пригласительную ссылку для сотрудника.
+     * Удаляет предыдущие токены этого сотрудника, чтобы избежать нарушения уникального ограничения.
+     *
+     * @param employeeId идентификатор сотрудника
+     * @return пригласительный URL с HTTP 200 или HTTP 404, если сотрудник не найден
+     */
     @Transactional
     @PostMapping("/employees/{employeeId}/invite")
     public ResponseEntity<String> generateInviteLink(@PathVariable UUID employeeId) {
@@ -374,11 +591,21 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Возвращает список всех выданных пригласительных токенов.
+     *
+     * @return список токенов с HTTP 200
+     */
     @GetMapping("/tokens")
     public ResponseEntity<List<AssessmentInviteToken>> listTokens() {
         return ResponseEntity.ok(tokenRepository.findAll());
     }
 
+    /**
+     * Возвращает текущие настройки провайдера ИИ и список доступных провайдеров.
+     *
+     * @return карта с полями {@code activeProvider} и {@code availableProviders} с HTTP 200
+     */
     @GetMapping("/settings/ai")
     public ResponseEntity<Map<String, Object>> getAiSettings() {
         String activeProvider = aiProviderService.getActiveProvider();
@@ -388,6 +615,12 @@ public class AdminController {
         return ResponseEntity.ok(settings);
     }
 
+    /**
+     * Обновляет активного провайдера ИИ.
+     *
+     * @param body тело запроса с полем {@code activeProvider}
+     * @return обновленные настройки с HTTP 200 или HTTP 400 при отсутствии провайдера
+     */
     @PutMapping("/settings/ai")
     public ResponseEntity<Map<String, Object>> updateAiSettings(@RequestBody Map<String, String> body) {
         String provider = body.get("activeProvider");
@@ -398,6 +631,11 @@ public class AdminController {
         return getAiSettings();
     }
 
+    /**
+     * Возвращает сохраненные API-ключи для провайдеров ИИ.
+     *
+     * @return карта с ключами {@code geminiApiKey} и {@code gigachatApiKey} с HTTP 200
+     */
     @GetMapping("/settings/ai/keys")
     public ResponseEntity<Map<String, String>> getAiKeys() {
         Map<String, String> keys = new java.util.HashMap<>();
@@ -406,6 +644,12 @@ public class AdminController {
         return ResponseEntity.ok(keys);
     }
 
+    /**
+     * Обновляет API-ключи для провайдеров ИИ.
+     *
+     * @param body тело запроса с полями {@code geminiApiKey} и/или {@code gigachatApiKey}
+     * @return обновленные ключи с HTTP 200
+     */
     @PutMapping("/settings/ai/keys")
     public ResponseEntity<Map<String, String>> updateAiKeys(@RequestBody Map<String, String> body) {
         String geminiKey = body.get("geminiApiKey");
@@ -421,8 +665,19 @@ public class AdminController {
 
     // ---- Question Bank ----
 
+    /** Допустимые значения сложности для генерации вопросов. */
     private static final Set<String> VALID_DIFFICULTIES = Set.of("ALL", "JUNIOR", "MIDDLE", "SENIOR");
 
+    /**
+     * Генерирует вопросы для всех тем указанной компетенции с помощью ИИ.
+     *
+     * @param competencyId идентификатор компетенции
+     * @param body         тело запроса с полями {@code count} (количество, 1–10) и {@code difficulty} (ALL, JUNIOR, MIDDLE, SENIOR)
+     * @return список сгенерированных вопросов с HTTP 200,
+     *         HTTP 404 если компетенция не найдена,
+     *         HTTP 400 при неверных параметрах,
+     *         HTTP 503 при ошибке генерации
+     */
     @PostMapping("/competencies/{competencyId}/questions/generate")
     public ResponseEntity<?> generateQuestions(@PathVariable UUID competencyId,
                                                @RequestBody Map<String, Object> body) {
@@ -457,11 +712,24 @@ public class AdminController {
         }
     }
 
+    /**
+     * Возвращает список вопросов банка для указанной компетенции, отсортированных по дате создания.
+     *
+     * @param competencyId идентификатор компетенции
+     * @return список вопросов с HTTP 200
+     */
     @GetMapping("/competencies/{competencyId}/questions")
     public ResponseEntity<List<QuestionBank>> listQuestions(@PathVariable UUID competencyId) {
         return ResponseEntity.ok(questionBankRepository.findByCompetencyIdOrderByCreatedAtDesc(competencyId));
     }
 
+    /**
+     * Обновляет текст вопроса в банке вопросов.
+     *
+     * @param id   идентификатор вопроса
+     * @param body тело запроса с полем {@code questionText}
+     * @return обновленный вопрос с HTTP 200, HTTP 404 если не найден, или HTTP 400 при пустом тексте
+     */
     @PutMapping("/questions/{id}")
     public ResponseEntity<?> updateQuestion(@PathVariable UUID id, @RequestBody Map<String, String> body) {
         String questionText = body.get("questionText");
@@ -476,6 +744,12 @@ public class AdminController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Удаляет вопрос из банка вопросов по идентификатору.
+     *
+     * @param id идентификатор удаляемого вопроса
+     * @return HTTP 204 при успешном удалении
+     */
     @DeleteMapping("/questions/{id}")
     public ResponseEntity<Void> deleteQuestion(@PathVariable UUID id) {
         questionBankRepository.deleteById(id);

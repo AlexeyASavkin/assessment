@@ -1,10 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
+/**
+ * Событие распознавания речи от Web Speech API.
+ * Содержит список результатов распознавания и индекс текущего результата.
+ */
 interface SpeechRecognitionEvent extends Event {
   results: SpeechRecognitionResultList
   resultIndex: number
 }
 
+/**
+ * Интерфейс экземпляра Web Speech Recognition.
+ * Описывает свойства и методы для управления распознаванием речи.
+ */
 interface SpeechRecognitionInstance extends EventTarget {
   continuous: boolean
   interimResults: boolean
@@ -23,6 +31,12 @@ declare global {
   }
 }
 
+/**
+ * Хук для работы с Web Speech API (распознавание речи).
+ * Работает только в Google Chrome. Возвращает состояние записи,
+ * промежуточный и финальный транскрипт, а также функции управления.
+ * @return объект с состоянием распознавания и функциями управления
+ */
 export function useSpeechRecognition() {
   const [isRecording, setIsRecording] = useState(false)
   const [interimTranscript, setInterimTranscript] = useState('')

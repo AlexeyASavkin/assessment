@@ -11,6 +11,9 @@ import {
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/**
+ * Состояние формы генерации вопросов через ИИ.
+ */
 interface GenFormState {
   count: string
   difficulty: string
@@ -18,6 +21,10 @@ interface GenFormState {
 
 const emptyForm: GenFormState = { count: '3', difficulty: 'ALL' }
 
+/**
+ * Страница управления банком вопросов компетенции.
+ * Позволяет просматривать вопросы, генерировать новые через ИИ, редактировать текст и удалять вопросы.
+ */
 export default function QuestionsPage() {
   const { competencyId } = useParams<{ competencyId: string }>()
   const navigate = useNavigate()
@@ -32,6 +39,9 @@ export default function QuestionsPage() {
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
 
+/**
+   * Загружает список вопросов и информацию о компетенции.
+   */
   const load = async () => {
     if (!competencyId) return
     setIsLoading(true)
@@ -60,6 +70,9 @@ export default function QuestionsPage() {
     return () => clearTimeout(timer)
   }, [success])
 
+/**
+   * Генерирует новые вопросы через ИИ на основе выбранных параметров и обновляет список.
+   */
   const handleGenerate = async (e: FormEvent) => {
     e.preventDefault()
     if (!competencyId) return
@@ -78,16 +91,25 @@ export default function QuestionsPage() {
     }
   }
 
+/**
+   * Переключает выбранный вопрос в режим редактирования.
+   */
   const startEdit = (item: QuestionBankItem) => {
     setEditingId(item.id)
     setEditText(item.questionText)
   }
 
+/**
+   * Отменяет режим редактирования вопроса и сбрасывает изменённый текст.
+   */
   const cancelEdit = () => {
     setEditingId(null)
     setEditText('')
   }
 
+/**
+   * Сохраняет отредактированный текст вопроса и обновляет список.
+   */
   const handleSaveEdit = async (id: string) => {
     setSaving(true)
     setError(null)
@@ -102,6 +124,9 @@ export default function QuestionsPage() {
     }
   }
 
+/**
+   * Удаляет вопрос из банка после подтверждения и обновляет список.
+   */
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить вопрос?')) return
     try {

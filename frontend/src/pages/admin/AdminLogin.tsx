@@ -3,6 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { adminLogin } from '../../api/admin'
 import { useAuth } from '../../context/AuthContext'
 
+/**
+ * Страница входа администратора.
+ * Форма с логином и паролем. После успешной авторизации перенаправляет на панель администратора.
+ */
 export default function AdminLogin() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -14,6 +18,10 @@ export default function AdminLogin() {
 
   const from = (location.state as { from?: string } | null)?.from || '/admin'
 
+/**
+   * Обрабатывает отправку формы входа.
+   * Вызывает API авторизации, обновляет состояние аутентификации и перенаправляет администратора.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)

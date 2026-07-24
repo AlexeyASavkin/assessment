@@ -1,5 +1,8 @@
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 
+/**
+ * Пропсы компонента отображения вопроса.
+ */
 interface QuestionDisplayProps {
   questionText: string
   isFollowUp: boolean
@@ -7,6 +10,14 @@ interface QuestionDisplayProps {
   isLoading: boolean
 }
 
+/**
+ * Компонент отображения вопроса для сотрудника.
+ * Показывает текст вопроса, индикатор уточняющего вопроса,
+ * кнопки голосового ввода, текстовое поле для редактирования транскрипта
+ * и кнопку отправки ответа.
+ * @param props - пропсы компонента
+ * @return JSX-элемент с интерфейсом ответа на вопрос
+ */
 export default function QuestionDisplay({ questionText, isFollowUp, onSubmit, isLoading }: QuestionDisplayProps) {
   const {
     isRecording,

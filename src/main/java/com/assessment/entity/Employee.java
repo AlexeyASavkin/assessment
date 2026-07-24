@@ -11,6 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Сотрудник, проходящий оценку компетенций через голосовое интервью.
+ * Каждый сотрудник может иметь несколько сессий оценки и привязан к одной компетенции.
+ */
 @Entity
 @Table(name = "employees")
 @Data
@@ -24,18 +28,23 @@ public class Employee {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** ФИО сотрудника. */
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    /** Должность сотрудника. */
     private String position;
 
+    /** Отдел или подразделение, в котором работает сотрудник. */
     private String department;
 
+    /** Компетенция, по которой проводится оценка сотрудника. */
     @ManyToOne
     @JoinColumn(name = "competency_id")
     @JsonIgnoreProperties({"sections", "questionBanks"})
     private Competency competency;
 
+    /** Список сессий оценки, связанных с сотрудником. */
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL)
     @Builder.Default
     private List<Session> sessions = new ArrayList<>();

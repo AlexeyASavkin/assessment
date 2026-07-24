@@ -9,6 +9,11 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Уровень критерия оценки.
+ * Описывает требования для конкретного уровня владения критерием
+ * (например, "Начинающий", "Продвинутый", "Эксперт").
+ */
 @Entity
 @Table(name = "criteria_levels")
 @Data
@@ -21,14 +26,17 @@ public class CriteriaLevel {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Критерий, к которому относится уровень. */
     @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "criteria_id", nullable = false)
     private Criteria criteria;
 
+    /** Название уровня (например, JUNIOR, MIDDLE, SENIOR). */
     @Column(nullable = false)
     private String level;
 
+    /** Описание требований для достижения данного уровня. */
     @Column(nullable = false)
     private String requirements;
 

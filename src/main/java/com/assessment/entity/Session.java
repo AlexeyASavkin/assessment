@@ -10,6 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Сессия оценки компетенций.
+ * Один сотрудник может иметь несколько сессий, каждая из которых содержит
+ * последовательность вопросов и попыток ответа.
+ */
 @Entity
 @Table(name = "sessions")
 @Data
@@ -22,17 +27,21 @@ public class Session {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Сотрудник, проходящий оценку в рамках этой сессии. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
+    /** Текущий статус сессии (например, ACTIVE или COMPLETED). */
     @Column(nullable = false)
     @Builder.Default
     private String status = "ACTIVE";
 
+    /** Идентификатор текущего вопроса в сессии. */
     @Column(name = "current_question_id")
     private UUID currentQuestionId;
 
+    /** Список попыток ответа на вопросы в рамках сессии. */
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<QuestionAttempt> attempts = new ArrayList<>();

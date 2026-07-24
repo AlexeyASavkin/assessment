@@ -14,6 +14,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * REST-контроллер для операций сотрудника.
+ * Обрабатывает все запросы по пути {@code /api/employee} и требует
+ * валидной сессионной cookie {@code SESSION_EMPLOYEE}.
+ * Управляет прохождением оценки: получение вопросов, отправка ответов,
+ * оценка через ИИ и формирование итогового отчета.
+ */
 @RestController
 @RequestMapping("/api/employee")
 public class EmployeeController {
@@ -26,6 +33,17 @@ public class EmployeeController {
     private final TopicRepository topicRepository;
     private final ReportService reportService;
 
+    /**
+     * Конструктор с внедрением зависимостей сервисов и репозиториев.
+     *
+     * @param tokenService               сервис валидации токенов и сессий сотрудника
+     * @param sessionRepository          репозиторий сессий оценки
+     * @param scoringService             сервис оценки ответов через ИИ
+     * @param questionAttemptRepository  репозиторий попыток ответов
+     * @param questionBankRepository     репозиторий банка вопросов
+     * @param topicRepository            репозиторий тем
+     * @param reportService              сервис генерации отчетов
+     */
     public EmployeeController(EmployeeTokenService tokenService,
                               SessionRepository sessionRepository,
                               ScoringService scoringService,
@@ -42,6 +60,16 @@ public class EmployeeController {
         this.reportService = reportService;
     }
 
+    /**
+     * Обрабатывает пригласительную ссылку сотрудника.
+     * Проверяет HMAC-подпись токена, создает сессию, устанавливает cookie
+     * и перенаправляет на страницу сессии или отчета, если сессия уже завершена.
+     *
+     * @param token    пригласительный токен из пути
+     * @param request  HTTP-запрос
+     * @param response HTTP-ответ для установки cookie и редиректа
+     * @return HTTP 302 с заголовком {@code Location} или HTTP 403 при невалидном токене
+     */
     @GetMapping("/invite/{token}")
     public ResponseEntity<Void> handleInvite(@PathVariable String token,
                                               HttpServletRequest request,
@@ -65,6 +93,14 @@ public class EmployeeController {
                 .build();
     }
 
+    /**
+     * Возвращает текущую сессию сотрудника по cookie.
+     * Если cookie отсутствует или невалидна, возвращает HTTP 401.
+     *
+     * @param cookieValue значение cookie SESSION_EMPLOYEE
+     * @param request     HTTP-запрос для валидации сессии
+     * @return текущая сессия с HTTP 200 или HTTP 401
+     */
     @PostMapping("/sessions")
     public ResponseEntity<Session> createSession(@CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
                                                   HttpServletRequest request) {
@@ -75,6 +111,17 @@ public class EmployeeController {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
+    /**
+     * Возвращает текущий вопрос для сессии или создает новый, если все еще нет.
+     * Если сессия завершена, возвращает признак завершения.
+     * Вопросы фильтруются по компетенции сотрудника.
+     *
+     * @param sessionId   идентификатор сессии
+     * @param cookieValue значение cookie SESSION_EMPLOYEE
+     * @param request     HTTP-запрос для валидации сессии
+     * @return карта с данными вопроса и HTTP 200, HTTP 401 при несоответствии сессии,
+     *         или признак завершения оценки
+     */
     @GetMapping("/sessions/{sessionId}/questions")
     public ResponseEntity<Map<String, Object>> getCurrentQuestion(@PathVariable UUID sessionId,
                                                                    @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
@@ -134,6 +181,13 @@ public class EmployeeController {
         return buildQuestionResponse(attempt);
     }
 
+    /**
+     * Формирует ответ с данными текущего вопроса для фронтенда.
+     *
+     * @param attempt попытка ответа с вопросом
+     * @return карта с полями {@code questionId}, {@code questionText}, {@code topicId},
+     *         {@code isFollowUp} и {@code followupParentId} с HTTP 200
+     */
     private ResponseEntity<Map<String, Object>> buildQuestionResponse(QuestionAttempt attempt) {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("questionId", attempt.getId());
@@ -146,6 +200,16 @@ public class EmployeeController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Принимает ответ сотрудника, оценивает его через ИИ и возвращает следующий вопрос
+     * или признак завершения сессии. Если все темы пройдены, сессия переходит в статус COMPLETED.
+     *
+     * @param sessionId   идентификатор сессии
+     * @param answer      тело запроса с полями {@code questionAttemptId}, {@code rawTranscript}, {@code finalTranscript}
+     * @param cookieValue значение cookie SESSION_EMPLOYEE
+     * @param request     HTTP-запрос для валидации сессии
+     * @return карта с данными следующего вопроса и HTTP 200, или HTTP 401 при несоответствии сессии
+     */
     @PostMapping("/sessions/{sessionId}/answers")
     public ResponseEntity<Map<String, Object>> submitAnswer(@PathVariable UUID sessionId,
                                                              @RequestBody Map<String, String> answer,
@@ -227,10 +291,19 @@ public class EmployeeController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Возвращает итоговый отчет по завершенной сессии оценки.
+     *
+     * @param sessionId   идентификатор сессии
+     * @param cookieValue значение cookie SESSION_EMPLOYEE
+     * @param request     HTTP-запрос для валидации сессии
+     * @return отчет с HTTP 200, HTTP 401 при несоответствии сессии,
+     *         или HTTP 403 если сессия еще не завершена
+     */
     @GetMapping("/sessions/{sessionId}/report")
     public ResponseEntity<Map<String, Object>> getReport(@PathVariable UUID sessionId,
-                                                         @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
-                                                         HttpServletRequest request) {
+                                                          @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                                          HttpServletRequest request) {
         Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -247,9 +320,15 @@ public class EmployeeController {
     }
 
     /**
-     * Pick a question from the admin-generated question bank for the given topic.
-     * Returns the first question that hasn't been used yet in this session.
-     * Throws if no questions exist in the bank for the topic.
+     * Выбирает вопрос из банка вопросов администратора для указанной темы.
+     * Возвращает первый вопрос, который еще не использовался в текущей сессии.
+     * Выбрасывает исключение, если для темы нет сгенерированных вопросов
+     * или все вопросы уже использованы.
+     *
+     * @param topicId         идентификатор темы
+     * @param sessionAttempts список уже заданных вопросов в сессии
+     * @return текст выбранного вопроса
+     * @throws IllegalStateException если вопросы для темы отсутствуют или исчерпаны
      */
     private String pickQuestionFromBank(UUID topicId, List<QuestionAttempt> sessionAttempts) {
         List<QuestionBank> bankQuestions = questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId);
@@ -275,9 +354,14 @@ public class EmployeeController {
     }
 
     /**
-     * A topic is considered "answered" only when an attempt exists for it that the employee
-     * actually answered (non-empty final_transcript). Unanswered attempts do not consume a topic,
-     * so reloads / StrictMode double-calls never mark the session completed prematurely.
+     * Определяет следующую непройденную тему для сессии.
+     * Тема считается пройденной только если существует попытка с непустым {@code finalTranscript}.
+     * Неотвеченные попытки не расходуют тему, поэтому перезагрузки страницы
+     * или двойные вызовы StrictMode не завершают сессию преждевременно.
+     *
+     * @param attempts список всех попыток в сессии
+     * @param allTopics список всех доступных тем
+     * @return идентификатор следующей темы или {@code null}, если все темы пройдены
      */
     private UUID findNextTopicId(List<QuestionAttempt> attempts, List<Topic> allTopics) {
         Set<UUID> answeredTopicIds = attempts.stream()

@@ -11,18 +11,35 @@ import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Сервис формирования итоговых отчетов по сессиям оценки.
+ * Агрегирует оценки по компетенциям, определяет уровень сотрудника и формирует рекомендации.
+ */
 @Service
 public class ReportService {
 
     private final QuestionAttemptRepository questionAttemptRepository;
     private final SessionRepository sessionRepository;
 
+    /**
+     * Конструктор сервиса формирования отчетов.
+     *
+     * @param questionAttemptRepository репозиторий попыток ответов
+     * @param sessionRepository         репозиторий сессий оценки
+     */
     public ReportService(QuestionAttemptRepository questionAttemptRepository,
                          SessionRepository sessionRepository) {
         this.questionAttemptRepository = questionAttemptRepository;
         this.sessionRepository = sessionRepository;
     }
 
+    /**
+     * Формирует полный отчет по сессии оценки.
+     * Включает оценки по темам, достигнутые уровни, уточняющие вопросы и общую рекомендацию.
+     *
+     * @param sessionId идентификатор сессии
+     * @return карта с данными отчета
+     */
     public Map<String, Object> generateReport(UUID sessionId) {
         Session session = sessionRepository.findById(sessionId).orElseThrow();
         List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
@@ -96,6 +113,12 @@ public class ReportService {
         return report;
     }
 
+    /**
+     * Определяет уровень компетенции на основе среднего балла.
+     *
+     * @param avgScore средний балл по критерию или компетенции
+     * @return уровень: SENIOR, MIDDLE или JUNIOR
+     */
     private String determineLevel(BigDecimal avgScore) {
         if (avgScore.compareTo(new BigDecimal("4.3")) >= 0) {
             return "SENIOR";
@@ -106,6 +129,13 @@ public class ReportService {
         }
     }
 
+    /**
+     * Формирует общую рекомендацию по результатам оценки на основе композитного уровня.
+     *
+     * @param compositeLevel      итоговый уровень сотрудника
+     * @param competencyReports   список отчетов по компетенциям
+     * @return текст общей рекомендации
+     */
     private String generateOverallRecommendation(String compositeLevel, List<Map<String, Object>> competencyReports) {
         return switch (compositeLevel) {
             case "SENIOR" -> "Сотрудник демонстрирует высокий уровень компетенций. Рекомендуется к повышению.";

@@ -11,6 +11,9 @@ import {
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/**
+ * Состояние формы создания и редактирования сотрудника.
+ */
 interface FormState {
   fullName: string
   position: string
@@ -20,6 +23,10 @@ interface FormState {
 
 const emptyForm: FormState = { fullName: '', position: '', department: '', competencyId: null }
 
+/**
+ * Страница управления сотрудниками (заявками).
+ * Позволяет создавать, редактировать и удалять сотрудников, выбирать компетенцию для ассессмента и генерировать пригласительные ссылки.
+ */
 export default function EmployeesPage() {
   const [items, setItems] = useState<Employee[]>([])
   const [competencies, setCompetencies] = useState<Competency[]>([])
@@ -33,6 +40,9 @@ export default function EmployeesPage() {
   const [generating, setGenerating] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
+/**
+   * Загружает список сотрудников и доступных компетенций.
+   */
   const load = async () => {
     setIsLoading(true)
     setError(null)
@@ -51,11 +61,17 @@ export default function EmployeesPage() {
     load()
   }, [])
 
+/**
+   * Сбрасывает форму в начальное состояние и отменяет режим редактирования.
+   */
   const resetForm = () => {
     setForm(emptyForm)
     setEditingId(null)
   }
 
+/**
+   * Создаёт нового сотрудника или обновляет существующего, затем перезагружает список.
+   */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
@@ -75,6 +91,9 @@ export default function EmployeesPage() {
     }
   }
 
+/**
+   * Переключает форму в режим редактирования выбранного сотрудника.
+   */
   const handleEdit = (item: Employee) => {
     setEditingId(item.id)
     setForm({
@@ -85,6 +104,9 @@ export default function EmployeesPage() {
     })
   }
 
+/**
+   * Генерирует одноразовую пригласительную ссылку для выбранного сотрудника.
+   */
   const handleGenerateInvite = async (employee: Employee) => {
     setGenerating(employee.id)
     setError(null)
@@ -102,6 +124,9 @@ export default function EmployeesPage() {
     }
   }
 
+/**
+   * Удаляет сотрудника после подтверждения и обновляет список.
+   */
   const handleDelete = async (employee: Employee) => {
     if (!confirm(`Удалить сотрудника ${employee.fullName}? Это действие необратимо.`)) return
     setError(null)
@@ -113,6 +138,9 @@ export default function EmployeesPage() {
     }
   }
 
+/**
+   * Копирует пригласительную ссылку в буфер обмена.
+   */
   const handleCopy = async () => {
     if (!inviteUrl) return
     try {
