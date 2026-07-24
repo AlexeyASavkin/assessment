@@ -46,7 +46,7 @@ export function AdminLayout() {
   const navItems = [
     { to: '/admin', label: 'Дашборд', end: true },
     { to: '/admin/competencies', label: 'Компетенции', end: false },
-    { to: '/admin/employees', label: 'Сотрудники', end: false },
+    { to: '/admin/employees', label: 'Заявки', end: false },
     { to: '/admin/tokens', label: 'Токены', end: false },
     { to: '/admin/settings', label: 'Настройки ИИ', end: false },
   ]
