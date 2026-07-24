@@ -19,6 +19,8 @@ import java.util.UUID;
 @Component
 public class EmployeeTokenService {
 
+    public record InviteResult(Session session, boolean reused) {}
+
     private final AssessmentInviteTokenRepository tokenRepository;
     private final EmployeeRepository employeeRepository;
     private final SessionRepository sessionRepository;
@@ -41,23 +43,42 @@ public class EmployeeTokenService {
         this.tokenExpiryHours = tokenExpiryHours;
     }
 
-    public Optional<Session> validateInviteToken(String token) {
-        return tokenRepository.findByTokenHash(token)
-                .filter(t -> !t.getUsed())
+    public Optional<InviteResult> validateInviteToken(String token) {
+        String hash = hmacValidator.generateToken(token);
+        return tokenRepository.findByTokenHash(hash)
                 .filter(t -> t.getExpiresAt().isAfter(LocalDateTime.now()))
                 .map(tokenEntity -> {
+                    // Token already used — return existing session (reusable link)
+                    if (tokenEntity.getUsed() && tokenEntity.getSession() != null) {
+                        return new InviteResult(tokenEntity.getSession(), true);
+                    }
+
+                    // First use — check if employee already has an existing session (ACTIVE or COMPLETED).
+                    // This handles the case where admin regenerates the invite link (deleting the old token
+                    // that linked to the session) — the employee should see their previous session, not a new one.
                     Employee employee = tokenEntity.getEmployee();
-                    Session session = Session.builder()
-                            .employee(employee)
-                            .build();
-                    session = sessionRepository.save(session);
+                    Optional<Session> existingSession = sessionRepository
+                            .findFirstByEmployeeIdOrderByCreatedAtDesc(employee.getId());
+
+                    Session session;
+                    boolean reused;
+                    if (existingSession.isPresent()) {
+                        session = existingSession.get();
+                        reused = true;
+                    } else {
+                        session = Session.builder()
+                                .employee(employee)
+                                .build();
+                        session = sessionRepository.save(session);
+                        reused = false;
+                    }
 
                     tokenEntity.setUsed(true);
                     tokenEntity.setUsedAt(LocalDateTime.now());
                     tokenEntity.setSession(session);
                     tokenRepository.save(tokenEntity);
 
-                    return session;
+                    return new InviteResult(session, reused);
                 });
     }
 
@@ -81,14 +102,14 @@ public class EmployeeTokenService {
         return Optional.empty();
     }
 
-    public void addSessionCookie(HttpServletResponse response, Session session) {
+    public void addSessionCookie(HttpServletRequest request, HttpServletResponse response, Session session) {
         String signature = hmacValidator.generateToken(session.getId().toString());
         String value = session.getId().toString() + "|" + signature;
 
         Cookie cookie = new Cookie(cookieName, value);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(request.isSecure());
         cookie.setMaxAge(tokenExpiryHours * 3600);
         response.addCookie(cookie);
     }
