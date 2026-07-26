@@ -7,9 +7,12 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Сервис оценки ответов сотрудников с помощью LLM.
@@ -74,6 +77,45 @@ public class ScoringService {
         attempt.setFeedback(parseFeedback(response));
 
         return questionAttemptRepository.save(attempt);
+    }
+
+    /**
+     * Асинхронно оценивает ответ сотрудника в фоновом потоке.
+     * Вызывается во время интервью, чтобы сотрудник не ждал ответа LLM.
+     *
+     * @param attemptId идентификатор попытки ответа (загружается заново из БД в фоновом потоке)
+     */
+    @Async
+    public void scoreAnswerAsync(UUID attemptId) {
+        QuestionAttempt attempt = questionAttemptRepository.findById(attemptId).orElseThrow();
+        if (attempt.getScore() != null) {
+            return; // уже оценено
+        }
+        try {
+            scoreAnswer(attempt);
+        } catch (Exception e) {
+            // Оценка в фоне — логируем, но не прерываем основной поток
+            System.err.println("Async scoring failed for attempt " + attemptId + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * Синхронно оценивает все неоценённые попытки в сессии.
+     * Вызывается при завершении сессии, чтобы гарантировать наличие оценок для отчёта.
+     *
+     * @param sessionId идентификатор сессии
+     */
+    public void scoreUnscoredAttempts(UUID sessionId) {
+        List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        for (QuestionAttempt attempt : allAttempts) {
+            if (attempt.getScore() == null && attempt.getFinalTranscript() != null) {
+                try {
+                    scoreAnswer(attempt);
+                } catch (Exception e) {
+                    System.err.println("Batch scoring failed for attempt " + attempt.getId() + ": " + e.getMessage());
+                }
+            }
+        }
     }
 
     /**
