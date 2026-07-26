@@ -556,7 +556,7 @@ public class AdminController {
         String activeProvider = aiProviderService.getActiveProvider();
         Map<String, Object> settings = new java.util.HashMap<>();
         settings.put("activeProvider", activeProvider);
-        settings.put("availableProviders", java.util.List.of("gemini", "gigachat"));
+        settings.put("availableProviders", java.util.List.of("gemini", "gigachat", "openrouter", "opencode"));
         return ResponseEntity.ok(settings);
     }
 
@@ -574,38 +574,6 @@ public class AdminController {
         }
         aiProviderService.setActiveProvider(provider);
         return getAiSettings();
-    }
-
-    /**
-     * Возвращает сохраненные API-ключи для провайдеров ИИ.
-     *
-     * @return карта с ключами {@code geminiApiKey} и {@code gigachatApiKey} с HTTP 200
-     */
-    @GetMapping("/settings/ai/keys")
-    public ResponseEntity<Map<String, String>> getAiKeys() {
-        Map<String, String> keys = new java.util.HashMap<>();
-        keys.put("geminiApiKey", aiProviderService.getApiKey("gemini"));
-        keys.put("gigachatApiKey", aiProviderService.getApiKey("gigachat"));
-        return ResponseEntity.ok(keys);
-    }
-
-    /**
-     * Обновляет API-ключи для провайдеров ИИ.
-     *
-     * @param body тело запроса с полями {@code geminiApiKey} и/или {@code gigachatApiKey}
-     * @return обновленные ключи с HTTP 200
-     */
-    @PutMapping("/settings/ai/keys")
-    public ResponseEntity<Map<String, String>> updateAiKeys(@RequestBody Map<String, String> body) {
-        String geminiKey = body.get("geminiApiKey");
-        String gigachatKey = body.get("gigachatApiKey");
-        if (geminiKey != null) {
-            aiProviderService.setApiKey("gemini", geminiKey);
-        }
-        if (gigachatKey != null) {
-            aiProviderService.setApiKey("gigachat", gigachatKey);
-        }
-        return getAiKeys();
     }
 
     // ---- Question Bank ----
