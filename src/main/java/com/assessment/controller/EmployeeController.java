@@ -205,7 +205,7 @@ public class EmployeeController {
      * или признак завершения сессии. Если все темы пройдены, сессия переходит в статус COMPLETED.
      *
      * @param sessionId   идентификатор сессии
-     * @param answer      тело запроса с полями {@code questionAttemptId}, {@code rawTranscript}, {@code finalTranscript}
+     * @param answer      тело запроса с полями {@code questionAttemptId}, {@code finalTranscript}
      * @param cookieValue значение cookie SESSION_EMPLOYEE
      * @param request     HTTP-запрос для валидации сессии
      * @return карта с данными следующего вопроса и HTTP 200, или HTTP 401 при несоответствии сессии
@@ -222,22 +222,13 @@ public class EmployeeController {
 
         Session session = sessionOpt.get();
         UUID questionId = UUID.fromString(answer.get("questionAttemptId"));
-        String rawTranscript = answer.get("rawTranscript");
         String finalTranscript = answer.get("finalTranscript");
 
         QuestionAttempt currentAttempt = questionAttemptRepository.findById(questionId).orElseThrow();
 
-        currentAttempt.setRawTranscript(rawTranscript);
         currentAttempt.setFinalTranscript(finalTranscript);
-        questionAttemptRepository.save(currentAttempt);
 
-        scoringService.scoreAnswer(
-                session,
-                currentAttempt.getQuestionText(),
-                finalTranscript,
-                currentAttempt.getFollowupDepth(),
-                currentAttempt.getFollowupParent()
-        );
+        scoringService.scoreAnswer(currentAttempt);
 
         List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
 
@@ -253,7 +244,15 @@ public class EmployeeController {
             topics = topicRepository.findAll();
         }
 
-        UUID nextTopicId = findNextTopicId(allAttempts, topics);
+        // First: check if current topic has unused questions in the bank
+        UUID nextTopicId = null;
+        UUID currentTopicId = currentAttempt.getTopic() != null ? currentAttempt.getTopic().getId() : null;
+        if (currentTopicId != null && hasUnusedQuestions(currentTopicId, allAttempts)) {
+            nextTopicId = currentTopicId;
+        } else {
+            // Current topic exhausted — move to next unanswered topic
+            nextTopicId = findNextTopicId(allAttempts, topics);
+        }
 
         if (nextTopicId == null) {
             session.setStatus("COMPLETED");
@@ -350,6 +349,23 @@ public class EmployeeController {
 
         throw new IllegalStateException(
                 "Все вопросы из банка для темы уже использованы. Администратор должен сгенерировать дополнительные вопросы.");
+    }
+
+    /**
+     * Проверяет, остались ли неиспользованные вопросы в банке для указанной темы.
+     *
+     * @param topicId         идентификатор темы
+     * @param sessionAttempts список попыток ответов в сессии
+     * @return true, если есть хотя бы один вопрос из банка, ещё не заданный в сессии
+     */
+    private boolean hasUnusedQuestions(UUID topicId, List<QuestionAttempt> sessionAttempts) {
+        List<QuestionBank> bankQuestions = questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId);
+        Set<String> usedTexts = sessionAttempts.stream()
+                .filter(a -> a.getTopic() != null && a.getTopic().getId().equals(topicId))
+                .map(QuestionAttempt::getQuestionText)
+                .collect(Collectors.toSet());
+        return bankQuestions.stream()
+                .anyMatch(bq -> !usedTexts.contains(bq.getQuestionText()));
     }
 
     /**
