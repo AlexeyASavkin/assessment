@@ -43,6 +43,14 @@ public class QuestionAttempt {
     @Column(precision = 3, scale = 2)
     private BigDecimal score;
 
+    /**
+     * Базовая оценка — исходный score ДО переоценки после уточняющего вопроса.
+     * Заполняется только на основных попытках (followupDepth=0), к которым был задан
+     * уточняющий вопрос; {@code null} в остальных случаях.
+     */
+    @Column(name = "base_score", precision = 3, scale = 2)
+    private BigDecimal baseScore;
+
     /** Уровень уверенности LLM в оценке (например, high, medium, low). */
     private String confidence;
 
