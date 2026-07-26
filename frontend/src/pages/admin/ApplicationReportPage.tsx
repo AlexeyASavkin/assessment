@@ -37,19 +37,6 @@ export default function ApplicationReportPage() {
   }
 
   /**
-   * Возвращает цветовой код для уровня компетенции.
-   * @param level - уровень (SENIOR, MIDDLE, JUNIOR)
-   */
-  const getLevelColor = (level: string | null): string => {
-    if (!level) return '#6c757d'
-    switch (level) {
-      case 'SENIOR': return '#28a745'
-      case 'MIDDLE': return '#ffc107'
-      default: return '#dc3545'
-    }
-  }
-
-  /**
    * Форматирует ISO-дату в локальный формат.
    * @param iso - ISO-строка даты
    */
@@ -113,9 +100,11 @@ export default function ApplicationReportPage() {
         <p><strong>Завершена:</strong> {formatDate(report.updatedAt)}</p>
       </div>
 
-      {/* Итоговый уровень и рекомендация */}
+      {/* Итоговый результат и рекомендация */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h2>Итоговый уровень: <span style={{ color: getLevelColor(report.compositeLevel), fontWeight: 700 }}>{report.compositeLevel}</span></h2>
+        <h2>Результат: <span style={{ color: report.passed ? '#28a745' : '#dc3545', fontWeight: 700 }}>
+          {report.passed ? 'Пройден' : 'Не пройден'}
+        </span></h2>
         <p>{report.overallRecommendation}</p>
       </div>
 
@@ -128,7 +117,9 @@ export default function ApplicationReportPage() {
           <div key={comp.topicId} className="card" style={{ marginBottom: '1rem' }}>
             <h3>{comp.competencyName} — {comp.sectionName} — {comp.topicName}</h3>
             <p><strong>Средний балл:</strong> {comp.averageScore.toFixed(2)}</p>
-            <p><strong>Уровень:</strong> <span style={{ color: getLevelColor(comp.achievedLevel), fontWeight: 600 }}>{comp.achievedLevel}</span></p>
+            <p><strong>Результат:</strong> <span style={{ color: comp.passed ? '#28a745' : '#dc3545', fontWeight: 600 }}>
+              {comp.passed ? 'Пройден' : 'Не пройден'}
+            </span></p>
             {comp.followUpScores.length > 0 && (
               <p><strong>Баллы за уточнения:</strong> {comp.followUpScores.map(s => s.toFixed(2)).join(', ')}</p>
             )}

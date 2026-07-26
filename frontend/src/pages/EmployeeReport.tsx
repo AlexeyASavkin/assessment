@@ -7,7 +7,7 @@ interface CompetencyReport {
   sectionName: string
   competencyName: string
   averageScore: number
-  achievedLevel: string
+  passed: boolean
   followUpScores: number[]
   feedbacks: string[]
 }
@@ -16,7 +16,7 @@ interface Report {
   sessionId: string
   employeeName: string
   competencies: CompetencyReport[]
-  compositeLevel: string
+  passed: boolean
   overallRecommendation: string
 }
 
@@ -83,26 +83,15 @@ export default function EmployeeReport() {
     )
   }
 
-  /**
-   * Возвращает цветовой код для визуального отображения уровня компетенции.
-   * @param level - Уровень компетенции (SENIOR, MIDDLE или другой)
-   * @returns CSS-цвет в формате hex
-   */
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case 'SENIOR': return '#28a745'
-      case 'MIDDLE': return '#ffc107'
-      default: return '#dc3545'
-    }
-  }
-
   return (
     <div className="container">
       <h1>Результаты ассессмента</h1>
       <p><strong>Сотрудник:</strong> {report.employeeName}</p>
 
       <div className="card">
-        <h2>Итоговый уровень: <span style={{ color: getLevelColor(report.compositeLevel) }}>{report.compositeLevel}</span></h2>
+        <h2>Результат: <span style={{ color: report.passed ? '#28a745' : '#dc3545' }}>
+          {report.passed ? 'Пройден' : 'Не пройден'}
+        </span></h2>
         <p>{report.overallRecommendation}</p>
       </div>
 
@@ -111,7 +100,9 @@ export default function EmployeeReport() {
         <div key={comp.topicId} className="card">
           <h3>{comp.competencyName} — {comp.sectionName} — {comp.topicName}</h3>
           <p><strong>Средний балл:</strong> {comp.averageScore}</p>
-          <p><strong>Уровень:</strong> <span style={{ color: getLevelColor(comp.achievedLevel) }}>{comp.achievedLevel}</span></p>
+          <p><strong>Результат:</strong> <span style={{ color: comp.passed ? '#28a745' : '#dc3545' }}>
+            {comp.passed ? 'Пройден' : 'Не пройден'}
+          </span></p>
           {comp.followUpScores.length > 0 && (
             <p><strong>Баллы за уточнения:</strong> {comp.followUpScores.join(', ')}</p>
           )}

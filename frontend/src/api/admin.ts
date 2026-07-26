@@ -535,8 +535,8 @@ export interface ApplicationSummary {
   sessionId: string | null
   /** Средний балл по валидным попыткам (null, если оценок нет). */
   averageScore: number | null
-  /** Итоговый уровень (SENIOR, MIDDLE, JUNIOR или null, если оценка не завершена). */
-  compositeLevel: string | null
+  /** Результат прохождения (средний балл >= 3.0). */
+  passed: boolean
   /** Дата создания пригласительного токена. */
   createdAt: string | null
   /** Дата завершения сессии (null, если не завершена). */
@@ -591,8 +591,8 @@ export interface CompetencyReportItem {
   competencyName: string
   /** Средний балл по теме. */
   averageScore: number
-  /** Достигнутый уровень по теме. */
-  achievedLevel: string
+  /** Результат прохождения темы (средний балл >= 3.0). */
+  passed: boolean
   /** Баллы за уточняющие вопросы. */
   followUpScores: number[]
   /** Feedback от LLM по теме. */
@@ -619,8 +619,8 @@ export interface ApplicationReport {
   updatedAt: string | null
   /** Агрегированные отчёты по темам. */
   competencies: CompetencyReportItem[]
-  /** Итоговый уровень. */
-  compositeLevel: string
+  /** Итоговый результат прохождения. */
+  passed: boolean
   /** Общая рекомендация. */
   overallRecommendation: string
   /** Все попытки ответов с детальной информацией. */
