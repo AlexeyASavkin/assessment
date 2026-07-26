@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react'
+import { useState, useEffect, useRef, FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   listQuestions,
@@ -10,6 +10,7 @@ import {
   type Competency,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
+import RichTextEditor, { type RichTextEditorHandle, plainTextToHtml } from '../../components/RichTextEditor'
 
 /**
  * Состояние формы генерации вопросов через ИИ.
@@ -38,6 +39,7 @@ export default function QuestionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [saving, setSaving] = useState(false)
+  const editorRef = useRef<RichTextEditorHandle>(null)
 
 /**
    * Загружает список вопросов и информацию о компетенции.
@@ -114,7 +116,9 @@ export default function QuestionsPage() {
     setSaving(true)
     setError(null)
     try {
-      await updateQuestion(id, editText)
+      const content = editorRef.current?.getContent()
+      const textToSave = content?.html || editText
+      await updateQuestion(id, textToSave)
       cancelEdit()
       await load()
     } catch (err) {
@@ -195,14 +199,17 @@ export default function QuestionsPage() {
                 <div className="admin-list-info">
                   {editingId === item.id ? (
                     <div className="form-field">
-                      <textarea
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        style={{ minHeight: '80px' }}
+                      <RichTextEditor
+                        ref={editorRef}
+                        content={editText}
+                        minHeight="80px"
                       />
                     </div>
                   ) : (
-                    <h3>{item.questionText} <span className="badge">{item.difficulty}</span></h3>
+                    <>
+                      <h3 dangerouslySetInnerHTML={{ __html: plainTextToHtml(item.questionText) + ' ' }} />
+                      <span className="badge">{item.difficulty}</span>
+                    </>
                   )}
                 </div>
                 <div className="admin-list-actions">
