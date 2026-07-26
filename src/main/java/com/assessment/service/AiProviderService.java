@@ -19,6 +19,8 @@ public class AiProviderService {
     /** Ключи настроек для промтов в таблице ai_settings. */
     public static final String PROMPT_SCORING = "prompt_scoring";
     public static final String PROMPT_QUESTION = "prompt_question";
+    public static final String PROMPT_FOLLOWUP = "prompt_followup";
+    public static final String PROMPT_RESCORE = "prompt_rescore";
 
     /** Промт оценки ответа сотрудника ( placeholders: %1$s = вопрос, %2$s = ответ ). */
     private static final String DEFAULT_PROMPT_SCORING = """
@@ -49,6 +51,50 @@ public class AiProviderService {
             Сгенерируй один вопрос на русском языке для оценки этой темы.
             Вопрос должен быть конкретным и позволять оценить уровень сотрудника.
             Верни ТОЛЬКО текст вопроса без лишних объяснений.
+            """;
+
+    /**
+     * Промт генерации уточняющего вопроса (placeholders: %1$s = исходный вопрос, %2$s = ответ сотрудника).
+     * Используется когда исходный ответ оценён ≤ 2: LLM анализирует слабый ответ и формулирует уточнение.
+     */
+    private static final String DEFAULT_PROMPT_FOLLOWUP = """
+            Сотрудник дал слабый ответ на вопрос ассессмента. Сформулируй один уточняющий вопрос,
+            который позволит сотруднику раскрыть тему глубже и пересдать ответ.
+
+            Исходный вопрос: %1$s
+            Ответ сотрудника: %2$s
+
+            Требования к уточняющему вопросу:
+            - На русском языке, конкретный и профессиональный.
+            - Бьёт в слабое место исходного ответа (то, чего не хватило).
+            - Не повторяет исходный вопрос, а развивает его.
+            - Позволяет по ответу понять, действительно ли сотрудник владеет темой.
+
+            Верни ТОЛЬКО текст уточняющего вопроса. Без префиксов «Вопрос:», без пояснений.
+            """;
+
+    /**
+     * Промт переоценки исходного ответа с учётом уточняющего (placeholders:
+     * %1$s = исходный вопрос, %2$s = исходный ответ, %3$s = уточняющий вопрос, %4$s = ответ на уточнение).
+     * Возвращает JSON того же формата, что PROMPT_SCORING.
+     */
+    private static final String DEFAULT_PROMPT_RESCORE = """
+            Ты — эксперт по оценке компетенций. Сотрудник ответил на основной вопрос слабо (оценка ≤ 2)
+            и был задан уточняющий вопрос. Пересчитай итоговую оценку основной попытки с учётом обоих ответов.
+
+            Исходный вопрос: %1$s
+            Исходный ответ сотрудника: %2$s
+            Уточняющий вопрос: %3$s
+            Ответ на уточняющий вопрос: %4$s
+
+            Правила пересчёта:
+            - Если ответ на уточнение раскрывает тему — подними оценку пропорционально глубине.
+            - Если ответ на уточнение такой же слабый — оставь оценку близкой к исходной.
+            - Шкала 0-5: 0 = не удалось оценить; 1-2 = не соответствует; 3 = частично; 4-5 = полностью.
+            - Учитывай КАК исходный, ТАК И уточняющий ответ (не заменяй один другим).
+
+            Формат ответа JSON:
+            {"score": <int>, "confidence": "<HIGH|MEDIUM|LOW>", "feedback": "<recommendation>"}
             """;
 
     @Value("${assessment.ai.active-provider:gemini}")
@@ -109,13 +155,15 @@ public class AiProviderService {
     /**
      * Возвращает промт по ключу. Если в БД нет сохранённого значения — возвращает дефолт.
      *
-     * @param key ключ промта (PROMPT_SCORING / PROMPT_QUESTION)
-     * @return текст промта (с placeholder'ами %1$s, %2$s)
+     * @param key ключ промта (PROMPT_SCORING / PROMPT_QUESTION / PROMPT_FOLLOWUP / PROMPT_RESCORE)
+     * @return текст промта (с placeholder'ами %1$s, %2$s, ...)
      */
     public String getPrompt(String key) {
         String defaultValue = switch (key) {
             case PROMPT_SCORING -> DEFAULT_PROMPT_SCORING;
             case PROMPT_QUESTION -> DEFAULT_PROMPT_QUESTION;
+            case PROMPT_FOLLOWUP -> DEFAULT_PROMPT_FOLLOWUP;
+            case PROMPT_RESCORE -> DEFAULT_PROMPT_RESCORE;
             default -> "";
         };
         return settingsRepository.findBySettingKey(key)
@@ -143,9 +191,11 @@ public class AiProviderService {
      * @return карта со всеми промтами (текущие из БД или дефолтные)
      */
     public java.util.Map<String, String> getAllPrompts() {
-        return java.util.Map.of(
-                PROMPT_SCORING, getPrompt(PROMPT_SCORING),
-                PROMPT_QUESTION, getPrompt(PROMPT_QUESTION)
-        );
+        java.util.Map<String, String> all = new java.util.LinkedHashMap<>();
+        all.put(PROMPT_SCORING, getPrompt(PROMPT_SCORING));
+        all.put(PROMPT_QUESTION, getPrompt(PROMPT_QUESTION));
+        all.put(PROMPT_FOLLOWUP, getPrompt(PROMPT_FOLLOWUP));
+        all.put(PROMPT_RESCORE, getPrompt(PROMPT_RESCORE));
+        return all;
     }
 }

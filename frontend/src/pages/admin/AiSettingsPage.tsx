@@ -20,6 +20,18 @@ const PROMPT_META: { key: keyof AiPrompts; label: string; description: string; p
     description: 'Используется при генерации основного вопроса по теме компетенции.',
     placeholders: 'Доступные плейсхолдеры: %1$s = компетенция, %2$s = тема',
   },
+  {
+    key: 'prompt_followup',
+    label: 'Промт уточняющего вопроса',
+    description: 'Используется после слабого ответа (оценка ≤ 2) на основной вопрос. LLM анализирует исходный вопрос и ответ сотрудника и формулирует уточняющий вопрос.',
+    placeholders: 'Доступные плейсхолдеры: %1$s = исходный вопрос, %2$s = ответ сотрудника',
+  },
+  {
+    key: 'prompt_rescore',
+    label: 'Промт переоценки с учётом уточнения',
+    description: 'Используется после ответа на уточняющий вопрос. LLM пересчитывает итоговую оценку основной попытки с учётом обоих ответов.',
+    placeholders: 'Доступные плейсхолдеры: %1$s = исходный вопрос, %2$s = исходный ответ, %3$s = уточняющий вопрос, %4$s = ответ на уточнение',
+  },
 ]
 
 /**
@@ -29,7 +41,7 @@ const PROMPT_META: { key: keyof AiPrompts; label: string; description: string; p
 export default function AiSettingsPage() {
   const [settings, setSettings] = useState<AiSettings | null>(null)
   const [selectedProvider, setSelectedProvider] = useState('')
-  const [prompts, setPrompts] = useState<AiPrompts>({ prompt_scoring: '', prompt_question: '' })
+  const [prompts, setPrompts] = useState<AiPrompts>({ prompt_scoring: '', prompt_question: '', prompt_followup: '', prompt_rescore: '' })
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProvider, setIsSavingProvider] = useState(false)
   const [isSavingPrompts, setIsSavingPrompts] = useState(false)

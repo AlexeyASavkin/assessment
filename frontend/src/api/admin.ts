@@ -423,6 +423,8 @@ export async function updateAiSettings(activeProvider: string): Promise<AiSettin
 export interface AiPrompts {
   prompt_scoring: string
   prompt_question: string
+  prompt_followup: string
+  prompt_rescore: string
 }
 
 /**
