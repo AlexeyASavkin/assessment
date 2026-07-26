@@ -46,6 +46,8 @@ assessment:
     hmac-secret: ${HMAC_SECRET}
     session-cookie-name: SESSION_EMPLOYEE
     token-expiry-hours: 72
+  question:
+    max-questions-per-session: 20
   rate-limiter:
     max-requests-per-minute: 15
   ai:
