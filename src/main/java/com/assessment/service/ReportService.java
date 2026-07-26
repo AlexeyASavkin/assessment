@@ -140,7 +140,6 @@ public class ReportService {
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("attemptId", a.getId());
         detail.put("questionText", a.getQuestionText());
-        detail.put("rawTranscript", a.getRawTranscript());
         detail.put("finalTranscript", a.getFinalTranscript());
         detail.put("score", a.getScore());
         detail.put("confidence", a.getConfidence());
