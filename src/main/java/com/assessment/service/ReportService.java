@@ -98,6 +98,11 @@ public class ReportService {
         report.put("passed", passed);
         report.put("overallRecommendation", generateOverallRecommendation(passed));
 
+        // Полный список попыток (основные + уточняющие) для отображения flow
+        // уточняющих вопросов. Вложенность восстанавливается на клиенте через followupParentId.
+        List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        report.put("attempts", allAttempts.stream().map(this::toAttemptDetail).collect(Collectors.toList()));
+
         return report;
     }
 
@@ -142,6 +147,7 @@ public class ReportService {
         detail.put("questionText", a.getQuestionText());
         detail.put("finalTranscript", a.getFinalTranscript());
         detail.put("score", a.getScore());
+        detail.put("baseScore", a.getBaseScore());
         detail.put("confidence", a.getConfidence());
         detail.put("validJudge", a.getValidJudge());
         detail.put("feedback", a.getFeedback());
