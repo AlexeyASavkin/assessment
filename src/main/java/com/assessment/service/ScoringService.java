@@ -1,8 +1,8 @@
 package com.assessment.service;
 
 import com.assessment.entity.QuestionAttempt;
-import com.assessment.entity.Session;
 import com.assessment.repository.QuestionAttemptRepository;
+import com.assessment.util.LlmJsonParser;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -114,7 +114,7 @@ public class ScoringService {
      */
     private int parseScore(String response) {
         try {
-            String scoreStr = extractJsonValue(response, "score");
+            String scoreStr = LlmJsonParser.extractJsonValue(response, "score");
             return Integer.parseInt(scoreStr);
         } catch (Exception e) {
             return 0;
@@ -129,7 +129,7 @@ public class ScoringService {
      */
     private String parseConfidence(String response) {
         try {
-            return extractJsonValue(response, "confidence");
+            return LlmJsonParser.extractJsonValue(response, "confidence");
         } catch (Exception e) {
             return "LOW";
         }
@@ -143,48 +143,9 @@ public class ScoringService {
      */
     private String parseFeedback(String response) {
         try {
-            return extractJsonValue(response, "feedback");
+            return LlmJsonParser.extractJsonValue(response, "feedback");
         } catch (Exception e) {
             return "Не удалось сформировать рекомендацию";
-        }
-    }
-
-    /**
-     * Извлекает строковое значение по ключу из JSON-строки.
-     * Поддерживает как строковые значения в кавычках ("key": "value"),
-     * так и числовые/булевы без кавычек ("key": 5).
-     *
-     * @param json JSON-строка
-     * @param key  ключ для поиска
-     * @return найденное значение или пустая строка, если ключ не найден
-     */
-    private String extractJsonValue(String json, String key) {
-        String searchKey = "\"" + key + "\"";
-        int keyIndex = json.indexOf(searchKey);
-        if (keyIndex == -1) return "";
-
-        int colonIndex = json.indexOf(":", keyIndex);
-        if (colonIndex == -1) return "";
-
-        int valueStart = colonIndex + 1;
-        while (valueStart < json.length() && json.charAt(valueStart) == ' ') {
-            valueStart++;
-        }
-        if (valueStart >= json.length()) return "";
-
-        if (json.charAt(valueStart) == '"') {
-            // Строковое значение в кавычках
-            valueStart++;
-            int valueEnd = json.indexOf('"', valueStart);
-            if (valueEnd == -1) return "";
-            return json.substring(valueStart, valueEnd);
-        } else {
-            // Числовое / булево значение без кавычек — до запятой или закрывающей скобки
-            int valueEnd = valueStart;
-            while (valueEnd < json.length() && json.charAt(valueEnd) != ',' && json.charAt(valueEnd) != '}') {
-                valueEnd++;
-            }
-            return json.substring(valueStart, valueEnd).trim();
         }
     }
 }
