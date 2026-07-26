@@ -41,6 +41,8 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
     // Spring AI - Sber GigaChat
     implementation 'chat.giga:spring-ai-starter-model-gigachat:2.0.0'
+    // Spring AI - OpenRouter (OpenAI-compatible)
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     implementation 'org.springframework.ai:spring-ai-model-chat-memory-repository-jdbc'
 
     // Database
