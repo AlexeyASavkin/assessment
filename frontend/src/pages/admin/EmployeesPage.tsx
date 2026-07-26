@@ -6,8 +6,10 @@ import {
   deleteEmployee,
   generateInvite,
   listCompetencies,
+  listApplications,
   type Employee,
   type Competency,
+  type ApplicationSummary,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
@@ -30,6 +32,7 @@ const emptyForm: FormState = { fullName: '', position: '', department: '', compe
 export default function EmployeesPage() {
   const [items, setItems] = useState<Employee[]>([])
   const [competencies, setCompetencies] = useState<Competency[]>([])
+  const [applications, setApplications] = useState<ApplicationSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -47,9 +50,10 @@ export default function EmployeesPage() {
     setIsLoading(true)
     setError(null)
     try {
-      const [data, comps] = await Promise.all([listEmployees(), listCompetencies()])
+      const [data, comps, apps] = await Promise.all([listEmployees(), listCompetencies(), listApplications()])
       setItems(data)
       setCompetencies(comps)
+      setApplications(apps)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки')
     } finally {
@@ -155,6 +159,32 @@ export default function EmployeesPage() {
     }
   }
 
+  /**
+   * Возвращает последнюю заявку сотрудника (по дате создания).
+   */
+  const getLatestApplication = (employeeId: string): ApplicationSummary | undefined => {
+    return applications
+      .filter(app => app.employeeId === employeeId)
+      .sort((a, b) => {
+        const da = a.createdAt ?? ''
+        const db = b.createdAt ?? ''
+        return db.localeCompare(da)
+      })[0]
+  }
+
+  /** Цвет-индикатор статуса результата. */
+  const resultColor = (passed: boolean): string => {
+    return passed ? '#16a34a' : '#dc2626'
+  }
+
+  /** Человекочитаемый статус сессии. */
+  const statusLabel = (app: ApplicationSummary): string => {
+    if (!app.sessionStatus) return 'Ссылка не отправлена'
+    if (app.sessionStatus === 'ACTIVE') return 'В процессе'
+    if (app.sessionStatus === 'COMPLETED') return 'Завершено'
+    return app.sessionStatus
+  }
+
   return (
     <AdminPageWrapper>
       <h1>Заявки</h1>
@@ -239,29 +269,78 @@ export default function EmployeesPage() {
         <p>Сотрудников пока нет.</p>
       ) : (
         <div className="admin-list">
-          {items.map((item) => (
-            <div key={item.id} className="card admin-list-item">
-              <div className="admin-list-info">
-                <h3>{item.fullName}</h3>
-                {item.position && <p>Должность: {item.position}</p>}
-                {item.department && <p>Отдел: {item.department}</p>}
-                {item.competency && (
-                  <p>Компетенция: {item.competency.name}</p>
-                )}
+          {items.map((item) => {
+            const app = getLatestApplication(item.id)
+            const isCompleted = app?.sessionStatus === 'COMPLETED'
+            const isActive = app?.sessionStatus === 'ACTIVE'
+            const hasResult = isCompleted && app?.passed != null
+
+            return (
+              <div key={item.id} className="card admin-list-item">
+                <div className="admin-list-info">
+                  <h3>{item.fullName}</h3>
+                  {item.position && <p>Должность: {item.position}</p>}
+                  {item.department && <p>Отдел: {item.department}</p>}
+                  {item.competency && (
+                    <p>Компетенция: {item.competency.name}</p>
+                  )}
+
+                  {/* Inline-сводка результата */}
+                  {app && (
+                    <div className="employee-result-inline">
+                      <span
+                        className="employee-result-status"
+                        style={{
+                          background: hasResult
+                            ? resultColor(app.passed)
+                            : isActive ? '#d97706' : '#6b7280',
+                        }}
+                      >
+                        {statusLabel(app)}
+                      </span>
+                      {hasResult && (
+                        <>
+                          <span className="employee-result-level">
+                            {app.passed ? 'Пройден' : 'Не пройден'}
+                          </span>
+                          {app.averageScore != null && (
+                            <span className="employee-result-score">
+                              {app.averageScore.toFixed(1)} ★
+                            </span>
+                          )}
+                          {app.sessionId && (
+                            <a
+                              href={`/admin/applications/${app.sessionId}/report`}
+                              className="employee-result-link"
+                            >
+                              Отчёт →
+                            </a>
+                          )}
+                        </>
+                      )}
+                      {isActive && (
+                        <span className="employee-result-hint">Ожидает завершения</span>
+                      )}
+                      {!app.sessionStatus && (
+                        <span className="employee-result-hint">Ссылка создана</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="admin-list-actions">
+                  <button
+                    className="btn btn-success"
+                    onClick={() => handleGenerateInvite(item)}
+                    disabled={generating === item.id}
+                  >
+                    {generating === item.id ? 'Генерация...' : 'Пригласительная ссылка'}
+                  </button>
+                  <button className="btn" onClick={() => handleEdit(item)}>Изменить</button>
+                  <button className="btn btn-danger" onClick={() => handleDelete(item)}>Удалить</button>
+                </div>
               </div>
-              <div className="admin-list-actions">
-                <button
-                  className="btn btn-success"
-                  onClick={() => handleGenerateInvite(item)}
-                  disabled={generating === item.id}
-                >
-                  {generating === item.id ? 'Генерация...' : 'Пригласительная ссылка'}
-                </button>
-                <button className="btn" onClick={() => handleEdit(item)}>Изменить</button>
-                <button className="btn btn-danger" onClick={() => handleDelete(item)}>Удалить</button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </AdminPageWrapper>
