@@ -1,0 +1,348 @@
+import { useState, useEffect, FormEvent } from 'react'
+import {
+  listEmployees,
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  generateInvite,
+  listCompetencies,
+  listApplications,
+  type Employee,
+  type Competency,
+  type ApplicationSummary,
+} from '../../api/admin'
+import { AdminPageWrapper } from '../../components/admin/AdminLayout'
+
+/**
+ * Состояние формы создания и редактирования сотрудника.
+ */
+interface FormState {
+  fullName: string
+  position: string
+  department: string
+  competencyId: string | null
+}
+
+const emptyForm: FormState = { fullName: '', position: '', department: '', competencyId: null }
+
+/**
+ * Страница управления сотрудниками (заявками).
+ * Позволяет создавать, редактировать и удалять сотрудников, выбирать компетенцию для ассессмента и генерировать пригласительные ссылки.
+ */
+export default function EmployeesPage() {
+  const [items, setItems] = useState<Employee[]>([])
+  const [competencies, setCompetencies] = useState<Competency[]>([])
+  const [applications, setApplications] = useState<ApplicationSummary[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [form, setForm] = useState<FormState>(emptyForm)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [inviteFor, setInviteFor] = useState<string | null>(null)
+  const [generating, setGenerating] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+/**
+   * Загружает список сотрудников и доступных компетенций.
+   */
+  const load = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [data, comps, apps] = await Promise.all([listEmployees(), listCompetencies(), listApplications()])
+      setItems(data)
+      setCompetencies(comps)
+      setApplications(apps)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+  }, [])
+
+/**
+   * Сбрасывает форму в начальное состояние и отменяет режим редактирования.
+   */
+  const resetForm = () => {
+    setForm(emptyForm)
+    setEditingId(null)
+  }
+
+/**
+   * Создаёт нового сотрудника или обновляет существующего, затем перезагружает список.
+   */
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      if (editingId) {
+        await updateEmployee(editingId, form.fullName, form.position, form.department, form.competencyId)
+      } else {
+        await createEmployee(form.fullName, form.position, form.department, form.competencyId)
+      }
+      resetForm()
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+/**
+   * Переключает форму в режим редактирования выбранного сотрудника.
+   */
+  const handleEdit = (item: Employee) => {
+    setEditingId(item.id)
+    setForm({
+      fullName: item.fullName,
+      position: item.position,
+      department: item.department,
+      competencyId: item.competency?.id ?? null,
+    })
+  }
+
+/**
+   * Генерирует одноразовую пригласительную ссылку для выбранного сотрудника.
+   */
+  const handleGenerateInvite = async (employee: Employee) => {
+    setGenerating(employee.id)
+    setError(null)
+    setInviteUrl(null)
+    setInviteFor(employee.fullName)
+    setCopied(false)
+    try {
+      const path = await generateInvite(employee.id)
+      const fullUrl = `${window.location.origin}${path}`
+      setInviteUrl(fullUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка генерации ссылки')
+    } finally {
+      setGenerating(null)
+    }
+  }
+
+/**
+   * Удаляет сотрудника после подтверждения и обновляет список.
+   */
+  const handleDelete = async (employee: Employee) => {
+    if (!confirm(`Удалить сотрудника ${employee.fullName}? Это действие необратимо.`)) return
+    setError(null)
+    try {
+      await deleteEmployee(employee.id)
+      await load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка удаления')
+    }
+  }
+
+/**
+   * Копирует пригласительную ссылку в буфер обмена.
+   */
+  const handleCopy = async () => {
+    if (!inviteUrl) return
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopied(true)
+    } catch {
+      // Fallback: select the input
+      const input = document.getElementById('invite-url') as HTMLInputElement | null
+      if (input) {
+        input.select()
+      }
+    }
+  }
+
+  /**
+   * Возвращает последнюю заявку сотрудника (по дате создания).
+   */
+  const getLatestApplication = (employeeId: string): ApplicationSummary | undefined => {
+    return applications
+      .filter(app => app.employeeId === employeeId)
+      .sort((a, b) => {
+        const da = a.createdAt ?? ''
+        const db = b.createdAt ?? ''
+        return db.localeCompare(da)
+      })[0]
+  }
+
+  /** Цвет-индикатор статуса результата. */
+  const resultColor = (passed: boolean): string => {
+    return passed ? '#16a34a' : '#dc2626'
+  }
+
+  /** Человекочитаемый статус сессии. */
+  const statusLabel = (app: ApplicationSummary): string => {
+    if (!app.sessionStatus) return 'Ссылка не отправлена'
+    if (app.sessionStatus === 'ACTIVE') return 'В процессе'
+    if (app.sessionStatus === 'COMPLETED') return 'Завершено'
+    return app.sessionStatus
+  }
+
+  return (
+    <AdminPageWrapper>
+      <h1>Заявки</h1>
+      {error && <p className="error-text">{error}</p>}
+
+      <div className="card">
+        <h2>{editingId ? 'Редактировать' : 'Создать'} сотрудника</h2>
+        <form onSubmit={handleSubmit} className="admin-form">
+          <div className="form-field">
+            <label htmlFor="fullName">ФИО</label>
+            <input
+              id="fullName"
+              type="text"
+              value={form.fullName}
+              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="position">Должность</label>
+            <input
+              id="position"
+              type="text"
+              value={form.position}
+              onChange={(e) => setForm({ ...form, position: e.target.value })}
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="department">Отдел</label>
+            <input
+              id="department"
+              type="text"
+              value={form.department}
+              onChange={(e) => setForm({ ...form, department: e.target.value })}
+            />
+          </div>
+          <div className="form-field">
+            <label htmlFor="competency">Компетенция для ассессмента</label>
+            <select
+              id="competency"
+              value={form.competencyId ?? ''}
+              onChange={(e) => setForm({ ...form, competencyId: e.target.value || null })}
+            >
+              <option value="">— Не выбрана —</option>
+              {competencies.map((comp) => (
+                <option key={comp.id} value={comp.id}>{comp.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Сохранение...' : 'Сохранить'}
+            </button>
+            {editingId && (
+              <button type="button" className="btn" onClick={resetForm}>Отмена</button>
+            )}
+          </div>
+        </form>
+      </div>
+
+      {inviteUrl && (
+        <div className="modal-overlay" onClick={() => { setInviteUrl(null); setInviteFor(null) }}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3>Пригласительная ссылка</h3>
+            <p>Ссылка для сотрудника {inviteFor}:</p>
+            <div className="invite-url-row">
+              <input id="invite-url" type="text" readOnly value={inviteUrl} className="invite-url-input" />
+              <button className="btn btn-success" onClick={handleCopy}>
+                {copied ? 'Скопировано!' : 'Копировать'}
+              </button>
+            </div>
+            <div className="form-actions">
+              <button className="btn" onClick={() => { setInviteUrl(null); setInviteFor(null) }}>Закрыть</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <p>Загрузка...</p>
+      ) : items.length === 0 ? (
+        <p>Сотрудников пока нет.</p>
+      ) : (
+        <div className="admin-list">
+          {items.map((item) => {
+            const app = getLatestApplication(item.id)
+            const isCompleted = app?.sessionStatus === 'COMPLETED'
+            const isActive = app?.sessionStatus === 'ACTIVE'
+            const hasResult = isCompleted && app?.passed != null
+
+            return (
+              <div key={item.id} className="card admin-list-item">
+                <div className="admin-list-info">
+                  <h3>{item.fullName}</h3>
+                  {item.position && <p>Должность: {item.position}</p>}
+                  {item.department && <p>Отдел: {item.department}</p>}
+                  {item.competency && (
+                    <p>Компетенция: {item.competency.name}</p>
+                  )}
+
+                  {/* Inline-сводка результата */}
+                  {app && (
+                    <div className="employee-result-inline">
+                      <span
+                        className="employee-result-status"
+                        style={{
+                          background: hasResult
+                            ? resultColor(app.passed)
+                            : isActive ? '#d97706' : '#6b7280',
+                        }}
+                      >
+                        {statusLabel(app)}
+                      </span>
+                      {hasResult && (
+                        <>
+                          <span className="employee-result-level">
+                            {app.passed ? 'Пройден' : 'Не пройден'}
+                          </span>
+                          {app.averageScore != null && (
+                            <span className="employee-result-score">
+                              {app.averageScore.toFixed(1)} ★
+                            </span>
+                          )}
+                          {app.sessionId && (
+                            <a
+                              href={`/admin/applications/${app.sessionId}/report`}
+                              className="employee-result-link"
+                            >
+                              Отчёт →
+                            </a>
+                          )}
+                        </>
+                      )}
+                      {isActive && (
+                        <span className="employee-result-hint">Ожидает завершения</span>
+                      )}
+                      {!app.sessionStatus && (
+                        <span className="employee-result-hint">Ссылка создана</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="admin-list-actions">
+                  <button
+                    className="btn btn-success"
+                    onClick={() => handleGenerateInvite(item)}
+                    disabled={generating === item.id}
+                  >
+                    {generating === item.id ? 'Генерация...' : 'Пригласительная ссылка'}
+                  </button>
+                  <button className="btn" onClick={() => handleEdit(item)}>Изменить</button>
+                  <button className="btn btn-danger" onClick={() => handleDelete(item)}>Удалить</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </AdminPageWrapper>
+  )
+}

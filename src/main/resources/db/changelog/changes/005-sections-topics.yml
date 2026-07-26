@@ -1,0 +1,195 @@
+databaseChangeLog:
+  - changeSet:
+      id: '16'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: sections
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: competency_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_sections_competency
+                    referencedTableName: competencies
+                    referencedColumnNames: id
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: text
+              - column:
+                  name: sort_order
+                  type: integer
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '17'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: section_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_topics_section
+                    referencedTableName: sections
+                    referencedColumnNames: id
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: text
+              - column:
+                  name: weight
+                  type: decimal(3,2)
+                  defaultValueNumeric: 1.0
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '18'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: topic_levels
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: topic_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_levels_topic
+                    referencedTableName: topics
+                    referencedColumnNames: id
+              - column:
+                  name: level
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: requirements
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '19'
+      author: assessment
+      changes:
+        - addColumn:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: topic_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_qbank_topic
+                    referencedTableName: topics
+                    referencedColumnNames: id
+
+  - changeSet:
+      id: '20'
+      author: assessment
+      changes:
+        - addColumn:
+            tableName: question_attempts
+            columns:
+              - column:
+                  name: topic_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_attempts_topic
+                    referencedTableName: topics
+                    referencedColumnNames: id
+
+  - changeSet:
+      id: '21'
+      author: assessment
+      changes:
+        - createIndex:
+            tableName: question_banks
+            indexName: idx_qbank_topic
+            columns:
+              - column:
+                  name: topic_id
+        - createIndex:
+            tableName: question_attempts
+            indexName: idx_attempts_topic
+            columns:
+              - column:
+                  name: topic_id
+        - createIndex:
+            tableName: topics
+            indexName: idx_topics_section
+            columns:
+              - column:
+                  name: section_id
+        - createIndex:
+            tableName: sections
+            indexName: idx_sections_competency
+            columns:
+              - column:
+                  name: competency_id
+
+  - changeSet:
+      id: '22'
+      author: assessment
+      changes:
+        - dropNotNullConstraint:
+            tableName: question_banks
+            columnName: criteria_id
+            columnDataType: uuid

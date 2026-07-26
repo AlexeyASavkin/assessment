@@ -1,0 +1,19 @@
+databaseChangeLog:
+  - changeSet:
+      id: '012-add-base-score'
+      author: assessment
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - columnExists:
+                tableName: question_attempts
+                columnName: base_score
+      changes:
+        - addColumn:
+            tableName: question_attempts
+            columns:
+              - column:
+                  name: base_score
+                  type: numeric(4,2)
+                  constraints:
+                    nullable: true

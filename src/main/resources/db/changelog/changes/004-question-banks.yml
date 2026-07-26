@@ -1,0 +1,70 @@
+databaseChangeLog:
+  - changeSet:
+      id: '13'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: competency_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_qbank_competency
+                    referencedTableName: competencies
+                    referencedColumnNames: id
+              - column:
+                  name: criteria_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_qbank_criteria
+                    referencedTableName: criteria
+                    referencedColumnNames: id
+              - column:
+                  name: question_text
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: difficulty
+                  type: varchar(20)
+                  defaultValueComputed: '''ALL'''
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '14'
+      author: assessment
+      changes:
+        - createIndex:
+            tableName: question_banks
+            indexName: idx_qbank_competency
+            columns:
+              - column:
+                  name: competency_id
+
+  - changeSet:
+      id: '15'
+      author: assessment
+      changes:
+        - createIndex:
+            tableName: question_banks
+            indexName: idx_qbank_criteria
+            columns:
+              - column:
+                  name: criteria_id

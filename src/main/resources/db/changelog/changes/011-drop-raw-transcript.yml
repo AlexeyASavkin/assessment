@@ -1,0 +1,10 @@
+databaseChangeLog:
+  - changeSet:
+      id: '011-drop-raw-transcript'
+      author: assessment
+      changes:
+        - dropColumn:
+            tableName: question_attempts
+            columns:
+              - column:
+                  name: raw_transcript

@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-init-schema.yml
+  - include:
+      file: db/changelog/changes/002-ai-settings.yml
+  - include:
+      file: db/changelog/changes/003-ai-api-keys.yml
+  - include:
+      file: db/changelog/changes/004-question-banks.yml
+  - include:
+      file: db/changelog/changes/005-sections-topics.yml
+  - include:
+      file: db/changelog/changes/006-drop-topic-levels.yml
+  - include:
+      file: db/changelog/changes/007-add-topic-sort-order.yml
+  - include:
+      file: db/changelog/changes/008-add-question-sort-order.yml
+  - include:
+      file: db/changelog/changes/009-admin-users.yml
+  - include:
+      file: db/changelog/changes/010-employee-competencies.yml
+  - include:
+      file: db/changelog/changes/011-drop-raw-transcript.yml
+  - include:
+      file: db/changelog/changes/012-add-base-score.yml
