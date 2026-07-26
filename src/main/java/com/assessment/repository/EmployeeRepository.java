@@ -12,9 +12,9 @@ import java.util.UUID;
 public interface EmployeeRepository extends JpaRepository<Employee, UUID> {
 
     /**
-     * Возвращает список всех сотрудников, отсортированных по дате создания в порядке возрастания.
+     * Возвращает список всех сотрудников, отсортированных по дате создания — новые первыми.
      *
      * @return список сотрудников
      */
-    List<Employee> findAllByOrderByCreatedAtAsc();
+    List<Employee> findAllByOrderByCreatedAtDesc();
 }
