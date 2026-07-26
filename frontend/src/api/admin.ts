@@ -415,35 +415,6 @@ export async function updateAiSettings(activeProvider: string): Promise<AiSettin
   })
 }
 
-/**
- * API-ключи для провайдеров искусственного интеллекта.
- */
-export interface AiKeys {
-  geminiApiKey: string
-  gigachatApiKey: string
-}
-
-/**
- * Получает сохраненные API-ключи для ИИ-провайдеров.
- * @return объект с ключами Gemini и GigaChat
- */
-export async function getAiKeys(): Promise<AiKeys> {
-  return adminJson<AiKeys>('/settings/ai/keys')
-}
-
-/**
- * Обновляет API-ключи для ИИ-провайдеров.
- * @param keys - объект с новыми ключами
- * @return обновленные ключи
- */
-export async function updateAiKeys(keys: AiKeys): Promise<AiKeys> {
-  return adminJson<AiKeys>('/settings/ai/keys', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(keys),
-  })
-}
-
 // ---- Question Bank ----
 
 /**

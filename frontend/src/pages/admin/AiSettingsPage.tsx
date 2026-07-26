@@ -1,33 +1,27 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { getAiSettings, updateAiSettings, getAiKeys, updateAiKeys, type AiSettings, type AiKeys } from '../../api/admin'
+import { getAiSettings, updateAiSettings, type AiSettings } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
 /**
  * Страница настройки ИИ-провайдера.
- * Позволяет выбрать активного провайдера (Gemini или GigaChat), а также управлять API-ключами.
+ * Позволяет выбрать активного провайдера. API-ключи задаются через переменные окружения (.env).
  */
 export default function AiSettingsPage() {
   const [settings, setSettings] = useState<AiSettings | null>(null)
   const [selectedProvider, setSelectedProvider] = useState('')
-  const [keys, setKeys] = useState<AiKeys>({ geminiApiKey: '', gigachatApiKey: '' })
-  const [showGeminiKey, setShowGeminiKey] = useState(false)
-  const [showGigachatKey, setShowGigachatKey] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-/**
-   * Загружает текущие настройки ИИ и API-ключи с сервера.
-   */
+  /** Загружает текущие настройки ИИ с сервера. */
   const load = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const [settingsData, keysData] = await Promise.all([getAiSettings(), getAiKeys()])
+      const settingsData = await getAiSettings()
       setSettings(settingsData)
       setSelectedProvider(settingsData.activeProvider)
-      setKeys(keysData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки настроек')
     } finally {
@@ -37,9 +31,7 @@ export default function AiSettingsPage() {
 
   useEffect(() => { load() }, [])
 
-/**
-   * Сохраняет выбранного активного провайдера ИИ.
-   */
+  /** Сохраняет выбранного активного провайдера ИИ. */
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
@@ -57,32 +49,13 @@ export default function AiSettingsPage() {
     }
   }
 
-/**
-   * Сохраняет API-ключи для выбранных провайдеров.
-   */
-  const handleKeysSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setIsSaving(true)
-    setError(null)
-    setSuccess(null)
-    try {
-      const updated = await updateAiKeys(keys)
-      setKeys(updated)
-      setSuccess('API ключи сохранены')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка сохранения')
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-/**
-   * Возвращает человекочитаемое название провайдера по его ключу.
-   */
+  /** Возвращает человекочитаемое название провайдера по его ключу. */
   const providerLabel = (key: string) => {
     switch (key) {
       case 'gemini': return 'Google Gemini'
       case 'gigachat': return 'Сбер GigaChat'
+      case 'openrouter': return 'OpenRouter'
+      case 'opencode': return 'OpenCode Zen'
       default: return key
     }
   }
@@ -91,6 +64,7 @@ export default function AiSettingsPage() {
     <AdminPageWrapper>
       <h1>Настройки ИИ</h1>
       <p>Выберите провайдера искусственного интеллекта для генерации вопросов и оценки ответов.</p>
+      <p style={{ color: '#555', fontSize: '0.9rem' }}>API-ключи задаются через переменные окружения (.env) и не редактируются через интерфейс.</p>
 
       {error && <p className="error-text">{error}</p>}
       {success && <p className="success-text">{success}</p>}
@@ -98,7 +72,6 @@ export default function AiSettingsPage() {
       {isLoading ? (
         <p>Загрузка...</p>
       ) : settings ? (
-        <>
         <div className="card">
           <form onSubmit={handleSubmit} className="admin-form">
             <div className="form-field">
@@ -115,8 +88,10 @@ export default function AiSettingsPage() {
                     />
                     <div className="ai-provider-card">
                       <strong>{providerLabel(provider)}</strong>
-                      {provider === 'gemini' && <p>Облачная модель Google. Требуется API ключ GEMINI_API_KEY.</p>}
-                      {provider === 'gigachat' && <p>Российская модель Сбера. Требуется API ключ GIGACHAT_API_KEY.</p>}
+                      {provider === 'gemini' && <p>Облачная модель Google. Ключ: GEMINI_API_KEY</p>}
+                      {provider === 'gigachat' && <p>Российская модель Сбера. Ключ: GIGACHAT_API_KEY</p>}
+                      {provider === 'openrouter' && <p>Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: OPENROUTER_API_KEY</p>}
+                      {provider === 'opencode' && <p>AI-шлюз OpenCode Zen (DeepSeek, Grok, GLM). Ключ: OPENCODE_API_KEY</p>}
                     </div>
                   </label>
                 ))}
@@ -129,59 +104,6 @@ export default function AiSettingsPage() {
             </div>
           </form>
         </div>
-
-        <div className="card" style={{ marginTop: '1rem' }}>
-          <h2 style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>API ключи</h2>
-          <p style={{ color: '#555', marginBottom: '1rem' }}>Ключи хранятся в базе данных. После сохранения изменений ключи применяются автоматически.</p>
-          <form onSubmit={handleKeysSubmit} className="admin-form">
-            <div className="form-field">
-              <label>Google Gemini API Key</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type={showGeminiKey ? 'text' : 'password'}
-                  value={keys.geminiApiKey}
-                  onChange={(e) => setKeys({ ...keys, geminiApiKey: e.target.value })}
-                  placeholder="AIza..."
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setShowGeminiKey(!showGeminiKey)}
-                  style={{ padding: '0.25rem 0.75rem' }}
-                >
-                  {showGeminiKey ? 'Скрыть' : 'Показать'}
-                </button>
-              </div>
-            </div>
-            <div className="form-field">
-              <label>Сбер GigaChat API Key</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type={showGigachatKey ? 'text' : 'password'}
-                  value={keys.gigachatApiKey}
-                  onChange={(e) => setKeys({ ...keys, gigachatApiKey: e.target.value })}
-                  placeholder="eyJ..."
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setShowGigachatKey(!showGigachatKey)}
-                  style={{ padding: '0.25rem 0.75rem' }}
-                >
-                  {showGigachatKey ? 'Скрыть' : 'Показать'}
-                </button>
-              </div>
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                {isSaving ? 'Сохранение...' : 'Сохранить ключи'}
-              </button>
-            </div>
-          </form>
-        </div>
-        </>
       ) : null}
     </AdminPageWrapper>
   )
