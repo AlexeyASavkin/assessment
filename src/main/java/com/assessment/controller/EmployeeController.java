@@ -3,6 +3,7 @@ package com.assessment.controller;
 import com.assessment.entity.*;
 import com.assessment.repository.*;
 import com.assessment.security.EmployeeTokenService;
+import com.assessment.service.FollowUpService;
 import com.assessment.service.ReportService;
 import com.assessment.service.ScoringService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,7 @@ public class EmployeeController {
     private final QuestionBankRepository questionBankRepository;
     private final TopicRepository topicRepository;
     private final ReportService reportService;
+    private final FollowUpService followUpService;
 
     /**
      * Конструктор с внедрением зависимостей сервисов и репозиториев.
@@ -43,6 +45,7 @@ public class EmployeeController {
      * @param questionBankRepository     репозиторий банка вопросов
      * @param topicRepository            репозиторий тем
      * @param reportService              сервис генерации отчетов
+     * @param followUpService            сервис уточняющих вопросов для слабых ответов
      */
     public EmployeeController(EmployeeTokenService tokenService,
                               SessionRepository sessionRepository,
@@ -50,7 +53,8 @@ public class EmployeeController {
                               QuestionAttemptRepository questionAttemptRepository,
                               QuestionBankRepository questionBankRepository,
                               TopicRepository topicRepository,
-                              ReportService reportService) {
+                              ReportService reportService,
+                              FollowUpService followUpService) {
         this.tokenService = tokenService;
         this.sessionRepository = sessionRepository;
         this.scoringService = scoringService;
@@ -58,6 +62,7 @@ public class EmployeeController {
         this.questionBankRepository = questionBankRepository;
         this.topicRepository = topicRepository;
         this.reportService = reportService;
+        this.followUpService = followUpService;
     }
 
     /**
@@ -229,11 +234,6 @@ public class EmployeeController {
         currentAttempt.setFinalTranscript(finalTranscript);
         questionAttemptRepository.save(currentAttempt);
 
-        // Оценка в фоне — сотрудник не ждёт
-        scoringService.scoreAnswerAsync(currentAttempt.getId());
-
-        List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
-
         // Filter topics by employee's selected competency
         Competency employeeCompetency = session.getEmployee().getCompetency();
         List<Topic> topics;
@@ -246,20 +246,115 @@ public class EmployeeController {
             topics = topicRepository.findAll();
         }
 
-        // First: check if current topic has unused questions in the bank
-        UUID nextTopicId = null;
         UUID currentTopicId = currentAttempt.getTopic() != null ? currentAttempt.getTopic().getId() : null;
-        if (currentTopicId != null && hasUnusedQuestions(currentTopicId, allAttempts)) {
-            nextTopicId = currentTopicId;
-        } else {
-            // Current topic exhausted — move to next unanswered topic
-            nextTopicId = findNextTopicId(allAttempts, topics);
+        int currentDepth = currentAttempt.getFollowupDepth() != null ? currentAttempt.getFollowupDepth() : 0;
+
+        // ----- Филиализация ответа на уточняющий вопрос (depth=1) -----
+        if (currentDepth > 0) {
+            // Синхронно оцениваем сам уточняющий ответ
+            scoringService.scoreAnswer(currentAttempt);
+
+            // Переоцениваем родительскую основную попытку с учётом ответа на уточнение
+            QuestionAttempt parent = currentAttempt.getFollowupParent();
+            if (parent != null) {
+                followUpService.rescoreMainAttempt(parent, currentAttempt);
+            }
+
+            // Ищем следующего кандидата на уточнение в той же теме
+            if (currentTopicId != null) {
+                QuestionAttempt candidate = followUpService.findFollowUpCandidate(sessionId, currentTopicId);
+                if (candidate != null) {
+                    String followUpQuestion = followUpService.generateFollowUpQuestion(candidate);
+                    if (followUpQuestion != null && !followUpQuestion.isBlank()) {
+                        QuestionAttempt followUpAttempt = QuestionAttempt.builder()
+                                .session(session)
+                                .questionText(followUpQuestion)
+                                .topic(candidate.getTopic())
+                                .followupDepth(currentDepth + 1)
+                                .followupParent(candidate)
+                                .build();
+                        followUpAttempt = questionAttemptRepository.save(followUpAttempt);
+                        session.setCurrentQuestionId(followUpAttempt.getId());
+                        sessionRepository.save(session);
+                        return buildQuestionResponse(followUpAttempt);
+                    }
+                }
+            }
+            // Кандидатов нет — переходим к следующей теме
+            return advanceToNextTopicOrComplete(session, topics);
         }
 
-        if (nextTopicId == null) {
-            // Синхронно оцениваем все неоценённые ответы перед завершением
-            scoringService.scoreUnscoredAttempts(sessionId);
+        // ----- Завершение темы: триггер уточняющих вопросов (depth=0) -----
+        // Если это был последний вопрос темы — синхронно оцениваем все неоценённые ответы и ищем кандидата на уточнение.
+        // Если не последний — берём следующий вопрос из банка (async scoring для UX).
+        List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        boolean topicHasMore = currentTopicId != null && hasUnusedQuestions(currentTopicId, allAttempts);
 
+        if (topicHasMore) {
+            // Тема не исчерпана — следующий вопрос из банка, async scoring для UX
+            scoringService.scoreAnswerAsync(currentAttempt.getId());
+            String nextQuestionText = pickQuestionFromBank(currentTopicId, allAttempts);
+            QuestionAttempt nextAttempt = QuestionAttempt.builder()
+                    .session(session)
+                    .questionText(nextQuestionText)
+                    .topic(topicRepository.findById(currentTopicId).orElse(null))
+                    .followupDepth(0)
+                    .build();
+            nextAttempt = questionAttemptRepository.save(nextAttempt);
+            session.setCurrentQuestionId(nextAttempt.getId());
+            sessionRepository.save(session);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("nextQuestionId", nextAttempt.getId());
+            response.put("nextQuestionText", nextQuestionText);
+            response.put("topicId", currentTopicId);
+            response.put("completed", false);
+            response.put("isFollowUp", false);
+            return ResponseEntity.ok(response);
+        }
+
+        // Тема исчерпана — синхронно оцениваем все ответы сессии, затем ищем кандидата на уточнение
+        scoringService.scoreUnscoredAttempts(sessionId);
+
+        if (currentTopicId != null) {
+            QuestionAttempt candidate = followUpService.findFollowUpCandidate(sessionId, currentTopicId);
+            if (candidate != null) {
+                String followUpQuestion = followUpService.generateFollowUpQuestion(candidate);
+                if (followUpQuestion != null && !followUpQuestion.isBlank()) {
+                    QuestionAttempt followUpAttempt = QuestionAttempt.builder()
+                            .session(session)
+                            .questionText(followUpQuestion)
+                            .topic(candidate.getTopic())
+                            .followupDepth(1)
+                            .followupParent(candidate)
+                            .build();
+                    followUpAttempt = questionAttemptRepository.save(followUpAttempt);
+                    session.setCurrentQuestionId(followUpAttempt.getId());
+                    sessionRepository.save(session);
+                    return buildQuestionResponse(followUpAttempt);
+                }
+                // LLM-сбой — пропускаем кандидата, переходим к следующей теме
+            }
+        }
+
+        // Уточнений нет — следующая тема или завершение
+        return advanceToNextTopicOrComplete(session, topics);
+    }
+
+    /**
+     * Подбирает следующий основной вопрос из следующей темы либо завершает сессию.
+     *
+     * @param session текущая сессия
+     * @param topics  список тем компетенции сотрудника
+     * @return ответ с следующим вопросом или признаком завершения
+     */
+    private ResponseEntity<Map<String, Object>> advanceToNextTopicOrComplete(Session session, List<Topic> topics) {
+        List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
+        UUID nextTopicId = findNextTopicId(allAttempts, topics);
+
+        if (nextTopicId == null) {
+            // Все темы пройдены и уточнений нет — завершаем
+            scoringService.scoreUnscoredAttempts(session.getId());
             session.setStatus("COMPLETED");
             sessionRepository.save(session);
 
@@ -267,12 +362,10 @@ public class EmployeeController {
             response.put("nextQuestionId", null);
             response.put("completed", true);
             response.put("isFollowUp", false);
-
             return ResponseEntity.ok(response);
         }
 
         String nextQuestionText = pickQuestionFromBank(nextTopicId, allAttempts);
-
         QuestionAttempt nextAttempt = QuestionAttempt.builder()
                 .session(session)
                 .questionText(nextQuestionText)
@@ -280,7 +373,6 @@ public class EmployeeController {
                 .followupDepth(0)
                 .build();
         nextAttempt = questionAttemptRepository.save(nextAttempt);
-
         session.setCurrentQuestionId(nextAttempt.getId());
         sessionRepository.save(session);
 
@@ -290,7 +382,6 @@ public class EmployeeController {
         response.put("topicId", nextAttempt.getTopic() != null ? nextAttempt.getTopic().getId() : null);
         response.put("completed", false);
         response.put("isFollowUp", false);
-
         return ResponseEntity.ok(response);
     }
 
