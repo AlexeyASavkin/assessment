@@ -5,7 +5,6 @@ import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminCompetenciesTreePage from './pages/admin/AdminCompetenciesTreePage'
 import EmployeesPage from './pages/admin/EmployeesPage'
-import TokensPage from './pages/admin/TokensPage'
 import ApplicationsPage from './pages/admin/ApplicationsPage'
 import ApplicationReportPage from './pages/admin/ApplicationReportPage'
 import AiSettingsPage from './pages/admin/AiSettingsPage'
@@ -49,7 +48,6 @@ function App() {
               <Route path="/admin/competencies" element={<AdminCompetenciesTreePage />} />
               <Route path="/admin/competencies/:competencyId/questions" element={<QuestionsPage />} />
               <Route path="/admin/employees" element={<EmployeesPage />} />
-              <Route path="/admin/tokens" element={<TokensPage />} />
               <Route path="/admin/applications" element={<ApplicationsPage />} />
               <Route path="/admin/applications/:sessionId/report" element={<ApplicationReportPage />} />
               <Route path="/admin/settings" element={<AiSettingsPage />} />
