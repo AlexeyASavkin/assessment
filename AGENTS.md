@@ -121,6 +121,52 @@ Resilience4j rate limiter `geminiApi` configured for 15 requests/minute, 10s tim
 - Frontend `tsconfig.json` has `strict: true`, `noUnusedLocals: true`, `noUnusedParameters: true`.
 - Repo language is Russian (UI strings, some comments, README). Keep Russian user-facing strings when editing frontend.
 
+### Git commit conventions
+
+Format — Conventional Commits with Russian description:
+
+```
+type(scope): краткое описание на русском
+```
+
+**Types (`type`):**
+- `feat` — new feature
+- `fix` — bug fix
+- `refactor` — refactoring without behavior change
+- `chore` — tech debt, dead code removal, tooling
+- `style` — formatting, CSS, whitespace (not semantics)
+- `test` — adding or fixing tests
+- `docs` — documentation
+- `db` — DB migration (when scope is omitted)
+
+**Scopes (`scope`):**
+- `api` — controllers, endpoints
+- `frontend` / `ui` — React components, styles
+- `admin` — admin panel
+- `config` — configuration, env, application.yml
+- `ai` — AiProviderService, FollowUpService, prompts
+- `scoring` — scoring, LlmJsonParser
+- `report` — ReportService
+- `db` / `entity` — Liquibase, entities
+- `security` — auth, tokens
+
+**Rules:**
+- Description in past tense answering "what was done": «добавлен», «поправлен», «вынесен», «удалён».
+- No trailing period.
+- Omit scope if it's obvious from context (`feat: добавить...`).
+- One commit per change. Do not mix `feat` and `fix` in the same commit.
+
+Examples:
+
+```
+feat(api): добавить триггер уточняющих вопросов в submitAnswer
+fix(config): вернуть max-questions-per-session
+refactor(scoring): вынести LlmJsonParser в отдельный util
+feat(frontend): показывать Loader при ожидании оценки
+chore: удалить мёртвые config-ключи
+db: добавить колонку base_score в question_attempts
+```
+
 ## Known limitations
 
 - Voice input only works in Google Chrome.
