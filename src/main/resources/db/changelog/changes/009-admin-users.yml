@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: '009-admin-users'
       author: assessment
+      validCheckSum: '9:081eff3bc5dd9e00e1da3f1f8873b6d0'
       changes:
         - createTable:
             tableName: admin_users
