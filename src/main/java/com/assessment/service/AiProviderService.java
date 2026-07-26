@@ -6,8 +6,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Сервис управления активным провайдером LLM и API-ключами.
- * Поддерживает переключение между Gemini и GigaChat, а также хранение ключей в базе данных.
+ * Сервис управления активным провайдером LLM.
+ * Поддерживает переключение между Gemini, GigaChat, OpenRouter и OpenCode.
+ * API-ключи хранятся только в переменных окружения (.env).
  */
 @Service
 public class AiProviderService {
@@ -30,7 +31,7 @@ public class AiProviderService {
      * Возвращает текущий активный провайдер LLM.
      * Приоритет отдается значению из базы данных, иначе используется значение по умолчанию.
      *
-     * @return название активного провайдера (gemini или gigachat)
+     * @return название активного провайдера
      */
     public String getActiveProvider() {
         return settingsRepository.findBySettingKey("active_provider")
@@ -41,11 +42,11 @@ public class AiProviderService {
     /**
      * Устанавливает активный провайдер LLM.
      *
-     * @param provider название провайдера (gemini или gigachat)
+     * @param provider название провайдера
      * @throws IllegalArgumentException если указан неизвестный провайдер
      */
     public void setActiveProvider(String provider) {
-        if (!provider.equals("gemini") && !provider.equals("gigachat")) {
+        if (!provider.equals("gemini") && !provider.equals("gigachat") && !provider.equals("openrouter") && !provider.equals("opencode")) {
             throw new IllegalArgumentException("Неизвестный провайдер: " + provider);
         }
         AiSettings settings = settingsRepository.findBySettingKey("active_provider")
@@ -56,42 +57,14 @@ public class AiProviderService {
     }
 
     /**
-     * Возвращает API-ключ для указанного провайдера.
-     * Сначала ищет ключ в базе данных, затем в переменных окружения.
+     * Возвращает API-ключ для указанного провайдера из переменных окружения.
      *
-     * @param provider название провайдера (gemini или gigachat)
+     * @param provider название провайдера (gemini, gigachat, openrouter, opencode)
      * @return API-ключ или пустую строку, если ключ не найден
      */
     public String getApiKey(String provider) {
-        String key = provider + "_api_key";
-        String fromDb = settingsRepository.findBySettingKey(key)
-                .map(AiSettings::getSettingValue)
-                .orElse("");
-        if (fromDb != null && !fromDb.isBlank()) {
-            return fromDb;
-        }
-        // Fallback to environment variable: GEMINI_API_KEY / GIGACHAT_API_KEY
         String envKey = provider.toUpperCase() + "_API_KEY";
         String fromEnv = System.getenv(envKey);
         return fromEnv != null ? fromEnv : "";
-    }
-
-    /**
-     * Сохраняет API-ключ для указанного провайдера в базе данных.
-     *
-     * @param provider название провайдера (gemini или gigachat)
-     * @param apiKey   API-ключ для сохранения
-     * @throws IllegalArgumentException если указан неизвестный провайдер
-     */
-    public void setApiKey(String provider, String apiKey) {
-        if (!provider.equals("gemini") && !provider.equals("gigachat")) {
-            throw new IllegalArgumentException("Неизвестный провайдер: " + provider);
-        }
-        String key = provider + "_api_key";
-        AiSettings settings = settingsRepository.findBySettingKey(key)
-                .orElse(new AiSettings());
-        settings.setSettingKey(key);
-        settings.setSettingValue(apiKey != null ? apiKey : "");
-        settingsRepository.save(settings);
     }
 }

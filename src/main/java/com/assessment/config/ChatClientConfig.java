@@ -9,6 +9,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -29,14 +31,14 @@ import java.util.Map;
 /**
  * Конфигурация Spring AI ChatClient с поддержкой маршрутизации между LLM-провайдерами.
  * <p>
- * Создает делегаты для Gemini и GigaChat на основе наличия API-ключей,
+ * Создает делегаты для Gemini, GigaChat и OpenRouter на основе наличия API-ключей,
  * объединяет их в {@link RoutingChatModel} и предоставляет готовый {@link ChatClient}.
  */
 @Configuration
 public class ChatClientConfig {
 
     /**
-     * Создает маршрутизируемую модель чата, которая переключается между Gemini и GigaChat.
+     * Создает маршрутизируемую модель чата, которая переключается между Gemini, GigaChat и OpenRouter.
      * <p>
      * Для каждого провайдера, у которого задан API-ключ, создается отдельная модель
      * с настроенным retry, observation registry и tool calling. Активный провайдер
@@ -105,6 +107,40 @@ public class ChatClientConfig {
                     .observationRegistry(observationRegistry)
                     .build();
             delegates.put("gigachat", gigachatModel);
+        }
+
+        String openrouterKey = aiProviderService.getApiKey("openrouter");
+        if (openrouterKey != null && !openrouterKey.isBlank()) {
+            OpenAiChatOptions openrouterOptions = OpenAiChatOptions.builder()
+                    .apiKey(openrouterKey)
+                    .baseUrl("https://openrouter.ai/api/v1")
+                    .model("openai/gpt-4o")
+                    .temperature(0.3)
+                    .maxTokens(4000)
+                    .build();
+            OpenAiChatModel openrouterModel = OpenAiChatModel.builder()
+                    .options(openrouterOptions)
+                    .toolCallingManager(toolCallingManager)
+                    .observationRegistry(observationRegistry)
+                    .build();
+            delegates.put("openrouter", openrouterModel);
+        }
+
+        String opencodeKey = aiProviderService.getApiKey("opencode");
+        if (opencodeKey != null && !opencodeKey.isBlank()) {
+            OpenAiChatOptions opencodeOptions = OpenAiChatOptions.builder()
+                    .apiKey(opencodeKey)
+                    .baseUrl("https://opencode.ai/zen/v1")
+                    .model("deepseek-v4-flash-free")
+                    .temperature(0.3)
+                    .maxTokens(4000)
+                    .build();
+            OpenAiChatModel opencodeModel = OpenAiChatModel.builder()
+                    .options(opencodeOptions)
+                    .toolCallingManager(toolCallingManager)
+                    .observationRegistry(observationRegistry)
+                    .build();
+            delegates.put("opencode", opencodeModel);
         }
 
         return new RoutingChatModel(delegates, aiProviderService);
