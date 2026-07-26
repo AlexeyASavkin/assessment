@@ -583,8 +583,10 @@ export interface AttemptDetail {
   questionText: string
   /** Итоговый отредактированный текст ответа. */
   finalTranscript: string | null
-  /** Оценка по шкале 0–5. */
+  /** Оценка по шкале 0–5 (текущая, после переоценки с учётом уточнения, если было). */
   score: number | null
+  /** Базовая оценка до переоценки с учётом уточняющего ответа. null, если уточнения не было. */
+  baseScore: number | null
   /** Уровень уверенности LLM (high, medium, low). */
   confidence: string | null
   /** Флаг валидности оценки. */

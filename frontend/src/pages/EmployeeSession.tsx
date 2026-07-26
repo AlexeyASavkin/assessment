@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import QuestionDisplay from '../components/QuestionDisplay'
-import { getCurrentQuestion, submitAnswer } from '../api/employee'
+import { getCurrentQuestion, submitAnswer, type QuestionResponse } from '../api/employee'
 
-interface Question {
-  questionId: string
-  questionText: string
-  topicId: string
-  isFollowUp: boolean
-  completed?: boolean
-  followupParentId?: string
-}
+type Question = QuestionResponse
 
 /**
  * Страница сессии оценки сотрудника.
@@ -67,15 +60,15 @@ export default function EmployeeSession() {
     setError(null)
     try {
       const data = await submitAnswer(sessionId, currentQuestion.questionId, finalTranscript)
-      if (data.completed) {
+      if (data.completed || !data.nextQuestionId) {
         navigate(`/session/${sessionId}/report`)
       } else {
         setCurrentQuestion({
           questionId: data.nextQuestionId,
           questionText: data.nextQuestionText || '',
-          topicId: data.topicId || '',
+          topicId: data.topicId ?? null,
           isFollowUp: data.isFollowUp,
-          followupParentId: data.followupParentId,
+          followupParentId: data.followupParentId ?? null,
         })
       }
     } catch (err) {
