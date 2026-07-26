@@ -5,11 +5,52 @@
 const API_BASE = '/api'
 
 /**
+ * Ответ {@code GET /sessions/{id}/questions}: текущий вопрос сессии или признак завершения.
+ *
+ * Завершённая сессия: {@code completed=true}, остальные поля отсутствуют.
+ * Уточняющий вопрос: {@code isFollowUp=true}, ссылка на родителя в {@code followupParentId}.
+ */
+export interface QuestionResponse {
+  /** Идентификатор попытки ответа (передаётся в submitAnswer). */
+  questionId: string
+  /** Текст вопроса для отображения сотруднику. */
+  questionText: string
+  /** Идентификатор темы (для UI-индикаторов прогресса). */
+  topicId: string | null
+  /** True, если это уточняющий вопрос (depth>0). */
+  isFollowUp: boolean
+  /** Идентификатор основной попытки, к которой относится уточнение (null для основных). */
+  followupParentId: string | null
+  /** True, если сессия завершена — дальше отчёт. */
+  completed?: boolean
+  /** Сообщение об ошибке (legacy). */
+  error?: string
+}
+
+/**
+ * Ответ {@code POST /sessions/{id}/answers}: следующий вопрос или признак завершения.
+ */
+export interface AnswerResponse {
+  /** Идентификатор следующей попытки (null если completed). */
+  nextQuestionId: string | null
+  /** Текст следующего вопроса (для отображения без доп. fetch'а). */
+  nextQuestionText?: string | null
+  /** Тема следующего вопроса. */
+  topicId?: string | null
+  /** True, если следующий вопрос — уточняющий. */
+  isFollowUp: boolean
+  /** Идентификатор родителя для уточняющего (null для основных). */
+  followupParentId?: string | null
+  /** True, если сессия завершена. */
+  completed: boolean
+}
+
+/**
  * Получает текущий вопрос для активной сессии оценки.
  * @param sessionId - идентификатор сессии
  * @return объект с данными вопроса
  */
-export async function getCurrentQuestion(sessionId: string) {
+export async function getCurrentQuestion(sessionId: string): Promise<QuestionResponse> {
   const response = await fetch(`${API_BASE}/employee/sessions/${sessionId}/questions`, {
     credentials: 'include',
   })
@@ -24,7 +65,7 @@ export async function getCurrentQuestion(sessionId: string) {
  * @param finalTranscript - отредактированный финальный текст ответа
  * @return объект с информацией о следующем вопросе или завершении сессии
  */
-export async function submitAnswer(sessionId: string, questionAttemptId: string, finalTranscript: string) {
+export async function submitAnswer(sessionId: string, questionAttemptId: string, finalTranscript: string): Promise<AnswerResponse> {
   const response = await fetch(`${API_BASE}/employee/sessions/${sessionId}/answers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
