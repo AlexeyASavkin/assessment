@@ -109,6 +109,7 @@ export default function EmployeeSession() {
     <div className="container">
       <h1>Ассессмент компетенций</h1>
       <QuestionDisplay
+        key={currentQuestion.questionId}
         questionText={currentQuestion.questionText}
         isFollowUp={currentQuestion.isFollowUp}
         onSubmit={handleSubmitAnswer}
