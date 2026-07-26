@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: '23'
+      author: assessment
+      changes:
+        - addColumn:
+            tableName: topics
+            columns:
+              - column:
+                  name: sort_order
+                  type: integer
+                  defaultValueNumeric: 0

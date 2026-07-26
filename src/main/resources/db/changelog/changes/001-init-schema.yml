@@ -1,0 +1,344 @@
+databaseChangeLog:
+  - changeSet:
+      id: '1'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: competencies
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: description
+                  type: text
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '2'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: criteria
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: competency_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_criteria_competency
+                    referencedTableName: competencies
+                    referencedColumnNames: id
+              - column:
+                  name: name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: text
+              - column:
+                  name: weight
+                  type: decimal(3,2)
+                  defaultValueNumeric: 1.0
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '3'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: criteria_levels
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: criteria_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_levels_criteria
+                    referencedTableName: criteria
+                    referencedColumnNames: id
+              - column:
+                  name: level
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: requirements
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '4'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: employees
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: full_name
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: position
+                  type: varchar(255)
+              - column:
+                  name: department
+                  type: varchar(255)
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '5'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: sessions
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: employee_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_sessions_employee
+                    referencedTableName: employees
+                    referencedColumnNames: id
+              - column:
+                  name: status
+                  type: varchar(50)
+                  defaultValue: ACTIVE
+              - column:
+                  name: current_question_id
+                  type: uuid
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+              - column:
+                  name: updated_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '6'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: assessment_invite_tokens
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: token_hash
+                  type: varchar(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: employee_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_tokens_employee
+                    referencedTableName: employees
+                    referencedColumnNames: id
+              - column:
+                  name: session_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_tokens_session
+                    referencedTableName: sessions
+                    referencedColumnNames: id
+              - column:
+                  name: used
+                  type: boolean
+                  defaultValueBoolean: false
+              - column:
+                  name: used_at
+                  type: timestamp
+              - column:
+                  name: expires_at
+                  type: timestamp
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '7'
+      author: assessment
+      changes:
+        - createTable:
+            tableName: question_attempts
+            columns:
+              - column:
+                  name: id
+                  type: uuid
+                  defaultValueComputed: gen_random_uuid()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: session_id
+                  type: uuid
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_attempts_session
+                    referencedTableName: sessions
+                    referencedColumnNames: id
+              - column:
+                  name: question_text
+                  type: text
+                  constraints:
+                    nullable: false
+              - column:
+                  name: raw_transcript
+                  type: text
+              - column:
+                  name: final_transcript
+                  type: text
+              - column:
+                  name: score
+                  type: decimal(3,2)
+              - column:
+                  name: confidence
+                  type: varchar(20)
+              - column:
+                  name: valid_judge
+                  type: boolean
+                  defaultValueBoolean: true
+              - column:
+                  name: feedback
+                  type: text
+              - column:
+                  name: followup_depth
+                  type: integer
+                  defaultValueNumeric: 0
+              - column:
+                  name: followup_parent_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_attempts_parent
+                    referencedTableName: question_attempts
+                    referencedColumnNames: id
+              - column:
+                  name: criteria_id
+                  type: uuid
+                  constraints:
+                    foreignKeyName: fk_attempts_criteria
+                    referencedTableName: criteria
+                    referencedColumnNames: id
+              - column:
+                  name: created_at
+                  type: timestamp
+                  defaultValueComputed: now()
+
+  - changeSet:
+      id: '8'
+      author: assessment
+      changes:
+        - createIndex:
+            tableName: question_attempts
+            indexName: idx_attempts_session
+            columns:
+              - column:
+                  name: session_id
+        - createIndex:
+            tableName: question_attempts
+            indexName: idx_attempts_criteria
+            columns:
+              - column:
+                  name: criteria_id
+        - createIndex:
+            tableName: question_attempts
+            indexName: idx_attempts_parent
+            columns:
+              - column:
+                  name: followup_parent_id
+        - createIndex:
+            tableName: assessment_invite_tokens
+            indexName: idx_tokens_hash
+            columns:
+              - column:
+                  name: token_hash
+        - createIndex:
+            tableName: assessment_invite_tokens
+            indexName: idx_tokens_employee
+            columns:
+              - column:
+                  name: employee_id

@@ -1,0 +1,7 @@
+databaseChangeLog:
+  - changeSet:
+      id: '23-drop-topic-levels'
+      author: sisyphus
+      changes:
+        - dropTable:
+            tableName: topic_levels
