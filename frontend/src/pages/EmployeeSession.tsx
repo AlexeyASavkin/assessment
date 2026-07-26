@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import QuestionDisplay from '../components/QuestionDisplay'
+import Loader from '../components/Loader'
 import { getCurrentQuestion, submitAnswer, type QuestionResponse } from '../api/employee'
 
 type Question = QuestionResponse
@@ -93,13 +94,20 @@ export default function EmployeeSession() {
   if (!currentQuestion) {
     return (
       <div className="container">
-        <p>Загрузка...</p>
+        <Loader text="Загрузка вопроса..." />
       </div>
     )
   }
 
   return (
     <div className="container">
+      {isLoading && (
+        <Loader
+          overlay
+          text="Оцениваем ваш ответ..."
+          subtext="ИИ анализирует ответ и готовит следующий вопрос. Это может занять примерно минуту."
+        />
+      )}
       <h1>Ассессмент компетенций</h1>
       <QuestionDisplay
         key={currentQuestion.questionId}

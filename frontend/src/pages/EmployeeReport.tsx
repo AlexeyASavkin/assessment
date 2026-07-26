@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { plainTextToHtml } from '../components/RichTextEditor'
+import Loader from '../components/Loader'
 import type { AttemptDetail } from '../api/admin'
 
 interface CompetencyReport {
@@ -82,7 +83,7 @@ export default function EmployeeReport() {
   if (isLoading || !report) {
     return (
       <div className="container">
-        <p>Загрузка отчёта...</p>
+        <Loader text="Формируем отчёт..." subtext="Подсчитываем баллы и готовим рекомендации." />
       </div>
     )
   }
