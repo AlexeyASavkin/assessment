@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getApplicationReport, type ApplicationReport, type AttemptDetail } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
+import { plainTextToHtml } from '../../components/RichTextEditor'
 
 /**
  * Страница детального отчёта по заявке.
@@ -167,35 +168,26 @@ export default function ApplicationReportPage() {
 
               <div style={{ marginTop: '0.5rem' }}>
                 <strong>Вопрос:</strong>
-                <p>{attempt.questionText}</p>
+                <div className="rich-content" dangerouslySetInnerHTML={{ __html: plainTextToHtml(attempt.questionText) }} />
               </div>
 
               <div style={{ marginTop: '0.5rem' }}>
                 <strong>Ответ сотрудника:</strong>
-                <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#f8f9fa', padding: '0.75rem', borderRadius: '4px' }}>
-                  {attempt.finalTranscript ?? '(пусто)'}
-                </p>
+                <div className="rich-content" style={{ backgroundColor: '#f8f9fa', padding: '0.75rem', borderRadius: '4px' }}
+                     dangerouslySetInnerHTML={{ __html: plainTextToHtml(attempt.finalTranscript ?? '(пусто)') }} />
               </div>
-
-              {attempt.rawTranscript && attempt.rawTranscript !== attempt.finalTranscript && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#6c757d' }}>
-                  <strong>Сырой транскрипт:</strong>
-                  <p style={{ whiteSpace: 'pre-wrap' }}>{attempt.rawTranscript}</p>
-                </div>
-              )}
 
               <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <span><strong>Оценка:</strong> {attempt.score != null ? attempt.score.toFixed(2) : '—'}</span>
-                <span><strong>Уверенность:</strong> {attempt.confidence ?? '—'}</span>
-                <span><strong>Валидна:</strong> {attempt.validJudge === false ? 'нет' : 'да'}</span>
+                <span><span className="info-hint" data-tooltip="Уверенность ИИ в собственной оценке: HIGH — уверен, ответ однозначен; MEDIUM — умеренно; LOW — не уверен, ответ неоднозначен"><strong>Уверенность</strong></span>: {attempt.confidence ?? '—'}</span>
+                <span><span className="info-hint" data-tooltip="Оценка засчитана: да — если балл > 0 (ответ по теме), нет — если 0 (ответ некорректный, не по теме)"><strong>Валидна</strong></span>: {attempt.validJudge === false ? 'нет' : 'да'}</span>
               </div>
 
               {attempt.feedback && (
                 <div style={{ marginTop: '0.5rem' }}>
                   <strong>Feedback ИИ:</strong>
-                  <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#eef', padding: '0.75rem', borderRadius: '4px' }}>
-                    {attempt.feedback}
-                  </p>
+                  <div className="rich-content" style={{ backgroundColor: '#eef', padding: '0.75rem', borderRadius: '4px' }}
+                       dangerouslySetInnerHTML={{ __html: plainTextToHtml(attempt.feedback) }} />
                 </div>
               )}
 

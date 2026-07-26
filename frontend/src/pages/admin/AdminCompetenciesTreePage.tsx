@@ -23,6 +23,7 @@ import {
   type QuestionBankItem,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
+import RichTextEditor, { type RichTextEditorHandle, plainTextToHtml } from '../../components/RichTextEditor'
 
 /**
  * Тип выбранного узла в дереве компетенций.
@@ -64,6 +65,7 @@ export default function AdminCompetenciesTreePage() {
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
   const [editQuestionText, setEditQuestionText] = useState('')
   const [savingQuestion, setSavingQuestion] = useState(false)
+  const questionEditorRef = useRef<RichTextEditorHandle>(null)
 
 /**
    * Загружает список компетенций с сервера.
@@ -218,10 +220,12 @@ export default function AdminCompetenciesTreePage() {
   }
 
   const handleSaveQuestion = async (questionId: string, topicId: string) => {
-    if (!editQuestionText.trim()) return
+    const content = questionEditorRef.current?.getContent()
+    const textToSave = content?.html || editQuestionText.trim()
+    if (!textToSave) return
     setSavingQuestion(true)
     try {
-      await updateQuestion(questionId, editQuestionText.trim())
+      await updateQuestion(questionId, textToSave)
       setEditingQuestionId(null)
       setEditQuestionText('')
       await loadQuestions(topicId)
@@ -443,12 +447,10 @@ export default function AdminCompetenciesTreePage() {
                   <div className="drag-handle" title="Перетащить">⠿</div>
                   {editingQuestionId === q.id ? (
                     <>
-                      <textarea
-                        className="question-edit-textarea"
-                        value={editQuestionText}
-                        onChange={(e) => setEditQuestionText(e.target.value)}
-                        rows={3}
-                        autoFocus
+                      <RichTextEditor
+                        ref={questionEditorRef}
+                        content={editQuestionText}
+                        minHeight="80px"
                       />
                       <div className="question-edit-actions">
                         <button
@@ -466,7 +468,7 @@ export default function AdminCompetenciesTreePage() {
                   ) : (
                     <>
                       <div className="admin-list-info">
-                        <p>{q.questionText}</p>
+                        <div dangerouslySetInnerHTML={{ __html: plainTextToHtml(q.questionText) }} />
                       </div>
                       <button className="btn btn-sm" onClick={() => startEditQuestion(q)}>
                         Ред.
