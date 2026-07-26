@@ -507,11 +507,11 @@ public class AdminController {
                     ? employee.getCompetency().getName() : null;
 
             BigDecimal averageScore = null;
-            String compositeLevel = null;
+            boolean passed = false;
             if (sessionId != null && "COMPLETED".equals(sessionStatus)) {
                 ReportService.SessionSummary summary = reportService.computeSummary(sessionId);
                 averageScore = summary.averageScore();
-                compositeLevel = summary.compositeLevel();
+                passed = summary.passed();
             }
 
             summaries.add(new ApplicationSummary(
@@ -522,7 +522,7 @@ public class AdminController {
                     sessionStatus,
                     sessionId,
                     averageScore,
-                    compositeLevel,
+                    passed,
                     token.getCreatedAt(),
                     completedAt
             ));
