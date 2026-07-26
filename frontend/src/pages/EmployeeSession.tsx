@@ -59,15 +59,14 @@ export default function EmployeeSession() {
   /**
    * Отправляет ответ сотрудника на сервер и загружает следующий вопрос.
    * При завершении сессии перенаправляет на страницу отчёта.
-   * @param rawTranscript - Неотредактированный распознанный текст
    * @param finalTranscript - Отредактированный итоговый текст ответа
    */
-  const handleSubmitAnswer = async (rawTranscript: string, finalTranscript: string) => {
+  const handleSubmitAnswer = async (finalTranscript: string) => {
     if (!sessionId || !currentQuestion) return
     setIsLoading(true)
     setError(null)
     try {
-      const data = await submitAnswer(sessionId, currentQuestion.questionId, rawTranscript, finalTranscript)
+      const data = await submitAnswer(sessionId, currentQuestion.questionId, finalTranscript)
       if (data.completed) {
         navigate(`/session/${sessionId}/report`)
       } else {

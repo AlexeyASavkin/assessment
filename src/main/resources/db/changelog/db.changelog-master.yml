@@ -19,3 +19,5 @@ databaseChangeLog:
       file: db/changelog/changes/009-admin-users.yml
   - include:
       file: db/changelog/changes/010-employee-competencies.yml
+  - include:
+      file: db/changelog/changes/011-drop-raw-transcript.yml

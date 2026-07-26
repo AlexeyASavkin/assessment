@@ -551,8 +551,6 @@ export interface AttemptDetail {
   attemptId: string
   /** Текст вопроса. */
   questionText: string
-  /** Сырой распознанный текст ответа. */
-  rawTranscript: string | null
   /** Итоговый отредактированный текст ответа. */
   finalTranscript: string | null
   /** Оценка по шкале 0–5. */

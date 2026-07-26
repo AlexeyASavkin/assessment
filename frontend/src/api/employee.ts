@@ -21,16 +21,15 @@ export async function getCurrentQuestion(sessionId: string) {
  * Отправляет ответ сотрудника на текущий вопрос.
  * @param sessionId - идентификатор сессии
  * @param questionAttemptId - идентификатор попытки ответа на вопрос
- * @param rawTranscript - необработанный текст распознавания речи
  * @param finalTranscript - отредактированный финальный текст ответа
  * @return объект с информацией о следующем вопросе или завершении сессии
  */
-export async function submitAnswer(sessionId: string, questionAttemptId: string, rawTranscript: string, finalTranscript: string) {
+export async function submitAnswer(sessionId: string, questionAttemptId: string, finalTranscript: string) {
   const response = await fetch(`${API_BASE}/employee/sessions/${sessionId}/answers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
-    body: JSON.stringify({ questionAttemptId, rawTranscript, finalTranscript }),
+    body: JSON.stringify({ questionAttemptId, finalTranscript }),
   })
   if (!response.ok) throw new Error('Failed to submit answer')
   return response.json()

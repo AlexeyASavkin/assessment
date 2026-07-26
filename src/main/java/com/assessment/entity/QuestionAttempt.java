@@ -35,10 +35,6 @@ public class QuestionAttempt {
     @Column(name = "question_text", nullable = false)
     private String questionText;
 
-    /** Сырой распознанный текст ответа сотрудника до редактирования. */
-    @Column(name = "raw_transcript")
-    private String rawTranscript;
-
     /** Итоговый отредактированный текст ответа сотрудника. */
     @Column(name = "final_transcript")
     private String finalTranscript;
