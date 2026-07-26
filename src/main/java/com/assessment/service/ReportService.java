@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * Сервис формирования итоговых отчетов по сессиям оценки.
- * Агрегирует оценки по компетенциям, определяет уровень сотрудника и формирует рекомендации.
+ * Агрегирует оценки по компетенциям, определяет результат (пройдено/не пройдено) и формирует рекомендации.
  */
 @Service
 public class ReportService {
@@ -35,7 +35,7 @@ public class ReportService {
 
     /**
      * Формирует полный отчет по сессии оценки.
-     * Включает оценки по темам, достигнутые уровни, уточняющие вопросы и общую рекомендацию.
+     * Включает оценки по темам, флаг прохождения, уточняющие вопросы и общую рекомендацию.
      *
      * @param sessionId идентификатор сессии
      * @return карта с данными отчета
@@ -60,7 +60,7 @@ public class ReportService {
             List<QuestionAttempt> topicAttempts = entry.getValue();
 
             BigDecimal avgScore = computeTopicAverage(topicAttempts);
-            String achievedLevel = determineLevel(avgScore);
+            boolean topicPassed = avgScore.compareTo(new BigDecimal("3.0")) >= 0;
 
             List<String> feedbacks = topicAttempts.stream()
                     .map(QuestionAttempt::getFeedback)
@@ -73,7 +73,7 @@ public class ReportService {
             competencyReport.put("sectionName", topicAttempts.get(0).getTopic().getSection().getName());
             competencyReport.put("competencyName", topicAttempts.get(0).getTopic().getSection().getCompetency().getName());
             competencyReport.put("averageScore", avgScore);
-            competencyReport.put("achievedLevel", achievedLevel);
+            competencyReport.put("passed", topicPassed);
             competencyReport.put("followUpScores", topicAttempts.stream()
                     .filter(a -> a.getFollowupDepth() > 0)
                     .map(QuestionAttempt::getScore)
@@ -89,14 +89,14 @@ public class ReportService {
         BigDecimal overallAvg = competencyCount > 0
                 ? totalScore.divide(BigDecimal.valueOf(competencyCount), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
-        String compositeLevel = determineLevel(overallAvg);
+        boolean passed = overallAvg.compareTo(new BigDecimal("3.0")) >= 0;
 
         Map<String, Object> report = new LinkedHashMap<>();
         report.put("sessionId", sessionId);
         report.put("employeeName", session.getEmployee().getFullName());
         report.put("competencies", competencyReports);
-        report.put("compositeLevel", compositeLevel);
-        report.put("overallRecommendation", generateOverallRecommendation(compositeLevel, competencyReports));
+        report.put("passed", passed);
+        report.put("overallRecommendation", generateOverallRecommendation(passed));
 
         return report;
     }
@@ -178,7 +178,7 @@ public class ReportService {
 
     /**
      * Сводная статистика по сессии для списка заявок:
-     * средний балл и итоговый уровень.
+     * средний балл и результат прохождения.
      *
      * @param sessionId идентификатор сессии
      * @return запись {@link SessionSummary} (значения null, если оценок нет)
@@ -202,45 +202,26 @@ public class ReportService {
         }
 
         if (topicCount == 0) {
-            return new SessionSummary(null, null);
+            return new SessionSummary(null, false);
         }
         BigDecimal overallAvg = totalScore.divide(BigDecimal.valueOf(topicCount), 2, RoundingMode.HALF_UP);
-        return new SessionSummary(overallAvg, determineLevel(overallAvg));
+        return new SessionSummary(overallAvg, overallAvg.compareTo(new BigDecimal("3.0")) >= 0);
     }
 
     /**
-     * Запись сводной статистики по сессии: средний балл и итоговый уровень.
+     * Запись сводной статистики по сессии: средний балл и результат прохождения.
      */
-    public record SessionSummary(BigDecimal averageScore, String compositeLevel) {}
+    public record SessionSummary(BigDecimal averageScore, boolean passed) {}
 
     /**
-     * Определяет уровень компетенции на основе среднего балла.
+     * Формирует общую рекомендацию по результатам оценки.
      *
-     * @param avgScore средний балл по критерию или компетенции
-     * @return уровень: SENIOR, MIDDLE или JUNIOR
-     */
-    private String determineLevel(BigDecimal avgScore) {
-        if (avgScore.compareTo(new BigDecimal("4.3")) >= 0) {
-            return "SENIOR";
-        } else if (avgScore.compareTo(new BigDecimal("3.5")) >= 0) {
-            return "MIDDLE";
-        } else {
-            return "JUNIOR";
-        }
-    }
-
-    /**
-     * Формирует общую рекомендацию по результатам оценки на основе композитного уровня.
-     *
-     * @param compositeLevel      итоговый уровень сотрудника
-     * @param competencyReports   список отчетов по компетенциям
+     * @param passed результат прохождения (средний балл >= 3.0)
      * @return текст общей рекомендации
      */
-    private String generateOverallRecommendation(String compositeLevel, List<Map<String, Object>> competencyReports) {
-        return switch (compositeLevel) {
-            case "SENIOR" -> "Сотрудник демонстрирует высокий уровень компетенций. Рекомендуется к повышению.";
-            case "MIDDLE" -> "Сотрудник показывает хороший уровень. Рекомендуется развитие в направлении Senior.";
-            default -> "Сотруднику рекомендуется дополнительное обучение и развитие базовых компетенций.";
-        };
+    private String generateOverallRecommendation(boolean passed) {
+        return passed
+                ? "Сотрудник успешно прошёл оценку компетенций. Рекомендуется к зачёту."
+                : "Сотруднику рекомендуется дополнительное обучение и развитие компетенций.";
     }
 }

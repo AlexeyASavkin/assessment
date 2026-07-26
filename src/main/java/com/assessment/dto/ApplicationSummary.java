@@ -15,7 +15,7 @@ import java.util.UUID;
  * @param sessionStatus     статус сессии (ACTIVE, COMPLETED или null, если сессия ещё не создана)
  * @param sessionId         идентификатор сессии (null, если сессия ещё не создана)
  * @param averageScore      средний балл по валидным попыткам (null, если оценок нет)
- * @param compositeLevel    итоговый уровень (SENIOR, MIDDLE, JUNIOR или null, если оценка не завершена)
+ * @param passed            результат прохождения (средний балл >= 3.0, false если оценка не завершена)
  * @param createdAt         дата создания пригласительного токена
  * @param completedAt       дата завершения сессии (null, если не завершена)
  */
@@ -27,7 +27,7 @@ public record ApplicationSummary(
         String sessionStatus,
         UUID sessionId,
         BigDecimal averageScore,
-        String compositeLevel,
+        boolean passed,
         LocalDateTime createdAt,
         LocalDateTime completedAt
 ) {
