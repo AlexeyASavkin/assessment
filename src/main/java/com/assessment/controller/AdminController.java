@@ -376,7 +376,7 @@ public class AdminController {
      */
     @GetMapping("/employees")
     public ResponseEntity<List<Employee>> listEmployees() {
-        return ResponseEntity.ok(employeeRepository.findAllByOrderByCreatedAtAsc());
+        return ResponseEntity.ok(employeeRepository.findAllByOrderByCreatedAtDesc());
     }
 
     /**
