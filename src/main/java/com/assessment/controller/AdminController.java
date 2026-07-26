@@ -576,6 +576,33 @@ public class AdminController {
         return getAiSettings();
     }
 
+    // ---- AI Prompts ----
+
+    /**
+     * Возвращает все промты ИИ (промт оценки, генерации вопроса, уточняющего вопроса).
+     *
+     * @return карта с промтами
+     */
+    @GetMapping("/settings/ai/prompts")
+    public ResponseEntity<Map<String, String>> getAiPrompts() {
+        return ResponseEntity.ok(aiProviderService.getAllPrompts());
+    }
+
+    /**
+     * Обновляет промты ИИ. Принимает карту ключ→значение.
+     * Ключи: prompt_scoring, prompt_question.
+     *
+     * @param body карта с промтами
+     * @return обновленные промты
+     */
+    @PutMapping("/settings/ai/prompts")
+    public ResponseEntity<Map<String, String>> updateAiPrompts(@RequestBody Map<String, String> body) {
+        for (Map.Entry<String, String> entry : body.entrySet()) {
+            aiProviderService.setPrompt(entry.getKey(), entry.getValue());
+        }
+        return getAiPrompts();
+    }
+
     // ---- Question Bank ----
 
     /** Допустимые значения сложности для генерации вопросов. */

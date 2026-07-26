@@ -6,14 +6,50 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * Сервис управления активным провайдером LLM.
+ * Сервис управления активным провайдером LLM и промтами.
  * Поддерживает переключение между Gemini, GigaChat, OpenRouter и OpenCode.
  * API-ключи хранятся только в переменных окружения (.env).
+ * Промты хранятся в таблице ai_settings.
  */
 @Service
 public class AiProviderService {
 
     private final AiSettingsRepository settingsRepository;
+
+    /** Ключи настроек для промтов в таблице ai_settings. */
+    public static final String PROMPT_SCORING = "prompt_scoring";
+    public static final String PROMPT_QUESTION = "prompt_question";
+
+    /** Промт оценки ответа сотрудника ( placeholders: %1$s = вопрос, %2$s = ответ ). */
+    private static final String DEFAULT_PROMPT_SCORING = """
+            Ты — эксперт по оценке компетенций. Оцени ответ сотрудника.
+
+            Вопрос: %1$s
+            Ответ сотрудника: %2$s
+
+            Оцени по шкале 0-5:
+            - 0 = не удалось оценить (некорректный ответ, не по теме)
+            - 1-2 = не соответствует уровню
+            - 3 = частично соответствует
+            - 4-5 = полностью соответствует
+
+            Дай рекомендацию по развитию.
+
+            Формат ответа JSON:
+            {"score": <int>, "confidence": "<HIGH|MEDIUM|LOW>", "feedback": "<recommendation>"}
+            """;
+
+    /** Промт генерации основного вопроса ( placeholders: %1$s = компетенция, %2$s = тема ). */
+    private static final String DEFAULT_PROMPT_QUESTION = """
+            Ты — эксперт по оценке компетенций. Сгенерируй вопрос для сотрудника.
+
+            Компетенция: %1$s
+            Тема: %2$s
+
+            Сгенерируй один вопрос на русском языке для оценки этой темы.
+            Вопрос должен быть конкретным и позволять оценить уровень сотрудника.
+            Верни ТОЛЬКО текст вопроса без лишних объяснений.
+            """;
 
     @Value("${assessment.ai.active-provider:gemini}")
     private String defaultProvider;
@@ -66,5 +102,50 @@ public class AiProviderService {
         String envKey = provider.toUpperCase() + "_API_KEY";
         String fromEnv = System.getenv(envKey);
         return fromEnv != null ? fromEnv : "";
+    }
+
+    // ---- Prompts ----
+
+    /**
+     * Возвращает промт по ключу. Если в БД нет сохранённого значения — возвращает дефолт.
+     *
+     * @param key ключ промта (PROMPT_SCORING / PROMPT_QUESTION)
+     * @return текст промта (с placeholder'ами %1$s, %2$s)
+     */
+    public String getPrompt(String key) {
+        String defaultValue = switch (key) {
+            case PROMPT_SCORING -> DEFAULT_PROMPT_SCORING;
+            case PROMPT_QUESTION -> DEFAULT_PROMPT_QUESTION;
+            default -> "";
+        };
+        return settingsRepository.findBySettingKey(key)
+                .map(AiSettings::getSettingValue)
+                .orElse(defaultValue);
+    }
+
+    /**
+     * Сохраняет промт в таблицу ai_settings.
+     *
+     * @param key   ключ промта
+     * @param value текст промта (с placeholder'ами)
+     */
+    public void setPrompt(String key, String value) {
+        AiSettings settings = settingsRepository.findBySettingKey(key)
+                .orElse(new AiSettings());
+        settings.setSettingKey(key);
+        settings.setSettingValue(value);
+        settingsRepository.save(settings);
+    }
+
+    /**
+     * Возвращает все промты в виде карты ключ → значение.
+     *
+     * @return карта со всеми промтами (текущие из БД или дефолтные)
+     */
+    public java.util.Map<String, String> getAllPrompts() {
+        return java.util.Map.of(
+                PROMPT_SCORING, getPrompt(PROMPT_SCORING),
+                PROMPT_QUESTION, getPrompt(PROMPT_QUESTION)
+        );
     }
 }

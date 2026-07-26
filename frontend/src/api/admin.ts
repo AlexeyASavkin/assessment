@@ -415,6 +415,34 @@ export async function updateAiSettings(activeProvider: string): Promise<AiSettin
   })
 }
 
+// ---- AI Prompts ----
+
+/**
+ * Промты ИИ (ключи совпадают с бэкенд-константами AiProviderService).
+ */
+export interface AiPrompts {
+  prompt_scoring: string
+  prompt_question: string
+}
+
+/**
+ * Получает текущие промты ИИ.
+ */
+export async function getAiPrompts(): Promise<AiPrompts> {
+  return adminJson<AiPrompts>('/settings/ai/prompts')
+}
+
+/**
+ * Обновляет промты ИИ.
+ */
+export async function updateAiPrompts(prompts: AiPrompts): Promise<AiPrompts> {
+  return adminJson<AiPrompts>('/settings/ai/prompts', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(prompts),
+  })
+}
+
 // ---- Question Bank ----
 
 /**

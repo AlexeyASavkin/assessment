@@ -1,27 +1,50 @@
 import { useState, useEffect, FormEvent } from 'react'
-import { getAiSettings, updateAiSettings, type AiSettings } from '../../api/admin'
+import {
+  getAiSettings, updateAiSettings,
+  getAiPrompts, updateAiPrompts,
+  type AiSettings, type AiPrompts,
+} from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
+/** Метаданные промтов для отображения в UI. */
+const PROMPT_META: { key: keyof AiPrompts; label: string; description: string; placeholders: string }[] = [
+  {
+    key: 'prompt_scoring',
+    label: 'Промт оценки ответа',
+    description: 'Используется при оценке ответа сотрудника LLM. Определяет шкалу и формат ответа.',
+    placeholders: 'Доступные плейсхолдеры: %1$s = вопрос, %2$s = ответ сотрудника',
+  },
+  {
+    key: 'prompt_question',
+    label: 'Промт генерации вопроса',
+    description: 'Используется при генерации основного вопроса по теме компетенции.',
+    placeholders: 'Доступные плейсхолдеры: %1$s = компетенция, %2$s = тема',
+  },
+]
+
 /**
- * Страница настройки ИИ-провайдера.
- * Позволяет выбрать активного провайдера. API-ключи задаются через переменные окружения (.env).
+ * Страница настройки ИИ-провайдера и промтов.
+ * Позволяет выбрать активного провайдера и редактировать промты, используемые LLM.
  */
 export default function AiSettingsPage() {
   const [settings, setSettings] = useState<AiSettings | null>(null)
   const [selectedProvider, setSelectedProvider] = useState('')
+  const [prompts, setPrompts] = useState<AiPrompts>({ prompt_scoring: '', prompt_question: '' })
   const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const [isSavingProvider, setIsSavingProvider] = useState(false)
+  const [isSavingPrompts, setIsSavingPrompts] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  /** Загружает текущие настройки ИИ с сервера. */
+  /** Загружает текущие настройки ИИ и промты с сервера. */
   const load = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const settingsData = await getAiSettings()
+      const [settingsData, promptsData] = await Promise.all([getAiSettings(), getAiPrompts()])
       setSettings(settingsData)
       setSelectedProvider(settingsData.activeProvider)
+      setPrompts(promptsData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки настроек')
     } finally {
@@ -32,20 +55,37 @@ export default function AiSettingsPage() {
   useEffect(() => { load() }, [])
 
   /** Сохраняет выбранного активного провайдера ИИ. */
-  const handleSubmit = async (e: FormEvent) => {
+  const handleProviderSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    setIsSaving(true)
+    setIsSavingProvider(true)
     setError(null)
     setSuccess(null)
     try {
       const updated = await updateAiSettings(selectedProvider)
       setSettings(updated)
       setSelectedProvider(updated.activeProvider)
-      setSuccess('Настройки сохранены')
+      setSuccess('Провайдер сохранён')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка сохранения')
     } finally {
-      setIsSaving(false)
+      setIsSavingProvider(false)
+    }
+  }
+
+  /** Сохраняет отредактированные промты. */
+  const handlePromptsSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setIsSavingPrompts(true)
+    setError(null)
+    setSuccess(null)
+    try {
+      const updated = await updateAiPrompts(prompts)
+      setPrompts(updated)
+      setSuccess('Промты сохранены')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения промтов')
+    } finally {
+      setIsSavingPrompts(false)
     }
   }
 
@@ -63,7 +103,7 @@ export default function AiSettingsPage() {
   return (
     <AdminPageWrapper>
       <h1>Настройки ИИ</h1>
-      <p>Выберите провайдера искусственного интеллекта для генерации вопросов и оценки ответов.</p>
+      <p>Выберите провайдера искусственного интеллекта и настройте промты для генерации вопросов и оценки ответов.</p>
       <p style={{ color: '#555', fontSize: '0.9rem' }}>API-ключи задаются через переменные окружения (.env) и не редактируются через интерфейс.</p>
 
       {error && <p className="error-text">{error}</p>}
@@ -72,38 +112,85 @@ export default function AiSettingsPage() {
       {isLoading ? (
         <p>Загрузка...</p>
       ) : settings ? (
-        <div className="card">
-          <form onSubmit={handleSubmit} className="admin-form">
-            <div className="form-field">
-              <label>Активный провайдер</label>
-              <div className="ai-provider-options">
-                {settings.availableProviders.map((provider) => (
-                  <label key={provider} className="ai-provider-option">
-                    <input
-                      type="radio"
-                      name="aiProvider"
-                      value={provider}
-                      checked={selectedProvider === provider}
-                      onChange={() => setSelectedProvider(provider)}
-                    />
-                    <div className="ai-provider-card">
-                      <strong>{providerLabel(provider)}</strong>
-                      {provider === 'gemini' && <p>Облачная модель Google. Ключ: GEMINI_API_KEY</p>}
-                      {provider === 'gigachat' && <p>Российская модель Сбера. Ключ: GIGACHAT_API_KEY</p>}
-                      {provider === 'openrouter' && <p>Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: OPENROUTER_API_KEY</p>}
-                      {provider === 'opencode' && <p>AI-шлюз OpenCode Zen (DeepSeek, Grok, GLM). Ключ: OPENCODE_API_KEY</p>}
-                    </div>
-                  </label>
-                ))}
+        <>
+          {/* ---- Провайдер ---- */}
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Провайдер</h2>
+            <form onSubmit={handleProviderSubmit} className="admin-form">
+              <div className="form-field">
+                <label>Активный провайдер</label>
+                <div className="ai-provider-options">
+                  {settings.availableProviders.map((provider) => (
+                    <label key={provider} className="ai-provider-option">
+                      <input
+                        type="radio"
+                        name="aiProvider"
+                        value={provider}
+                        checked={selectedProvider === provider}
+                        onChange={() => setSelectedProvider(provider)}
+                      />
+                      <div className="ai-provider-card">
+                        <strong>{providerLabel(provider)}</strong>
+                        {provider === 'gemini' && <p>Облачная модель Google. Ключ: GEMINI_API_KEY</p>}
+                        {provider === 'gigachat' && <p>Российская модель Сбера. Ключ: GIGACHAT_API_KEY</p>}
+                        {provider === 'openrouter' && <p>Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: OPENROUTER_API_KEY</p>}
+                        {provider === 'opencode' && <p>AI-шлюз OpenCode Zen (DeepSeek, Grok, GLM). Ключ: OPENCODE_API_KEY</p>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={isSaving}>
-                {isSaving ? 'Сохранение...' : 'Сохранить'}
-              </button>
-            </div>
-          </form>
-        </div>
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={isSavingProvider}>
+                  {isSavingProvider ? 'Сохранение...' : 'Сохранить провайдер'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* ---- Промты ---- */}
+          <div className="card" style={{ marginTop: '1.5rem' }}>
+            <h2 style={{ marginTop: 0 }}>Промты</h2>
+            <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Тексты промтов, которые отправляются LLM. Плейсхолдеры (<code>%1$s</code>, <code>%2$s</code>) заменяются на реальные значения при вызове.
+              Если поле пустое — используется промт по умолчанию.
+            </p>
+            <form onSubmit={handlePromptsSubmit} className="admin-form">
+              {PROMPT_META.map((meta) => (
+                <div className="form-field" key={meta.key}>
+                  <label>{meta.label}</label>
+                  <p style={{ color: '#777', fontSize: '0.85rem', margin: '0.25rem 0 0.5rem' }}>
+                    {meta.description}
+                  </p>
+                  <p style={{ color: '#999', fontSize: '0.8rem', margin: '0 0 0.5rem' }}>
+                    {meta.placeholders}
+                  </p>
+                  <textarea
+                    value={prompts[meta.key]}
+                    onChange={(e) => setPrompts({ ...prompts, [meta.key]: e.target.value })}
+                    rows={10}
+                    style={{
+                      width: '100%',
+                      fontFamily: 'monospace',
+                      fontSize: '0.85rem',
+                      padding: '0.75rem',
+                      border: '1px solid #ddd',
+                      borderRadius: '6px',
+                      resize: 'vertical',
+                      lineHeight: '1.5',
+                    }}
+                    placeholder={meta.label}
+                  />
+                </div>
+              ))}
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={isSavingPrompts}>
+                  {isSavingPrompts ? 'Сохранение...' : 'Сохранить промты'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </>
       ) : null}
     </AdminPageWrapper>
   )

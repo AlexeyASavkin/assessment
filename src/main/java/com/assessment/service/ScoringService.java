@@ -23,17 +23,21 @@ public class ScoringService {
 
     private final ChatModel chatModel;
     private final QuestionAttemptRepository questionAttemptRepository;
+    private final AiProviderService aiProviderService;
 
     /**
      * Конструктор сервиса оценки ответов.
      *
      * @param chatModelProvider              провайдер ChatModel для вызова LLM
      * @param questionAttemptRepository      репозиторий попыток ответов
+     * @param aiProviderService              сервис провайдера AI (для чтения промтов из БД)
      */
     public ScoringService(ObjectProvider<ChatModel> chatModelProvider,
-                          QuestionAttemptRepository questionAttemptRepository) {
+                          QuestionAttemptRepository questionAttemptRepository,
+                          AiProviderService aiProviderService) {
         this.chatModel = chatModelProvider.getIfAvailable();
         this.questionAttemptRepository = questionAttemptRepository;
+        this.aiProviderService = aiProviderService;
     }
 
     /**
@@ -45,23 +49,7 @@ public class ScoringService {
      */
     public QuestionAttempt scoreAnswer(QuestionAttempt attempt) {
 
-        String prompt = String.format("""
-                Ты — эксперт по оценке компетенций. Оцени ответ сотрудника.
-
-                Вопрос: %s
-                Ответ сотрудника: %s
-
-                Оцени по шкале 0-5:
-                - 0 = не удалось оценить (некорректный ответ, не по теме)
-                - 1-2 = не соответствует уровню
-                - 3 = частично соответствует
-                - 4-5 = полностью соответствует
-
-                Дай рекомендацию по развитию.
-
-                Формат ответа JSON:
-                {"score": <int>, "confidence": "<HIGH|MEDIUM|LOW>", "feedback": "<recommendation>"}
-                """,
+        String prompt = String.format(aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING),
                 attempt.getQuestionText(), attempt.getFinalTranscript());
 
         if (chatModel == null) {
