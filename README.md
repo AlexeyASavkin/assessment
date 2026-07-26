@@ -4,10 +4,10 @@
 
 Сервис предназначен для оценки компетенций сотрудников с помощью голосового интервью в браузере.
 
-- **Администратор** через веб-интерфейс (`/admin`) или REST API управляет компетенциями, критериями, уровнями требований, сотрудниками и создаёт для каждого сотрудника одноразовую пригласительную ссылку.
-- **Сотрудник** получает ссылку, открывает её в Google Chrome, последовательно отвечает на вопросы, используя голосовой ввод (`SpeechRecognition API`), при необходимости редактирует распознанный текст и отправляет ответ.
-- **LLM (Gemini 2.0 Flash)** генерирует вопросы по критериям, формирует до одного уточняющего вопроса на каждый основной и оценивает ответы по шкале 0–5 с уровнем уверенности и рекомендацией.
-- **По завершении сессии** формируется итоговый отчёт с расчётным уровнем Junior / Middle / Senior.
+- **Администратор** через веб-интерфейс (`/admin`) или REST API управляет компетенциями, разделами, темами, сотрудниками и создаёт для каждого сотрудника одноразовую пригласительную ссылку.
+- **Сотрудник** получает ссылку, открывает её в Google Chrome, последовательно отвечает на вопросы из банка, используя голосовой ввод (`SpeechRecognition API`), при необходимости редактирует распознанный текст и отправляет ответ.
+- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
+- **По завершении сессии** формируется итоговый отчёт с результатом «Пройден / Не пройден».
 
 ## Стек
 
@@ -55,13 +55,13 @@ npm install
 npm run dev
 ```
 
-Фронтенд доступен на `http://localhost:5173`.
+Фронтенд доступен на `http://localhost:3000`.
 
 ### Полный запуск через Docker Compose
 
 ```bash
 cp .env.example .env
-# раскомментируй сервисы backend и frontend в docker-compose.yml, если нужно
+# отредактируй .env и добавь GEMINI_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
 docker compose up --build
 ```
 
@@ -73,26 +73,26 @@ docker compose up --build
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/assessment
-    username: assessment
-    password: assessment
-  ai:
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY:}
-        chat:
-          options:
-            model: gemini-2.0-flash
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yml
+    parameters:
+      adminUsername: ${ADMIN_USERNAME}
+      adminPasswordHash: ${ADMIN_PASSWORD_HASH}
 
 assessment:
   security:
-    hmac-secret: ${HMAC_SECRET:change-me-in-production}
+    hmac-secret: ${HMAC_SECRET}
     session-cookie-name: SESSION_EMPLOYEE
     token-expiry-hours: 72
   question:
-    max-followups-per-main: 1
     max-questions-per-session: 20
   rate-limiter:
     max-requests-per-minute: 15
+  ai:
+    active-provider: ${AI_PROVIDER:gemini}
 ```
 
 ## Как работает сервис
@@ -100,9 +100,9 @@ assessment:
 ### Подготовка оценки
 
 1. Админ создаёт компетенцию.
-2. Внутри компетенции создаёт критерии.
-3. Для каждого критерия добавляет уровни требований: `JUNIOR`, `MIDDLE`, `SENIOR`.
-4. Создаёт сотрудника и генерирует ему одноразовую ссылку.
+2. Внутри компетенции создаёт разделы и темы.
+3. Создаёт сотрудника и генерирует ему одноразовую ссылку.
+4. При необходимости загружает вопросы в банк вопросов или генерирует их через LLM.
 
 ### Прохождение оценки сотрудником
 
@@ -111,17 +111,16 @@ assessment:
 3. Происходит редирект на страницу сессии `/session/{sessionId}`.
 4. Фронтенд получает текущий вопрос (`GET /api/employee/sessions/{id}/questions`).
 5. Сотрудник отвечает голосом, редактирует транскрипт и отправляет ответ (`POST /api/employee/sessions/{id}/answers`).
-6. Сервер оценивает ответ через Gemini, сохраняет результат и возвращает следующий вопрос или признак завершения.
-7. После ответа на основной вопрос может быть задан один уточняющий вопрос.
-8. Когда все критерии пройдены, сессия переходит в статус `COMPLETED`, сотрудник попадает на страницу отчёта.
+6. Сервер оценивает ответ через LLM, сохраняет результат и возвращает следующий вопрос или признак завершения. Оценка основных вопросов выполняется асинхронно для ускорения UX.
+7. Когда тема исчерпана, сервер синхронно дооценивает все ответы темы и ищет кандидатов на уточняющий вопрос (основные ответы с оценкой ≤ 2). При наличии кандидата генерируется уточняющий вопрос. После ответа на уточнение переоценивается основной ответ с учётом уточнения.
+8. Когда все темы пройдены, сессия переходит в статус `COMPLETED`, сотрудник попадает на страницу отчёта.
 
-### Расчёт уровня
+### Расчёт результата
 
-- Средняя оценка по критерию считается только по основным вопросам (`followup_depth = 0`) и только по валидным оценкам (`valid_judge = true`).
-- `avg >= 4.3` → `SENIOR`
-- `avg >= 3.5` → `MIDDLE`
-- иначе → `JUNIOR`
-- Композитный уровень — тот же расчёт по среднему баллу всех критериев.
+- Средняя оценка по теме считается только по основным вопросам (`followup_depth = 0`) и только по валидным оценкам (`valid_judge = true`).
+- `avg >= 3.5` → тема пройдена
+- иначе → тема не пройдена
+- Общий результат — «Пройден», если пройдены все темы.
 
 ## API
 
@@ -131,11 +130,11 @@ assessment:
 
 ```bash
 curl -X POST http://localhost:8080/api/admin/login \
-  -d "username=admin&password=admin" \
+  -d "username=admin&password=Q1w2e3!" \
   -c cookies.txt
 ```
 
-Логин и пароль по умолчанию: `admin / admin`.
+Логин и пароль задаются через переменные окружения `ADMIN_USERNAME` и `ADMIN_PASSWORD_HASH` (см. `.env`). По умолчанию: `admin / Q1w2e3!`.
 
 ### Админ API
 
@@ -160,32 +159,23 @@ curl -X POST http://localhost:8080/api/admin/competencies \
   -d '{"name": "Java", "description": "Оценка знаний Java"}'
 ```
 
-#### Критерии
+#### Разделы
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| POST | `/api/admin/competencies/{competencyId}/criteria` | Добавить критерий |
-| GET | `/api/admin/competencies/{competencyId}/criteria` | Список критериев компетенции |
-| PUT | `/api/admin/criteria/{id}` | Обновить критерий |
-| DELETE | `/api/admin/criteria/{id}` | Удалить критерий |
+| POST | `/api/admin/competencies/{competencyId}/sections` | Добавить раздел |
+| GET | `/api/admin/competencies/{competencyId}/sections` | Список разделов компетенции |
+| PUT | `/api/admin/sections/{id}` | Обновить раздел |
+| DELETE | `/api/admin/sections/{id}` | Удалить раздел |
 
-#### Уровни требований
+#### Темы
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| POST | `/api/admin/criteria/{criteriaId}/levels` | Добавить уровень требований |
-| GET | `/api/admin/criteria/{criteriaId}/levels` | Список уровней |
-| PUT | `/api/admin/criteria/levels/{id}` | Обновить уровень |
-| DELETE | `/api/admin/criteria/levels/{id}` | Удалить уровень |
-
-Пример добавления уровня:
-
-```bash
-curl -X POST http://localhost:8080/api/admin/criteria/{criteriaId}/levels \
-  -b cookies.txt \
-  -H "Content-Type: application/json" \
-  -d '{"level": "MIDDLE", "requirements": "Понимает Stream API и коллекции"}'
-```
+| POST | `/api/admin/sections/{sectionId}/topics` | Добавить тему |
+| GET | `/api/admin/sections/{sectionId}/topics` | Список тем раздела |
+| PUT | `/api/admin/topics/{id}` | Обновить тему |
+| DELETE | `/api/admin/topics/{id}` | Удалить тему |
 
 #### Сотрудники
 
@@ -251,9 +241,8 @@ curl -X POST http://localhost:8080/api/employee/sessions/{sessionId}/answers \
   -H "Content-Type: application/json" \
   -d '{
     "questionAttemptId": "uuid",
-    "rawTranscript": "я знаю джаву",
     "finalTranscript": "Я знаю Java."
-  }'
+  }
 ```
 
 Ответ:
@@ -288,17 +277,33 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
   "employeeName": "Иванов Иван",
   "competencies": [
     {
-      "criteriaId": "uuid",
-      "criteriaName": "Stream API",
+      "topicId": "uuid",
+      "topicName": "Stream API",
+      "sectionName": "Java Core",
       "competencyName": "Java",
       "averageScore": 4.50,
-      "achievedLevel": "SENIOR",
+      "passed": true,
       "followUpScores": [4.0],
       "feedbacks": ["Отличное понимание Stream API"]
     }
   ],
-  "compositeLevel": "SENIOR",
-  "overallRecommendation": "Сотрудник демонстрирует высокий уровень компетенций. Рекомендуется к повышению."
+  "passed": true,
+  "overallRecommendation": "Сотрудник демонстрирует высокий уровень компетенций.",
+  "attempts": [
+    {
+      "attemptId": "uuid",
+      "questionText": "Расскажите о Stream API",
+      "finalTranscript": "Stream API — это...",
+      "score": 4.5,
+      "baseScore": null,
+      "validJudge": true,
+      "followupDepth": 0,
+      "followupParentId": null,
+      "feedback": "Хорошее понимание",
+      "topicName": "Stream API",
+      "createdAt": "2026-07-26T20:00:00"
+    }
+  ]
 }
 ```
 
@@ -307,16 +312,18 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
 | Таблица | Назначение |
 |---------|-----------|
 | `competencies` | Компетенции |
-| `criteria` | Критерии внутри компетенций |
-| `criteria_levels` | Уровни требований (JUNIOR / MIDDLE / SENIOR) |
+| `sections` | Разделы внутри компетенций |
+| `topics` | Темы внутри разделов |
 | `employees` | Сотрудники |
 | `sessions` | Сессии оценки |
 | `assessment_invite_tokens` | Одноразовые пригласительные токены |
-| `question_attempts` | Вопросы, ответы и оценки |
+| `question_attempts` | Вопросы, ответы и оценки (включая уточняющие) |
+| `question_banks` | Банк вопросов (сгенерированных или добавленных вручную) |
+| `ai_settings` | Настройки AI-провайдеров и промптов |
 
 ## Известные ограничения
 
 - Голосовой ввод работает только в Google Chrome.
-- Один LLM (Gemini 2.0 Flash) выполняет и генерацию вопросов, и оценку ответов.
 - Нет серверного распознавания речи и хранения аудиофайлов.
 - Нет поддержки Firefox, Safari и мобильных браузеров.
+- Один LLM-вызов на ответ (Gemini или GigaChat). Rate limiter предотвращает превышение лимитов.
