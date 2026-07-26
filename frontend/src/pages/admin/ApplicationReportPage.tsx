@@ -137,57 +137,125 @@ export default function ApplicationReportPage() {
         ))
       )}
 
-      {/* Все ответы сотрудника */}
+      {/* Все ответы сотрудника — основные карты с вложенными уточнениями */}
       <h2 style={{ marginTop: '2rem' }}>Ответы сотрудника</h2>
       {report.attempts.length === 0 ? (
         <p>Ответов нет.</p>
       ) : (
-        report.attempts.map((attempt: AttemptDetail) => {
-          const isFollowup = attempt.followupDepth > 0
-          return (
-            <div key={attempt.attemptId} className="card" style={{ marginBottom: '1rem' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {attempt.topicName ?? 'Без темы'}
-                {isFollowup && <span className="badge" style={{ backgroundColor: '#ffc107', color: '#000', fontSize: '0.75rem', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>уточнение</span>}
-                {!isFollowup && <span className="badge" style={{ backgroundColor: '#6c757d', color: '#fff', fontSize: '0.75rem', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>основной</span>}
-              </h3>
-              {attempt.sectionName && (
-                <p style={{ color: '#6c757d', fontSize: '0.9rem' }}>
-                  {attempt.competencyName} — {attempt.sectionName}
-                </p>
-              )}
+        (() => {
+          // Группируем: основные попытки как parents, уточнения как children
+          const childrenByParent = new Map<string, AttemptDetail[]>()
+          for (const a of report.attempts) {
+            if (a.followupParentId) {
+              const arr = childrenByParent.get(a.followupParentId) ?? []
+              arr.push(a)
+              childrenByParent.set(a.followupParentId, arr)
+            }
+          }
+          const mainAttempts = report.attempts.filter(a => !a.followupParentId)
 
-              <div style={{ marginTop: '0.5rem' }}>
-                <strong>Вопрос:</strong>
-                <div className="rich-content" dangerouslySetInnerHTML={{ __html: plainTextToHtml(attempt.questionText) }} />
-              </div>
+          return mainAttempts.map((main: AttemptDetail) => {
+            const children = childrenByParent.get(main.attemptId) ?? []
+            const hasRescore = main.baseScore != null && main.score != null && main.baseScore !== main.score
+            return (
+              <div key={main.attemptId} className="card" style={{ marginBottom: '1rem' }}>
+                <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {main.topicName ?? 'Без темы'}
+                  <span className="badge" style={{ backgroundColor: '#6c757d', color: '#fff', fontSize: '0.75rem', padding: '0.1rem 0.5rem', borderRadius: '4px' }}>основной</span>
+                  {hasRescore && (
+                    <span className="badge" style={{ backgroundColor: '#ffc107', color: '#000', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>
+                      переоценка
+                    </span>
+                  )}
+                </h3>
+                {main.sectionName && (
+                  <p style={{ color: '#6c757d', fontSize: '0.9rem' }}>
+                    {main.competencyName} — {main.sectionName}
+                  </p>
+                )}
 
-              <div style={{ marginTop: '0.5rem' }}>
-                <strong>Ответ сотрудника:</strong>
-                <div className="rich-content" style={{ backgroundColor: '#f8f9fa', padding: '0.75rem', borderRadius: '4px' }}
-                     dangerouslySetInnerHTML={{ __html: plainTextToHtml(attempt.finalTranscript ?? '(пусто)') }} />
-              </div>
-
-              <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                <span><strong>Оценка:</strong> {attempt.score != null ? attempt.score.toFixed(2) : '—'}</span>
-                <span><span className="info-hint" data-tooltip="Уверенность ИИ в собственной оценке: HIGH — уверен, ответ однозначен; MEDIUM — умеренно; LOW — не уверен, ответ неоднозначен"><strong>Уверенность</strong></span>: {attempt.confidence ?? '—'}</span>
-                <span><span className="info-hint" data-tooltip="Оценка засчитана: да — если балл > 0 (ответ по теме), нет — если 0 (ответ некорректный, не по теме)"><strong>Валидна</strong></span>: {attempt.validJudge === false ? 'нет' : 'да'}</span>
-              </div>
-
-              {attempt.feedback && (
                 <div style={{ marginTop: '0.5rem' }}>
-                  <strong>Feedback ИИ:</strong>
-                  <div className="rich-content" style={{ backgroundColor: '#eef', padding: '0.75rem', borderRadius: '4px' }}
-                       dangerouslySetInnerHTML={{ __html: plainTextToHtml(attempt.feedback) }} />
+                  <strong>Вопрос:</strong>
+                  <div className="rich-content" dangerouslySetInnerHTML={{ __html: plainTextToHtml(main.questionText) }} />
                 </div>
-              )}
 
-              <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#6c757d' }}>
-                {formatDate(attempt.createdAt)}
-              </p>
-            </div>
-          )
-        })
+                <div style={{ marginTop: '0.5rem' }}>
+                  <strong>Ответ сотрудника:</strong>
+                  <div className="rich-content" style={{ backgroundColor: '#f8f9fa', padding: '0.75rem', borderRadius: '4px' }}
+                       dangerouslySetInnerHTML={{ __html: plainTextToHtml(main.finalTranscript ?? '(пусто)') }} />
+                </div>
+
+                <div style={{ marginTop: '0.5rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span>
+                    <strong>Оценка:</strong>{' '}
+                    {main.score != null ? main.score.toFixed(2) : '—'}
+                    {hasRescore && (
+                      <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem' }}>
+                        (<span style={{ color: '#dc3545' }}>{main.baseScore!.toFixed(2)}</span>
+                        {' → '}
+                        <span style={{ color: '#28a745', fontWeight: 600 }}>{main.score!.toFixed(2)}</span>)
+                      </span>
+                    )}
+                  </span>
+                  <span><span className="info-hint" data-tooltip="Уверенность ИИ в собственной оценке: HIGH — уверен, ответ однозначен; MEDIUM — умеренно; LOW — не уверен, ответ неоднозначен"><strong>Уверенность</strong></span>: {main.confidence ?? '—'}</span>
+                  <span><span className="info-hint" data-tooltip="Оценка засчитана: да — если балл > 0 (ответ по теме), нет — если 0 (ответ некорректный, не по теме)"><strong>Валидна</strong></span>: {main.validJudge === false ? 'нет' : 'да'}</span>
+                </div>
+
+                {main.feedback && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <strong>Feedback ИИ:</strong>
+                    <div className="rich-content" style={{ backgroundColor: '#eef', padding: '0.75rem', borderRadius: '4px' }}
+                         dangerouslySetInnerHTML={{ __html: plainTextToHtml(main.feedback) }} />
+                  </div>
+                )}
+
+                {/* Вложенные уточняющие вопросы */}
+                {children.length > 0 && (
+                  <div style={{ marginTop: '1rem', paddingLeft: '1rem', borderLeft: '3px solid #ffc107' }}>
+                    <p style={{ marginBottom: '0.5rem', color: '#7a5c00', fontWeight: 600, fontSize: '0.9rem' }}>
+                      Уточняющие вопросы ({children.length})
+                    </p>
+                    {children.map((fu: AttemptDetail) => (
+                      <div key={fu.attemptId} className="card" style={{ marginBottom: '0.75rem', backgroundColor: '#fffbf0', padding: '0.75rem' }}>
+                        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: 0 }}>
+                          Уточняющий вопрос
+                          <span className="badge" style={{ backgroundColor: '#ffc107', color: '#000', fontSize: '0.7rem', padding: '0.1rem 0.4rem', borderRadius: '4px' }}>уточнение</span>
+                        </h4>
+                        <div style={{ marginTop: '0.25rem' }}>
+                          <strong>Вопрос:</strong>
+                          <div className="rich-content" dangerouslySetInnerHTML={{ __html: plainTextToHtml(fu.questionText) }} />
+                        </div>
+                        <div style={{ marginTop: '0.25rem' }}>
+                          <strong>Ответ сотрудника:</strong>
+                          <div className="rich-content" style={{ backgroundColor: '#f8f9fa', padding: '0.5rem', borderRadius: '4px' }}
+                               dangerouslySetInnerHTML={{ __html: plainTextToHtml(fu.finalTranscript ?? '(пусто)') }} />
+                        </div>
+                        <div style={{ marginTop: '0.25rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                          <span><strong>Оценка уточнения:</strong> {fu.score != null ? fu.score.toFixed(2) : '—'}</span>
+                          <span><strong>Уверенность:</strong> {fu.confidence ?? '—'}</span>
+                        </div>
+                        {fu.feedback && (
+                          <div style={{ marginTop: '0.25rem' }}>
+                            <strong>Feedback:</strong>
+                            <div className="rich-content" style={{ backgroundColor: '#eef', padding: '0.5rem', borderRadius: '4px' }}
+                                 dangerouslySetInnerHTML={{ __html: plainTextToHtml(fu.feedback) }} />
+                          </div>
+                        )}
+                        <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#6c757d' }}>
+                          {formatDate(fu.createdAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#6c757d' }}>
+                  {formatDate(main.createdAt)}
+                </p>
+              </div>
+            )
+          })
+        })()
       )}
 
       <button className="btn btn-secondary" onClick={() => navigate('/admin/applications')} style={{ marginTop: '1rem' }}>
