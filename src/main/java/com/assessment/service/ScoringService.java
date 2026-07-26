@@ -34,18 +34,13 @@ public class ScoringService {
     }
 
     /**
-     * Оценивает ответ сотрудника с помощью LLM и сохраняет результат.
+     * Оценивает ответ сотрудника с помощью LLM и обновляет существующую попытку ответа результатом.
      *
-     * @param session          текущая сессия оценки
-     * @param questionText     текст вопроса
-     * @param finalTranscript  итоговый транскрипт ответа сотрудника
-     * @param followupDepth    глубина уточняющего вопроса (0 для основного)
-     * @param parentAttempt    родительская попытка ответа (для уточняющих вопросов)
-     * @return сохраненная попытка ответа с оценкой
+     * @param attempt          существующая попытка ответа (уже сохранена с транскриптом)
+     * @return обновленная попытка ответа с оценкой
      * @throws IllegalStateException если ChatModel не настроен
      */
-    public QuestionAttempt scoreAnswer(Session session, String questionText, String finalTranscript,
-                                        int followupDepth, QuestionAttempt parentAttempt) {
+    public QuestionAttempt scoreAnswer(QuestionAttempt attempt) {
 
         String prompt = String.format("""
                 Ты — эксперт по оценке компетенций. Оцени ответ сотрудника.
@@ -64,7 +59,7 @@ public class ScoringService {
                 Формат ответа JSON:
                 {"score": <int>, "confidence": "<HIGH|MEDIUM|LOW>", "feedback": "<recommendation>"}
                 """,
-                questionText, finalTranscript);
+                attempt.getQuestionText(), attempt.getFinalTranscript());
 
         if (chatModel == null) {
             throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для оценки ответов.");
@@ -72,21 +67,11 @@ public class ScoringService {
         String response = chatModel.call(new Prompt(new UserMessage(prompt))).getResult().getOutput().getText();
 
         int score = parseScore(response);
-        String confidence = parseConfidence(response);
-        String feedback = parseFeedback(response);
-        boolean validJudge = score != 0;
 
-        QuestionAttempt attempt = QuestionAttempt.builder()
-                .session(session)
-                .questionText(questionText)
-                .finalTranscript(finalTranscript)
-                .score(BigDecimal.valueOf(score))
-                .confidence(confidence)
-                .validJudge(validJudge)
-                .feedback(feedback)
-                .followupDepth(followupDepth)
-                .followupParent(parentAttempt)
-                .build();
+        attempt.setScore(BigDecimal.valueOf(score));
+        attempt.setConfidence(parseConfidence(response));
+        attempt.setValidJudge(score != 0);
+        attempt.setFeedback(parseFeedback(response));
 
         return questionAttemptRepository.save(attempt);
     }
@@ -136,10 +121,12 @@ public class ScoringService {
 
     /**
      * Извлекает строковое значение по ключу из JSON-строки.
+     * Поддерживает как строковые значения в кавычках ("key": "value"),
+     * так и числовые/булевы без кавычек ("key": 5).
      *
      * @param json JSON-строка
      * @param key  ключ для поиска
-     * @return найденное значение или пустую строку, если ключ не найден
+     * @return найденное значение или пустая строка, если ключ не найден
      */
     private String extractJsonValue(String json, String key) {
         String searchKey = "\"" + key + "\"";
@@ -149,12 +136,25 @@ public class ScoringService {
         int colonIndex = json.indexOf(":", keyIndex);
         if (colonIndex == -1) return "";
 
-        int valueStart = json.indexOf("\"", colonIndex + 1);
-        if (valueStart == -1) return "";
+        int valueStart = colonIndex + 1;
+        while (valueStart < json.length() && json.charAt(valueStart) == ' ') {
+            valueStart++;
+        }
+        if (valueStart >= json.length()) return "";
 
-        int valueEnd = json.indexOf("\"", valueStart + 1);
-        if (valueEnd == -1) return "";
-
-        return json.substring(valueStart + 1, valueEnd);
+        if (json.charAt(valueStart) == '"') {
+            // Строковое значение в кавычках
+            valueStart++;
+            int valueEnd = json.indexOf('"', valueStart);
+            if (valueEnd == -1) return "";
+            return json.substring(valueStart, valueEnd);
+        } else {
+            // Числовое / булево значение без кавычек — до запятой или закрывающей скобки
+            int valueEnd = valueStart;
+            while (valueEnd < json.length() && json.charAt(valueEnd) != ',' && json.charAt(valueEnd) != '}') {
+                valueEnd++;
+            }
+            return json.substring(valueStart, valueEnd).trim();
+        }
     }
 }
