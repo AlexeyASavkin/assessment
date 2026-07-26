@@ -227,8 +227,10 @@ public class EmployeeController {
         QuestionAttempt currentAttempt = questionAttemptRepository.findById(questionId).orElseThrow();
 
         currentAttempt.setFinalTranscript(finalTranscript);
+        questionAttemptRepository.save(currentAttempt);
 
-        scoringService.scoreAnswer(currentAttempt);
+        // Оценка в фоне — сотрудник не ждёт
+        scoringService.scoreAnswerAsync(currentAttempt.getId());
 
         List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
 
@@ -255,6 +257,9 @@ public class EmployeeController {
         }
 
         if (nextTopicId == null) {
+            // Синхронно оцениваем все неоценённые ответы перед завершением
+            scoringService.scoreUnscoredAttempts(sessionId);
+
             session.setStatus("COMPLETED");
             sessionRepository.save(session);
 

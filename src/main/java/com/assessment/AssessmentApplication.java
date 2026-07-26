@@ -2,6 +2,7 @@ package com.assessment;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration;
 import chat.giga.springai.autoconfigure.GigaChatAutoConfiguration;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration;
@@ -28,6 +29,7 @@ import org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoCon
     OpenAiImageAutoConfiguration.class,
     OpenAiModerationAutoConfiguration.class
 })
+@EnableAsync
 public class AssessmentApplication {
 
     /**
