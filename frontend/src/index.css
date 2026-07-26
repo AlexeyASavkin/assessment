@@ -275,6 +275,52 @@ textarea {
   color: #555;
 }
 
+/* Inline-сводка результата в карточке сотрудника */
+.employee-result-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 13px;
+}
+
+.employee-result-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.employee-result-level {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.employee-result-score {
+  color: #d97706;
+  font-weight: 600;
+}
+
+.employee-result-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 600;
+  margin-left: auto;
+}
+.employee-result-link:hover {
+  text-decoration: underline;
+}
+
+.employee-result-hint {
+  color: #9ca3af;
+  font-style: italic;
+}
+
 .question-edit-textarea {
   flex: 1;
   min-height: 60px;
