@@ -4,8 +4,8 @@ import { listApplications, type ApplicationSummary } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
 /**
- * Страница «Заявки» — единый список заявок на оценку.
- * Связывает пригласительный токен, сессию и результат (средний балл, итоговый уровень).
+ * Страница «Результаты» — единый список заявок на оценку.
+ * Связывает пригласительный токен, сессию и результат (средний балл, пройдена ли оценка).
  * Клик по завершённой заявке открывает детальный отчёт.
  */
 export default function ApplicationsPage() {
@@ -47,19 +47,6 @@ export default function ApplicationsPage() {
   const openReport = (sessionId: string | null) => {
     if (!sessionId) return
     navigate(`/admin/applications/${sessionId}/report`)
-  }
-
-  /**
-   * Возвращает цветовой код для визуального отображения уровня.
-   * @param level - уровень компетенции
-   */
-  const getLevelColor = (level: string | null): string => {
-    if (!level) return '#6c757d'
-    switch (level) {
-      case 'SENIOR': return '#28a745'
-      case 'MIDDLE': return '#ffc107'
-      default: return '#dc3545'
-    }
   }
 
   /**
@@ -109,7 +96,7 @@ export default function ApplicationsPage() {
                 <th>Компетенция</th>
                 <th>Статус</th>
                 <th>Средний балл</th>
-                <th>Уровень</th>
+                <th>Результат</th>
                 <th>Создана</th>
                 <th>Завершена</th>
                 <th></th>
@@ -127,9 +114,12 @@ export default function ApplicationsPage() {
                       {item.averageScore != null ? item.averageScore.toFixed(2) : '—'}
                     </td>
                     <td>
-                      {item.compositeLevel ? (
-                        <span style={{ color: getLevelColor(item.compositeLevel), fontWeight: 600 }}>
-                          {item.compositeLevel}
+                      {item.sessionStatus === 'COMPLETED' ? (
+                        <span style={{
+                          color: item.passed ? '#28a745' : '#dc3545',
+                          fontWeight: 600,
+                        }}>
+                          {item.passed ? 'Пройден' : 'Не пройден'}
                         </span>
                       ) : '—'}
                     </td>
