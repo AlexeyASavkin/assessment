@@ -128,7 +128,7 @@ public class AiProviderService {
      * @throws IllegalArgumentException если указан неизвестный провайдер
      */
     public void setActiveProvider(String provider) {
-        if (!provider.equals("gemini") && !provider.equals("gigachat") && !provider.equals("openrouter") && !provider.equals("opencode")) {
+        if (!provider.equals("gemini") && !provider.equals("gigachat") && !provider.equals("openrouter") && !provider.equals("opencode") && !provider.equals("stub")) {
             throw new IllegalArgumentException("Неизвестный провайдер: " + provider);
         }
         AiSettings settings = settingsRepository.findBySettingKey("active_provider")

@@ -23,3 +23,5 @@ databaseChangeLog:
       file: db/changelog/changes/011-drop-raw-transcript.yml
   - include:
       file: db/changelog/changes/012-add-base-score.yml
+  - include:
+      file: db/changelog/changes/013-ai-active-provider-env.yml
