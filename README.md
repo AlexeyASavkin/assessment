@@ -20,6 +20,7 @@
 | Rate limiting | Resilience4j |
 | Сборка | Gradle 8.14 / 9.6.1 |
 | Фронтенд | React 19, TypeScript, Vite |
+| Тестирование (black-box) | Cucumber 7, JUnit 5, OkHttp 4 |
 | Деплой | Docker Compose |
 
 ## Локальный запуск
@@ -64,6 +65,41 @@ cp .env.example .env
 # отредактируй .env и добавь GEMINI_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
 docker compose up --build
 ```
+
+## Тестирование
+
+### Black-box BDD тесты
+
+Интеграционные тесты в `tests/blackbox/` проверяют API через HTTP, без мокирования — полноценный black-box подход с реальным запуском приложения.
+
+**Стек тестов:** Cucumber 7 + JUnit 5 + OkHttp 4.
+
+**5 feature-файлов, 16 сценариев:**
+
+| Файл | Что проверяет |
+|------|---------------|
+| `admin_auth.feature` | Вход админа (успех/неверный пароль), доступ без авторизации |
+| `competencies.feature` | CRUD компетенций, разделов и тем |
+| `employees.feature` | CRUD сотрудников, генерация пригласительной ссылки, открытие ссылки |
+| `employee_session.feature` | Получение вопроса, отправка ответа, завершение сессии |
+| `report.feature` | Отчёт по завершённой сессии, отказ для активной, админский отчёт |
+
+### Запуск тестов
+
+```bash
+# 1. Запустить PostgreSQL
+docker compose up -d postgres
+
+# 2. Запустить бэкенд с stub AI-провайдером (без LLM)
+start-backend.bat
+
+# 3. В отдельном терминале запустить тесты
+./gradlew :tests:blackbox:test
+```
+
+Для тестов используется отдельный файл конфигурации `tests/blackbox/src/test/resources/config/test-admin.properties` с credentials `admin / TestAdminPass!` — они отличаются от значений в `.env`. При запуске через `start-backend.bat` пароль автоматически подставляется через `ADMIN_PASSWORD_HASH`.
+
+**Stub AI-провайдер:** при `AI_PROVIDER=stub` все LLM-вызовы возвращают заранее заданные ответы (оценка 4.0, текст «Stub response»). Позволяет тестировать логику приложения без внешних API.
 
 ## Конфигурация
 
