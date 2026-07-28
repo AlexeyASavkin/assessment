@@ -113,6 +113,8 @@ Resilience4j rate limiter `geminiApi` configured for 15 requests/minute, 10s tim
 - **No backend tests** exist currently (`src/test/` is empty).
 - **No frontend tests** configured.
 - When adding tests, backend uses JUnit Platform (`./gradlew test`).
+- Use `@DisplayName` with a Russian description for unit tests.
+- Use camelCase for test method names (no underscores).
 
 ## Code style / conventions
 
