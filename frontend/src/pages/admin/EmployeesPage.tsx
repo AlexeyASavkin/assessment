@@ -213,7 +213,7 @@ export default function EmployeesPage() {
             />
           </div>
           <div className="form-field">
-            <label htmlFor="department">Отдел</label>
+            <label htmlFor="department">Стрим</label>
             <input
               id="department"
               type="text"
@@ -280,7 +280,7 @@ export default function EmployeesPage() {
                 <div className="admin-list-info">
                   <h3>{item.fullName}</h3>
                   {item.position && <p>Должность: {item.position}</p>}
-                  {item.department && <p>Отдел: {item.department}</p>}
+                  {item.department && <p>Стрим: {item.department}</p>}
                   {item.competency && (
                     <p>Компетенция: {item.competency.name}</p>
                   )}
