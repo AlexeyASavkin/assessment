@@ -7,10 +7,10 @@ Java/Spring Boot backend + React frontend for employee competency assessment via
 ## Stack & versions
 
 - **Backend**: Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ, Spring AI 2.0.0
-- **LLM providers**: Google Gemini 2.0 Flash (default) + Sber GigaChat (switchable)
+- **LLM providers**: Google Gemini 2.0 Flash (default), Sber GigaChat, OpenRouter, OpenCode Zen, plus a `stub` provider for tests (5 total; switchable at runtime via `AI_PROVIDER` env / `AiSettings` table)
 - **Database**: PostgreSQL 18, migrations via Liquibase
 - **Rate limiting**: Resilience4j
-- **Build**: Gradle 8.14 (wrapper), Java toolchain 25
+- **Build**: Gradle 9.6.1 (wrapper), Java toolchain 25
 - **Frontend**: React 19, TypeScript 5.7, Vite 6, react-router-dom 7
 - **Deploy**: Docker Compose
 
@@ -25,8 +25,15 @@ Java/Spring Boot backend + React frontend for employee competency assessment via
 # Build jar
 ./gradlew bootJar
 
-# Run tests (JUnit Platform; note: no tests currently exist in the repo)
+# Unit tests (47 tests across 4 files in src/test/)
 ./gradlew test
+
+# Component (BDD) tests + Allure report — full pipeline
+tests\component\run-bdd-tests.bat
+
+# Or step-by-step:
+./gradlew -p tests/component test          # 16 Cucumber scenarios via JUnit Platform
+./gradlew -p tests/component allureReport  # generates build/reports/allure-report/index.html
 ```
 
 ### Frontend
@@ -62,19 +69,19 @@ docker compose up --build
 - **Frontend main**: `frontend/src/main.tsx`
 - **Frontend routes**: `frontend/src/App.tsx`
 - **Spring config**: `src/main/resources/application.yml`
-- **Liquibase master**: `src/main/resources/db/changelog/db.changelog-master.xml`
+- **Liquibase master**: `src/main/resources/db/changelog/db.changelog-master.yml`
 
 ## Architecture notes
 
 ### Security model
 
-- **Admin**: Spring Security form-login at `/api/admin/login`. Default credentials: `admin / admin`. All `/api/admin/**` require `ADMIN` role.
+- **Admin**: Spring Security form-login at `/api/admin/login`. Credentials via env vars `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`; default seed in `.env.example` uses `admin / admin`. All `/api/admin/**` require `ADMIN` role.
 - **Employee**: No password. Access via HMAC-signed invite token at `/api/employee/invite/{token}`. Server validates token, creates session, sets cookie `SESSION_EMPLOYEE`. All subsequent employee API calls use this cookie.
 - **CSRF is disabled** (`SecurityConfig`)
 
 ### AI provider switching
 
-Spring AI auto-configurations for both Gemini and GigaChat are **explicitly excluded** in `AssessmentApplication.java` (`@SpringBootApplication(exclude = {...})`). They are loaded manually via `ChatClientConfig`. Active provider is controlled by env var `AI_PROVIDER` (`gemini` or `gigachat`, default `gemini`).
+Spring AI auto-configurations for both Gemini and GigaChat are **explicitly excluded** in `AssessmentApplication.java` (`@SpringBootApplication(exclude = {...})`). They are loaded manually via `ChatClientConfig`. Active provider is controlled by env var `AI_PROVIDER` (`gemini` | `gigachat` | `openrouter` | `opencode` | `stub`, default `gemini`). Validated hard-coded in `AiProviderService.setActiveProvider`.
 
 ### Rate limiting
 
@@ -89,8 +96,8 @@ Resilience4j rate limiter `geminiApi` configured for 15 requests/minute, 10s tim
 ## Database
 
 - PostgreSQL 18. Default local credentials: `assessment / assessment`, database `assessment`.
-- Migrations are **Liquibase XML** in `src/main/resources/db/changelog/changes/`. Do not use Hibernate DDL auto; `ddl-auto: none` is set.
-- Tables: `competencies`, `criteria`, `criteria_levels`, `employees`, `sessions`, `assessment_invite_tokens`, `question_attempts`, `ai_settings`, `question_banks`.
+- Migrations are **Liquibase YAML** in `src/main/resources/db/changelog/changes/`. Do not use Hibernate DDL auto; `ddl-auto: none` is set.
+- Tables: `competencies`, `sections`, `topics`, `criteria`, `criteria_levels`, `employees`, `employee_competencies`, `sessions`, `assessment_invite_tokens`, `question_attempts`, `ai_settings`, `question_banks`, `admin_users`.
 
 ## Environment variables
 
@@ -98,23 +105,46 @@ Resilience4j rate limiter `geminiApi` configured for 15 requests/minute, 10s tim
 |----------|----------|---------|---------|
 | `GEMINI_API_KEY` | Yes for LLM | — | Gemini API key |
 | `GIGACHAT_API_KEY` | If using GigaChat | — | GigaChat API key |
-| `AI_PROVIDER` | No | `gemini` | `gemini` or `gigachat` |
+| `OPENROUTER_API_KEY` | If using OpenRouter | — | OpenRouter API key (aggregates multiple models) |
+| `OPENCODE_API_KEY` | If using OpenCode Zen | — | OpenCode Zen API key (DeepSeek, Grok, GLM etc.) |
+| `AI_PROVIDER` | No | `gemini` | `gemini` \| `gigachat` \| `openrouter` \| `opencode` \| `stub` |
 | `HMAC_SECRET` | No | `change-me-in-production` | HMAC signing for invite tokens |
+| `ADMIN_USERNAME` | Yes (seed) | — | Initial admin username (Liquibase seed) |
+| `ADMIN_PASSWORD_HASH` | Yes (seed) | — | Initial admin password hash (BCrypt, Liquibase seed) |
+| `POSTGRES_USER` | Yes | — | PostgreSQL username |
+| `POSTGRES_PASSWORD` | Yes | — | PostgreSQL password |
+| `SERVER_PORT` | No | `8080` | Backend HTTP port (tests use 8081) |
+| `SPRING_DATASOURCE_URL` | No | `jdbc:postgresql://localhost:5432/assessment` | JDBC URL override |
 
 ## Build / runtime quirks
 
 - `gradle.properties` sets `org.gradle.jvmargs=--enable-native-access=ALL-UNNAMED` required for Java 25.
-- Dockerfile uses Gradle 9.6.1 for build stage, but wrapper is 8.14.
+- Dockerfile uses Gradle 9.6.1 for build stage; wrapper is also 9.6.1 (upgraded from 8.14 — Gradle 8.14's bundled Groovy 3.0.24 cannot compile build scripts on Java 25, "Unsupported class file major version 69").
 - Backend exposes port 8080. Frontend dev server 3000, production Docker serves on 80 via nginx.
 - Frontend nginx config proxies `/api/` to `backend:8080` in Docker network.
 
 ## Testing
 
-- **No backend tests** exist currently (`src/test/` is empty).
-- **No frontend tests** configured.
-- When adding tests, backend uses JUnit Platform (`./gradlew test`).
+### Backend tests
+
+- **Unit tests**: 47 tests across 4 files in `src/test/`.
+  - `AdminUserDetailsServiceTest` (5) — admin auth loading
+  - `HmacTokenValidatorTest` (8) — invite token generation/validation
+  - `AiProviderServiceTest` (16) — provider switching, API keys, prompts
+  - `LlmJsonParserTest` (12) — JSON value extraction from LLM responses
+- Backend uses JUnit Platform (`./gradlew test`).
 - Use `@DisplayName` with a Russian description for unit tests.
 - Use camelCase for test method names (no underscores).
+
+### Component (BDD) tests
+
+- **Location**: `tests/component/` (standalone Gradle project; NOT included in root `settings.gradle`, won't run during `./gradlew build`).
+- **Approach**: black-box — HTTP via OkHttp, no mocking, real backend instance on port 8081 with `AI_PROVIDER=stub`.
+- **Stack**: Cucumber 7.21 + JUnit Platform Suite + OkHttp 4 + Allure 2.30 (`allure-cucumber7-jvm` adapter).
+- **5 feature-files, 16 scenarios**: `admin_auth`, `competencies`, `employees`, `employee_session`, `report`.
+- **Test credentials**: `admin / TestAdminPass!` (different from `.env`; see `tests/component/src/test/resources/config/test-admin.properties`).
+- **Allure**: `allureReport` task downloads Allure CLI on demand (cached in `build/allure-cli/`) and generates `build/reports/allure-report/index.html`.
+- **Frontend**: No tests, no linter, no formatter configured.
 
 ## Code style / conventions
 
