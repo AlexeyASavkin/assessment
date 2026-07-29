@@ -10,6 +10,7 @@ import {
   type Competency,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
+import Loader from '../../components/Loader'
 import RichTextEditor, { type RichTextEditorHandle, plainTextToHtml } from '../../components/RichTextEditor'
 
 /**
@@ -145,6 +146,13 @@ export default function QuestionsPage() {
 
   return (
     <AdminPageWrapper>
+      {generating && (
+        <Loader
+          overlay
+          text="Генерация вопросов..."
+          subtext="ИИ создаёт вопросы на основе компетенции. Это может занять примерно минуту."
+        />
+      )}
       <button className="btn admin-back" onClick={() => navigate('/admin/competencies')}>← К компетенциям</button>
       <h1>{headerTitle}</h1>
       {error && <p className="error-text">{error}</p>}
