@@ -190,7 +190,7 @@ assessment:
 
 ```bash
 curl -X POST http://localhost:8080/api/admin/login \
-  -d "username=admin&password=admin" \
+  -d "username=admin&password=Q1w2e3!" \
   -c cookies.txt
 ```
 
