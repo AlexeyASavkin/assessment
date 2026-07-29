@@ -14,7 +14,7 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
  * Запускает Gherkin-сценарии из {@code features/} с шагами в пакете {@code steps}.
  * Использует JUnit Platform Suite для интеграции Cucumber с Gradle test-задачей.
  * <p>
- * Запуск: {@code ./gradlew :tests:blackbox:test}
+ * Запуск: {@code ./gradlew -p tests/component test}
  * Предусловие: запущен Docker Compose (см. compose.test.yml)
  */
 @Suite

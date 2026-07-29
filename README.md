@@ -70,7 +70,7 @@ docker compose up --build
 
 ### Black-box BDD тесты
 
-Интеграционные тесты в `tests/blackbox/` проверяют API через HTTP, без мокирования — полноценный black-box подход с реальным запуском приложения.
+Интеграционные тесты в `tests/component/` проверяют API через HTTP, без мокирования — полноценный black-box подход с реальным запуском приложения.
 
 **Стек тестов:** Cucumber 7 + JUnit 5 + OkHttp 4.
 
@@ -94,10 +94,10 @@ docker compose up -d postgres
 start-backend.bat
 
 # 3. В отдельном терминале запустить тесты
-./gradlew :tests:blackbox:test
+./gradlew -p tests/component test
 ```
 
-Для тестов используется отдельный файл конфигурации `tests/blackbox/src/test/resources/config/test-admin.properties` с credentials `admin / TestAdminPass!` — они отличаются от значений в `.env`. При запуске через `start-backend.bat` пароль автоматически подставляется через `ADMIN_PASSWORD_HASH`.
+Для тестов используется отдельный файл конфигурации `tests/component/src/test/resources/config/test-admin.properties` с credentials `admin / TestAdminPass!` — они отличаются от значений в `.env`. При запуске через `start-backend.bat` пароль автоматически подставляется через `ADMIN_PASSWORD_HASH`.
 
 **Stub AI-провайдер:** при `AI_PROVIDER=stub` все LLM-вызовы возвращают заранее заданные ответы (оценка 4.0, текст «Stub response»). Позволяет тестировать логику приложения без внешних API.
 
