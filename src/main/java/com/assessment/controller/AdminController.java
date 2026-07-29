@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -465,7 +465,7 @@ public class AdminController {
                     AssessmentInviteToken inviteToken = AssessmentInviteToken.builder()
                             .tokenHash(hash)
                             .employee(employee)
-                            .expiresAt(LocalDateTime.now().plusHours(72))
+                            .expiresAt(Instant.now().plusSeconds(72 * 3600))
                             .build();
                     tokenRepository.save(inviteToken);
 
@@ -501,7 +501,7 @@ public class AdminController {
             Session session = token.getSession();
             UUID sessionId = session != null ? session.getId() : null;
             String sessionStatus = session != null ? session.getStatus() : null;
-            LocalDateTime completedAt = session != null && "COMPLETED".equals(session.getStatus())
+            Instant completedAt = session != null && "COMPLETED".equals(session.getStatus())
                     ? session.getUpdatedAt() : null;
             String competencyName = employee != null && employee.getCompetency() != null
                     ? employee.getCompetency().getName() : null;
