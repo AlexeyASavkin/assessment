@@ -23,6 +23,7 @@ import {
   type QuestionBankItem,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
+import Loader from '../../components/Loader'
 import RichTextEditor, { type RichTextEditorHandle, plainTextToHtml } from '../../components/RichTextEditor'
 
 /**
@@ -524,6 +525,13 @@ export default function AdminCompetenciesTreePage() {
 
   return (
     <AdminPageWrapper>
+      {generating && (
+        <Loader
+          overlay
+          text="Генерация вопросов..."
+          subtext="ИИ создаёт вопросы для темы. Это может занять примерно минуту."
+        />
+      )}
       <div className="tree-page">
         <div className="tree-header">
           <h1>Компетенции</h1>
