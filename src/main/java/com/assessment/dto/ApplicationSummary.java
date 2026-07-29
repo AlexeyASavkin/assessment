@@ -1,7 +1,7 @@
 package com.assessment.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -28,7 +28,7 @@ public record ApplicationSummary(
         UUID sessionId,
         BigDecimal averageScore,
         boolean passed,
-        LocalDateTime createdAt,
-        LocalDateTime completedAt
+        Instant createdAt,
+        Instant completedAt
 ) {
 }

@@ -1,7 +1,7 @@
 package com.assessment.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 /**
  * Настройки AI-провайдера.
@@ -22,7 +22,7 @@ public class AiSettings {
     private String settingValue;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     /**
      * Автоматически обновляет поле updatedAt перед сохранением или изменением записи.
@@ -30,13 +30,13 @@ public class AiSettings {
     @PrePersist
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();
     }
 
     public String getSettingKey() { return settingKey; }
     public void setSettingKey(String settingKey) { this.settingKey = settingKey; }
     public String getSettingValue() { return settingValue; }
     public void setSettingValue(String settingValue) { this.settingValue = settingValue; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

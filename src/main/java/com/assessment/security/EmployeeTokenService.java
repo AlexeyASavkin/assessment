@@ -12,7 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -77,7 +77,7 @@ public class EmployeeTokenService {
     public Optional<InviteResult> validateInviteToken(String token) {
         String hash = hmacValidator.generateToken(token);
         return tokenRepository.findByTokenHash(hash)
-                .filter(t -> t.getExpiresAt().isAfter(LocalDateTime.now()))
+                .filter(t -> t.getExpiresAt().isAfter(Instant.now()))
                 .map(tokenEntity -> {
                     // Token already used — return existing session (reusable link)
                     if (tokenEntity.getUsed() && tokenEntity.getSession() != null) {
@@ -105,7 +105,7 @@ public class EmployeeTokenService {
                     }
 
                     tokenEntity.setUsed(true);
-                    tokenEntity.setUsedAt(LocalDateTime.now());
+                    tokenEntity.setUsedAt(Instant.now());
                     tokenEntity.setSession(session);
                     tokenRepository.save(tokenEntity);
 
