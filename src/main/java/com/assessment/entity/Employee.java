@@ -1,6 +1,7 @@
 package com.assessment.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -48,6 +49,20 @@ public class Employee {
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL)
     @Builder.Default
     private List<Session> sessions = new ArrayList<>();
+
+    /**
+     * Принимает плоское поле {@code competencyId} из JSON и преобразует его
+     * в связанную сущность {@link Competency}. Используется для создания
+     * сотрудника с компетенцией через API.
+     *
+     * @param id идентификатор компетенции
+     */
+    @JsonProperty("competencyId")
+    public void setCompetencyId(UUID id) {
+        if (id != null) {
+            this.competency = Competency.builder().id(id).build();
+        }
+    }
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -143,6 +143,10 @@ public class ChatClientConfig {
             delegates.put("opencode", opencodeModel);
         }
 
+        if (delegates.isEmpty() || "stub".equals(aiProviderService.getActiveProvider())) {
+            delegates.put("stub", new StubChatModel());
+        }
+
         return new RoutingChatModel(delegates, aiProviderService);
     }
 

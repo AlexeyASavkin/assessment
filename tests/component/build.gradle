@@ -1,0 +1,83 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.assessment.test'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+def allureVersion = '2.30.0'
+def cucumberVersion = '7.21.0'
+def okhttpVersion = '4.12.0'
+def jacksonVersion = '2.18.2'
+
+dependencies {
+    // Cucumber
+    testImplementation "io.cucumber:cucumber-java:${cucumberVersion}"
+    testImplementation "io.cucumber:cucumber-junit-platform-engine:${cucumberVersion}"
+
+    // Cucumber dependency injection (shared context between steps)
+    testImplementation "io.cucumber:cucumber-picocontainer:${cucumberVersion}"
+
+    // Allure
+    testImplementation "io.qameta.allure:allure-cucumber7-jvm:${allureVersion}"
+
+    // JUnit 5 (for assertions and runner)
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.0'
+    testImplementation 'org.junit.platform:junit-platform-suite:1.12.0'
+
+    // HTTP client
+    testImplementation "com.squareup.okhttp3:okhttp:${okhttpVersion}"
+
+    // JSON
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    testImplementation 'com.jayway.jsonpath:json-path:2.9.0'
+
+    // Assertions
+    testImplementation 'org.assertj:assertj-core:3.27.3'
+
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'cucumber.plugin', 'pretty,json:build/reports/cucumber.json,io.qameta.allure.cucumber7jvm.AllureCucumber7Jvm'
+}
+
+// Allure CLI task — downloads Allure CLI on demand and generates HTML report
+tasks.register('allureReport') {
+    description = 'Generates Allure HTML report from allure-results.'
+    group = 'verification'
+    dependsOn test
+    doLast {
+        def allureDir = file('build/allure-cli')
+        def allureBin = file("${allureDir}/allure-${allureVersion}/bin/allure.bat")
+        if (!allureBin.exists()) {
+            allureDir.mkdirs()
+            def zipFile = file("${allureDir}/allure-${allureVersion}.zip")
+            println "Downloading Allure ${allureVersion} CLI..."
+            zipFile.bytes = new URL("https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/${allureVersion}/allure-commandline-${allureVersion}.zip").bytes
+            println "Extracting Allure CLI..."
+            ant.unzip(src: zipFile, dest: allureDir.absolutePath)
+            zipFile.delete()
+        }
+        def pb = new ProcessBuilder(allureBin.absolutePath, 'generate', '--clean', 'allure-results', '--output', 'reports/allure-report')
+        pb.directory(layout.buildDirectory.asFile.get())
+        pb.redirectErrorStream(true)
+        def proc = pb.start()
+        proc.inputStream.eachLine { line -> println line }
+        def exitCode = proc.waitFor()
+        if (exitCode != 0) {
+            throw new GradleException("Allure CLI exited with code ${exitCode}")
+        }
+        println "Allure report generated: ${file('build/reports/allure-report/index.html').absolutePath}"
+    }
+}

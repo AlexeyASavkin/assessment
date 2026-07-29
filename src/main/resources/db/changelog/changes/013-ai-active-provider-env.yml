@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: '13'
+      author: assessment
+      comment: >
+        Удаляет жёстко заданное значение active_provider=gemini, оставляя
+        выбор провайдера переменной окружения AI_PROVIDER. Администратор
+        может изменить провайдера через панель управления в любой момент.
+      changes:
+        - delete:
+            tableName: ai_settings
+            where: setting_key = 'active_provider'

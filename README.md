@@ -6,7 +6,7 @@
 
 - **Администратор** через веб-интерфейс (`/admin`) или REST API управляет компетенциями, разделами, темами, сотрудниками и создаёт для каждого сотрудника одноразовую пригласительную ссылку.
 - **Сотрудник** получает ссылку, открывает её в Google Chrome, последовательно отвечает на вопросы из банка, используя голосовой ввод (`SpeechRecognition API`), при необходимости редактирует распознанный текст и отправляет ответ.
-- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
+- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter / OpenCode Zen)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
 - **По завершении сессии** формируется итоговый отчёт с результатом «Пройден / Не пройден».
 
 ## Стек
@@ -14,12 +14,14 @@
 | Компонент | Технология |
 |-----------|-----------|
 | Бэкенд | Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ |
-| LLM | Spring AI 2.0.0 + Google Gemini 2.0 Flash |
+| LLM | Spring AI 2.0.0 + Gemini 2.0 Flash (default), GigaChat, OpenRouter, OpenCode Zen, stub |
 | База данных | PostgreSQL 18 |
 | Миграции | Liquibase |
 | Rate limiting | Resilience4j |
-| Сборка | Gradle 8.14 / 9.6.1 |
+| Сборка | Gradle 9.6.1 |
 | Фронтенд | React 19, TypeScript, Vite |
+| Тестирование (unit) | JUnit 5, Mockito |
+| Тестирование (component/BDD) | Cucumber 7.21, JUnit 5, OkHttp 4, Allure 2.30 |
 | Деплой | Docker Compose |
 
 ## Локальный запуск
@@ -64,6 +66,64 @@ cp .env.example .env
 # отредактируй .env и добавь GEMINI_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
 docker compose up --build
 ```
+
+## Тестирование
+
+### Unit-тесты
+
+47 unit-тестов в `src/test/` (запуск: `./gradlew test`):
+
+| Файл | Сколько | Что проверяет |
+|------|---------|---------------|
+| `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из БД |
+| `HmacTokenValidatorTest` | 8 | Генерация и валидация HMAC-токенов |
+| `AiProviderServiceTest` | 16 | Переключение провайдеров, API-ключи, промпты |
+| `LlmJsonParserTest` | 12 | Извлечение значений из JSON-ответов LLM |
+
+### Component (BDD) тесты
+
+Интеграционные тесты в `tests/component/` проверяют API через HTTP, без мокирования — полноценный black-box подход с реальным запуском приложения.
+
+**Стек тестов:** Cucumber 7.21 + JUnit 5 + OkHttp 4 + Allure 2.30 (`allure-cucumber7-jvm`).
+
+**5 feature-файлов, 16 сценариев:**
+
+| Файл | Что проверяет |
+|------|---------------|
+| `admin_auth.feature` | Вход админа (успех/неверный пароль), доступ без авторизации |
+| `competencies.feature` | CRUD компетенций, разделов и тем |
+| `employees.feature` | CRUD сотрудников, генерация пригласительной ссылки, открытие ссылки |
+| `employee_session.feature` | Получение вопроса, отправка ответа, завершение сессии |
+| `report.feature` | Отчёт по завершённой сессии, отказ для активной, админский отчёт |
+
+### Запуск тестов
+
+**Полный pipeline одной командой** (поднимает PostgreSQL, бэкенд, гоняет тесты, генерирует Allure-отчёт):
+
+```bash
+tests\component\run-bdd-tests.bat
+```
+
+**Пошагово:**
+
+```bash
+# 1. Запустить PostgreSQL
+docker compose up -d postgres
+
+# 2. Запустить бэкенд с stub AI-провайдером (без LLM)
+start-backend.bat
+
+# 3. В отдельном терминале запустить тесты
+./gradlew -p tests/component test
+
+# 4. Сгенерировать Allure-отчёт
+./gradlew -p tests/component allureReport
+# Отчёт: tests/component/build/reports/allure-report/index.html
+```
+
+Для тестов используется отдельный файл конфигурации `tests/component/src/test/resources/config/test-admin.properties` с credentials `admin / TestAdminPass!` — они отличаются от значений в `.env`. При запуске через `start-backend.bat` или `start-test-backend.bat` пароль автоматически подставляется через `ADMIN_PASSWORD_HASH`.
+
+**Stub AI-провайдер:** при `AI_PROVIDER=stub` все LLM-вызовы возвращают заранее заданные ответы (оценка 4.0, текст «Stub response»). Позволяет тестировать логику приложения без внешних API.
 
 ## Конфигурация
 
@@ -134,7 +194,7 @@ curl -X POST http://localhost:8080/api/admin/login \
   -c cookies.txt
 ```
 
-Логин и пароль задаются через переменные окружения `ADMIN_USERNAME` и `ADMIN_PASSWORD_HASH` (см. `.env`). По умолчанию: `admin / admin`.
+Логин и пароль задаются через переменные окружения `ADMIN_USERNAME` и `ADMIN_PASSWORD_HASH` (см. `.env`). В `.env.example` по умолчанию `admin / admin` (BCrypt-хеш в `ADMIN_PASSWORD_HASH`). Для BDD-тестов используется другой пароль — `TestAdminPass!` (см. секцию «Тестирование»).
 
 ### Админ API
 
@@ -314,16 +374,20 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
 | `competencies` | Компетенции |
 | `sections` | Разделы внутри компетенций |
 | `topics` | Темы внутри разделов |
+| `criteria` | Критерии оценки внутри компетенций |
+| `criteria_levels` | Уровни критериев |
 | `employees` | Сотрудники |
+| `employee_competencies` | Связь сотрудников с компетенциями |
 | `sessions` | Сессии оценки |
 | `assessment_invite_tokens` | Одноразовые пригласительные токены |
 | `question_attempts` | Вопросы, ответы и оценки (включая уточняющие) |
 | `question_banks` | Банк вопросов (сгенерированных или добавленных вручную) |
 | `ai_settings` | Настройки AI-провайдеров и промптов |
+| `admin_users` | Учётные записи администраторов |
 
 ## Известные ограничения
 
 - Голосовой ввод работает только в Google Chrome.
 - Нет серверного распознавания речи и хранения аудиофайлов.
 - Нет поддержки Firefox, Safari и мобильных браузеров.
-- Один LLM-вызов на ответ (Gemini или GigaChat). Rate limiter предотвращает превышение лимитов.
+- Один LLM-вызов на ответ (Gemini, GigaChat, OpenRouter или OpenCode Zen). Rate limiter предотвращает превышение лимитов.
