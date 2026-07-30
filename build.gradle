@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.0'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.openapi.generator' version '7.12.0'
 }
 
 group = 'com.assessment'
@@ -64,9 +65,59 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // OpenAPI
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation 'io.swagger.core.v3:swagger-annotations:2.2.28'
+    implementation 'jakarta.validation:jakarta.validation-api'
+
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir "${buildDir}/generated/openapi/admin/src/main/java"
+            srcDir "${buildDir}/generated/openapi/employee/src/main/java"
+        }
+    }
+}
+
+def openapiConfig = { String spec, String outputDirName, String apiPkg ->
+    return {
+        generatorName = 'spring'
+        inputSpec = "${rootDir}/api-specification/${spec}"
+        outputDir = "${buildDir}/generated/openapi/${outputDirName}"
+        modelPackage = 'com.assessment.dto'
+        apiPackage = "com.assessment.controller.generated.${apiPkg}"
+        modelNameSuffix = 'Dto'
+        generateApiDocumentation = false
+        generateModelDocumentation = false
+        generateApiTests = false
+        generateModelTests = false
+        skipValidateSpec = true
+        configOptions = [
+            useSpringBoot3    : 'true',
+            useJakartaEe      : 'true',
+            dateLibrary       : 'java8',
+            openApiNullable   : 'false',
+            serializableModel : 'true',
+            hideGenerationTimestamp: 'true',
+            interfaceOnly     : 'true',
+            skipDefaultInterface: 'true'
+        ]
+    }
+}
+
+tasks.register('generateAdminApi', org.openapitools.generator.gradle.plugin.tasks.GenerateTask,
+        openapiConfig('admin-api.yml', 'admin', 'admin'))
+
+tasks.register('generateEmployeeApi', org.openapitools.generator.gradle.plugin.tasks.GenerateTask,
+        openapiConfig('employee-api.yml', 'employee', 'employee'))
+
+tasks.named('compileJava') {
+    dependsOn 'generateAdminApi', 'generateEmployeeApi'
 }
 
 tasks.named('test') {
