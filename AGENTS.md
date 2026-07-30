@@ -49,9 +49,9 @@ npm run preview
 ### Database
 
 ```bash
-# Start PostgreSQL via Docker
+# Start PostgreSQL via Docker (только БД, без бэкенда и фронтенда)
 cp .env.example .env  # then edit GEMINI_API_KEY
-docker compose up -d postgres
+docker compose -f compose.db.yml up -d
 ```
 
 ### Full Docker Compose
