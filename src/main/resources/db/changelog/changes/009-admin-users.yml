@@ -4,6 +4,12 @@ databaseChangeLog:
       author: assessment
       validCheckSum: '9:081eff3bc5dd9e00e1da3f1f8873b6d0'
       validCheckSum: '9:a413682fe22343d73502e977d8d52b36'
+      validCheckSum: '9:4d626a1662c84ff528c5ff8f5d96fd14'
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: admin_users
       changes:
         - createTable:
             tableName: admin_users

@@ -2,6 +2,12 @@ package com.assessment.controller;
 
 import com.assessment.dto.*;
 import com.assessment.entity.*;
+import com.assessment.dto.mapper.CompetencyMapper;
+import com.assessment.dto.mapper.EmployeeMapper;
+import com.assessment.dto.mapper.InviteTokenMapper;
+import com.assessment.dto.mapper.QuestionBankMapper;
+import com.assessment.dto.mapper.SectionMapper;
+import com.assessment.dto.mapper.TopicMapper;
 import com.assessment.repository.*;
 import com.assessment.security.HmacTokenValidator;
 import com.assessment.service.AiProviderService;
@@ -38,9 +44,15 @@ public class AdminController {
     private final QuestionBankRepository questionBankRepository;
     private final com.assessment.repository.SessionRepository sessionRepository;
     private final ReportService reportService;
+    private final CompetencyMapper competencyMapper;
+    private final SectionMapper sectionMapper;
+    private final TopicMapper topicMapper;
+    private final EmployeeMapper employeeMapper;
+    private final QuestionBankMapper questionBankMapper;
+    private final InviteTokenMapper inviteTokenMapper;
 
     /**
-     * Конструктор с внедрением зависимостей репозиториев и сервисов.
+     * Конструктор с внедрением зависимостей репозиториев, сервисов и мапперов.
      *
      * @param competencyRepository      репозиторий компетенций
      * @param sectionRepository         репозиторий разделов
@@ -53,6 +65,12 @@ public class AdminController {
      * @param questionBankRepository    репозиторий банка вопросов
      * @param sessionRepository         репозиторий сессий оценки
      * @param reportService             сервис формирования отчётов
+     * @param competencyMapper          маппер компетенций
+     * @param sectionMapper             маппер разделов
+     * @param topicMapper               маппер тем
+     * @param employeeMapper            маппер сотрудников
+     * @param questionBankMapper        маппер банка вопросов
+     * @param inviteTokenMapper         маппер пригласительных токенов
      */
     public AdminController(CompetencyRepository competencyRepository,
                            SectionRepository sectionRepository,
@@ -64,7 +82,13 @@ public class AdminController {
                            QuestionGeneratorService questionGeneratorService,
                            QuestionBankRepository questionBankRepository,
                            com.assessment.repository.SessionRepository sessionRepository,
-                           ReportService reportService) {
+                           ReportService reportService,
+                           CompetencyMapper competencyMapper,
+                           SectionMapper sectionMapper,
+                           TopicMapper topicMapper,
+                           EmployeeMapper employeeMapper,
+                           QuestionBankMapper questionBankMapper,
+                           InviteTokenMapper inviteTokenMapper) {
         this.competencyRepository = competencyRepository;
         this.sectionRepository = sectionRepository;
         this.topicRepository = topicRepository;
@@ -76,6 +100,12 @@ public class AdminController {
         this.questionBankRepository = questionBankRepository;
         this.sessionRepository = sessionRepository;
         this.reportService = reportService;
+        this.competencyMapper = competencyMapper;
+        this.sectionMapper = sectionMapper;
+        this.topicMapper = topicMapper;
+        this.employeeMapper = employeeMapper;
+        this.questionBankMapper = questionBankMapper;
+        this.inviteTokenMapper = inviteTokenMapper;
     }
 
     // ---- Competencies CRUD ----
@@ -88,9 +118,9 @@ public class AdminController {
      */
     @PostMapping("/competencies")
     public ResponseEntity<CompetencyDto> createCompetency(@RequestBody CreateCompetencyRequestDto dto) {
-        Competency entity = DtoMapper.toEntity(dto);
+        Competency entity = competencyMapper.toEntity(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(DtoMapper.toDto(competencyRepository.save(entity)));
+                .body(competencyMapper.toDto(competencyRepository.save(entity)));
     }
 
     /**
@@ -101,7 +131,7 @@ public class AdminController {
     @GetMapping("/competencies")
     public ResponseEntity<List<CompetencyDto>> listCompetencies() {
         return ResponseEntity.ok(competencyRepository.findAll().stream()
-                .map(DtoMapper::toDto)
+                .map(competencyMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -114,7 +144,7 @@ public class AdminController {
     @GetMapping("/competencies/{id}")
     public ResponseEntity<CompetencyDto> getCompetency(@PathVariable UUID id) {
         return competencyRepository.findById(id)
-                .map(e -> ResponseEntity.ok(DtoMapper.toDto(e)))
+                .map(e -> ResponseEntity.ok(competencyMapper.toDto(e)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -130,8 +160,8 @@ public class AdminController {
                                                            @RequestBody UpdateCompetencyRequestDto dto) {
         return competencyRepository.findById(id)
                 .map(entity -> {
-                    DtoMapper.updateEntity(entity, dto);
-                    return ResponseEntity.ok(DtoMapper.toDto(competencyRepository.save(entity)));
+                    competencyMapper.updateEntity(entity, dto);
+                    return ResponseEntity.ok(competencyMapper.toDto(competencyRepository.save(entity)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -162,10 +192,10 @@ public class AdminController {
                                                      @RequestBody CreateSectionRequestDto dto) {
         return competencyRepository.findById(competencyId)
                 .map(competency -> {
-                    Section section = DtoMapper.toEntity(competencyId, dto);
+                    Section section = sectionMapper.toEntity(competencyId, dto);
                     section.setCompetency(competency);
                     return ResponseEntity.status(HttpStatus.CREATED)
-                            .body(DtoMapper.toDto(sectionRepository.save(section)));
+                            .body(sectionMapper.toDto(sectionRepository.save(section)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -179,7 +209,7 @@ public class AdminController {
     @GetMapping("/competencies/{competencyId}/sections")
     public ResponseEntity<List<SectionDto>> listSections(@PathVariable UUID competencyId) {
         return ResponseEntity.ok(sectionRepository.findByCompetencyId(competencyId).stream()
-                .map(DtoMapper::toDto)
+                .map(sectionMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -195,8 +225,8 @@ public class AdminController {
                                                      @RequestBody UpdateSectionRequestDto dto) {
         return sectionRepository.findById(id)
                 .map(entity -> {
-                    DtoMapper.updateEntity(entity, dto);
-                    return ResponseEntity.ok(DtoMapper.toDto(sectionRepository.save(entity)));
+                    sectionMapper.updateEntity(entity, dto);
+                    return ResponseEntity.ok(sectionMapper.toDto(sectionRepository.save(entity)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -227,10 +257,10 @@ public class AdminController {
                                                  @RequestBody CreateTopicRequestDto dto) {
         return sectionRepository.findById(sectionId)
                 .map(section -> {
-                    Topic topic = DtoMapper.toEntity(sectionId, dto);
+                    Topic topic = topicMapper.toEntity(sectionId, dto);
                     topic.setSection(section);
                     return ResponseEntity.status(HttpStatus.CREATED)
-                            .body(DtoMapper.toDto(topicRepository.save(topic)));
+                            .body(topicMapper.toDto(topicRepository.save(topic)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -244,7 +274,7 @@ public class AdminController {
     @GetMapping("/sections/{sectionId}/topics")
     public ResponseEntity<List<TopicDto>> listTopics(@PathVariable UUID sectionId) {
         return ResponseEntity.ok(topicRepository.findBySectionId(sectionId).stream()
-                .map(DtoMapper::toDto)
+                .map(topicMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -260,8 +290,8 @@ public class AdminController {
                                                  @RequestBody UpdateTopicRequestDto dto) {
         return topicRepository.findById(id)
                 .map(entity -> {
-                    DtoMapper.updateEntity(entity, dto);
-                    return ResponseEntity.ok(DtoMapper.toDto(topicRepository.save(entity)));
+                    topicMapper.updateEntity(entity, dto);
+                    return ResponseEntity.ok(topicMapper.toDto(topicRepository.save(entity)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -300,7 +330,7 @@ public class AdminController {
         try {
             List<QuestionBank> questions = questionGeneratorService.generateAndSaveForTopic(
                     topicId, dto.getCount(), dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL");
-            return ResponseEntity.ok(questions.stream().map(DtoMapper::toDto).collect(Collectors.toList()));
+            return ResponseEntity.ok(questions.stream().map(questionBankMapper::toDto).collect(Collectors.toList()));
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException e) {
@@ -321,7 +351,7 @@ public class AdminController {
     @GetMapping("/topics/{topicId}/questions")
     public ResponseEntity<List<QuestionBankItemDto>> listTopicQuestions(@PathVariable UUID topicId) {
         return ResponseEntity.ok(questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId).stream()
-                .map(DtoMapper::toDto)
+                .map(questionBankMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -358,14 +388,14 @@ public class AdminController {
      */
     @PostMapping("/employees")
     public ResponseEntity<EmployeeDto> createEmployee(@RequestBody CreateEmployeeRequestDto dto) {
-        Employee employee = DtoMapper.toEntity(dto);
+        Employee employee = employeeMapper.toEntity(dto);
         if (dto.getCompetencyId() != null) {
             Competency comp = competencyRepository.findById(dto.getCompetencyId())
                     .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + dto.getCompetencyId()));
             employee.setCompetency(comp);
         }
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(DtoMapper.toDto(employeeRepository.save(employee)));
+                .body(employeeMapper.toDto(employeeRepository.save(employee)));
     }
 
     /**
@@ -376,7 +406,7 @@ public class AdminController {
     @GetMapping("/employees")
     public ResponseEntity<List<EmployeeDto>> listEmployees() {
         return ResponseEntity.ok(employeeRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(DtoMapper::toDto)
+                .map(employeeMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -389,7 +419,7 @@ public class AdminController {
     @GetMapping("/employees/{id}")
     public ResponseEntity<EmployeeDto> getEmployee(@PathVariable UUID id) {
         return employeeRepository.findById(id)
-                .map(e -> ResponseEntity.ok(DtoMapper.toDto(e)))
+                .map(e -> ResponseEntity.ok(employeeMapper.toDto(e)))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -405,7 +435,7 @@ public class AdminController {
                                                        @RequestBody UpdateEmployeeRequestDto dto) {
         return employeeRepository.findById(id)
                 .map(employee -> {
-                    DtoMapper.updateEntity(employee, dto);
+                    employeeMapper.updateEntity(employee, dto);
                     if (dto.getCompetencyId() != null) {
                         Competency comp = competencyRepository.findById(dto.getCompetencyId())
                                 .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + dto.getCompetencyId()));
@@ -413,7 +443,7 @@ public class AdminController {
                     } else {
                         employee.setCompetency(null);
                     }
-                    return ResponseEntity.ok(DtoMapper.toDto(employeeRepository.save(employee)));
+                    return ResponseEntity.ok(employeeMapper.toDto(employeeRepository.save(employee)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -475,7 +505,7 @@ public class AdminController {
     @GetMapping("/tokens")
     public ResponseEntity<List<AssessmentInviteTokenDto>> listTokens() {
         return ResponseEntity.ok(tokenRepository.findAll().stream()
-                .map(DtoMapper::toDto)
+                .map(inviteTokenMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -619,7 +649,7 @@ public class AdminController {
         try {
             List<QuestionBank> questions = questionGeneratorService.generateAndSave(
                     competencyId, dto.getCount(), dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL");
-            return ResponseEntity.ok(questions.stream().map(DtoMapper::toDto).collect(Collectors.toList()));
+            return ResponseEntity.ok(questions.stream().map(questionBankMapper::toDto).collect(Collectors.toList()));
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException e) {
@@ -640,7 +670,7 @@ public class AdminController {
     @GetMapping("/competencies/{competencyId}/questions")
     public ResponseEntity<List<QuestionBankItemDto>> listQuestions(@PathVariable UUID competencyId) {
         return ResponseEntity.ok(questionBankRepository.findByCompetencyIdOrderByCreatedAtDesc(competencyId).stream()
-                .map(DtoMapper::toDto)
+                .map(questionBankMapper::toDto)
                 .collect(Collectors.toList()));
     }
 
@@ -659,7 +689,7 @@ public class AdminController {
         return questionBankRepository.findById(id)
                 .map(question -> {
                     question.setQuestionText(dto.getQuestionText().trim());
-                    return ResponseEntity.ok(DtoMapper.toDto(questionBankRepository.save(question)));
+                    return ResponseEntity.ok(questionBankMapper.toDto(questionBankRepository.save(question)));
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
