@@ -21,7 +21,7 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
 @IncludeEngines("cucumber")
 @ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.assessment.test.steps")
 @ConfigurationParameter(key = FEATURES_PROPERTY_NAME, value = "src/test/resources/features")
-@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty,json:build/reports/cucumber.json,html:build/reports/cucumber-reports.html")
+@ConfigurationParameter(key = PLUGIN_PROPERTY_NAME, value = "pretty,json:build/reports/cucumber.json,html:build/reports/cucumber-reports.html,io.qameta.allure.cucumber7jvm.AllureCucumber7Jvm")
 public class CucumberTestRunner {
     // Runner class — no additional code needed
 }
