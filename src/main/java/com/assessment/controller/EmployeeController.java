@@ -1,5 +1,6 @@
 package com.assessment.controller;
 
+import com.assessment.dto.*;
 import com.assessment.entity.*;
 import com.assessment.repository.*;
 import com.assessment.security.EmployeeTokenService;
@@ -107,11 +108,14 @@ public class EmployeeController {
      * @return текущая сессия с HTTP 200 или HTTP 401
      */
     @PostMapping("/sessions")
-    public ResponseEntity<Session> createSession(@CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
-                                                  HttpServletRequest request) {
-        Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
+    public ResponseEntity<SessionDto> createSession(@CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                                     HttpServletRequest request) {
+        Optional<com.assessment.entity.Session> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isPresent()) {
-            return ResponseEntity.ok(sessionOpt.get());
+            com.assessment.entity.Session session = sessionOpt.get();
+            return ResponseEntity.ok(new SessionDto()
+                    .id(session.getId())
+                    .status(SessionDto.StatusEnum.fromValue(session.getStatus())));
         }
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
@@ -128,32 +132,29 @@ public class EmployeeController {
      *         или признак завершения оценки
      */
     @GetMapping("/sessions/{sessionId}/questions")
-    public ResponseEntity<Map<String, Object>> getCurrentQuestion(@PathVariable UUID sessionId,
-                                                                   @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
-                                                                   HttpServletRequest request) {
-        Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
+    public ResponseEntity<?> getCurrentQuestion(@PathVariable UUID sessionId,
+                                                  @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                                  HttpServletRequest request) {
+        Optional<com.assessment.entity.Session> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        Session session = sessionOpt.get();
+        com.assessment.entity.Session session = sessionOpt.get();
         if ("COMPLETED".equals(session.getStatus())) {
-            return ResponseEntity.ok(Map.of("completed", true));
+            return ResponseEntity.ok(new CompletedResponseDto().completed(true));
         }
 
-        // Idempotent: if session already has a current question, return it without creating a new one.
-        // This prevents StrictMode double-fired useEffect (and page reloads) from "using up" topics.
         UUID currentQuestionId = session.getCurrentQuestionId();
         if (currentQuestionId != null) {
             QuestionAttempt current = questionAttemptRepository.findById(currentQuestionId).orElse(null);
             if (current != null) {
-                return buildQuestionResponse(current);
+                return ResponseEntity.ok(buildQuestionResponse(current));
             }
         }
 
         List<QuestionAttempt> attempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(sessionId);
 
-        // Filter topics by employee's selected competency
         Competency employeeCompetency = session.getEmployee().getCompetency();
         List<Topic> topics;
         if (employeeCompetency != null) {
@@ -167,7 +168,7 @@ public class EmployeeController {
 
         UUID nextTopicId = findNextTopicId(attempts, topics);
         if (nextTopicId == null) {
-            return ResponseEntity.ok(Map.of("completed", true));
+            return ResponseEntity.ok(new CompletedResponseDto().completed(true));
         }
 
         String questionText = pickQuestionFromBank(nextTopicId, attempts);
@@ -183,26 +184,22 @@ public class EmployeeController {
         session.setCurrentQuestionId(attempt.getId());
         sessionRepository.save(session);
 
-        return buildQuestionResponse(attempt);
+        return ResponseEntity.ok(buildQuestionResponse(attempt));
     }
 
     /**
      * Формирует ответ с данными текущего вопроса для фронтенда.
      *
      * @param attempt попытка ответа с вопросом
-     * @return карта с полями {@code questionId}, {@code questionText}, {@code topicId},
-     *         {@code isFollowUp} и {@code followupParentId} с HTTP 200
+     * @return ответ с данными вопроса
      */
-    private ResponseEntity<Map<String, Object>> buildQuestionResponse(QuestionAttempt attempt) {
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("questionId", attempt.getId());
-        response.put("questionText", attempt.getQuestionText());
-        response.put("topicId", attempt.getTopic() != null ? attempt.getTopic().getId() : null);
-        response.put("isFollowUp", attempt.getFollowupDepth() > 0);
-        if (attempt.getFollowupParent() != null) {
-            response.put("followupParentId", attempt.getFollowupParent().getId());
-        }
-        return ResponseEntity.ok(response);
+    private QuestionResponseDto buildQuestionResponse(QuestionAttempt attempt) {
+        return new QuestionResponseDto()
+                .questionId(attempt.getId())
+                .questionText(attempt.getQuestionText())
+                .topicId(attempt.getTopic() != null ? attempt.getTopic().getId() : null)
+                .isFollowUp(attempt.getFollowupDepth() > 0)
+                .followupParentId(attempt.getFollowupParent() != null ? attempt.getFollowupParent().getId() : null);
     }
 
     /**
@@ -210,24 +207,24 @@ public class EmployeeController {
      * или признак завершения сессии. Если все темы пройдены, сессия переходит в статус COMPLETED.
      *
      * @param sessionId   идентификатор сессии
-     * @param answer      тело запроса с полями {@code questionAttemptId}, {@code finalTranscript}
+     * @param requestDto  тело запроса с полями {@code questionAttemptId}, {@code finalTranscript}
      * @param cookieValue значение cookie SESSION_EMPLOYEE
      * @param request     HTTP-запрос для валидации сессии
      * @return карта с данными следующего вопроса и HTTP 200, или HTTP 401 при несоответствии сессии
      */
     @PostMapping("/sessions/{sessionId}/answers")
-    public ResponseEntity<Map<String, Object>> submitAnswer(@PathVariable UUID sessionId,
-                                                             @RequestBody Map<String, String> answer,
-                                                             @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
-                                                             HttpServletRequest request) {
-        Optional<Session> sessionOpt = tokenService.validateSessionCookie(request);
+    public ResponseEntity<?> submitAnswer(@PathVariable UUID sessionId,
+                                            @RequestBody SubmitAnswerRequestDto requestDto,
+                                            @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
+                                            HttpServletRequest request) {
+        Optional<com.assessment.entity.Session> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        Session session = sessionOpt.get();
-        UUID questionId = UUID.fromString(answer.get("questionAttemptId"));
-        String finalTranscript = answer.get("finalTranscript");
+        com.assessment.entity.Session session = sessionOpt.get();
+        UUID questionId = requestDto.getQuestionAttemptId();
+        String finalTranscript = requestDto.getFinalTranscript();
 
         QuestionAttempt currentAttempt = questionAttemptRepository.findById(questionId).orElseThrow();
 
@@ -276,7 +273,7 @@ public class EmployeeController {
                         followUpAttempt = questionAttemptRepository.save(followUpAttempt);
                         session.setCurrentQuestionId(followUpAttempt.getId());
                         sessionRepository.save(session);
-                        return buildQuestionResponse(followUpAttempt);
+                        return ResponseEntity.ok(buildQuestionResponse(followUpAttempt));
                     }
                 }
             }
@@ -304,13 +301,12 @@ public class EmployeeController {
             session.setCurrentQuestionId(nextAttempt.getId());
             sessionRepository.save(session);
 
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("nextQuestionId", nextAttempt.getId());
-            response.put("nextQuestionText", nextQuestionText);
-            response.put("topicId", currentTopicId);
-            response.put("completed", false);
-            response.put("isFollowUp", false);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new AnswerResponseDto()
+                    .nextQuestionId(nextAttempt.getId())
+                    .nextQuestionText(nextQuestionText)
+                    .topicId(currentTopicId)
+                    .completed(false)
+                    .isFollowUp(false));
         }
 
         // Тема исчерпана — синхронно оцениваем все ответы сессии, затем ищем кандидата на уточнение
@@ -331,7 +327,7 @@ public class EmployeeController {
                     followUpAttempt = questionAttemptRepository.save(followUpAttempt);
                     session.setCurrentQuestionId(followUpAttempt.getId());
                     sessionRepository.save(session);
-                    return buildQuestionResponse(followUpAttempt);
+                    return ResponseEntity.ok(buildQuestionResponse(followUpAttempt));
                 }
                 // LLM-сбой — пропускаем кандидата, переходим к следующей теме
             }
@@ -348,21 +344,16 @@ public class EmployeeController {
      * @param topics  список тем компетенции сотрудника
      * @return ответ с следующим вопросом или признаком завершения
      */
-    private ResponseEntity<Map<String, Object>> advanceToNextTopicOrComplete(Session session, List<Topic> topics) {
+    private ResponseEntity<?> advanceToNextTopicOrComplete(com.assessment.entity.Session session, List<Topic> topics) {
         List<QuestionAttempt> allAttempts = questionAttemptRepository.findBySessionIdOrderByCreatedAtAsc(session.getId());
         UUID nextTopicId = findNextTopicId(allAttempts, topics);
 
         if (nextTopicId == null) {
-            // Все темы пройдены и уточнений нет — завершаем
             scoringService.scoreUnscoredAttempts(session.getId());
             session.setStatus("COMPLETED");
             sessionRepository.save(session);
 
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("nextQuestionId", null);
-            response.put("completed", true);
-            response.put("isFollowUp", false);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new CompletedResponseDto().completed(true));
         }
 
         String nextQuestionText = pickQuestionFromBank(nextTopicId, allAttempts);
@@ -376,13 +367,12 @@ public class EmployeeController {
         session.setCurrentQuestionId(nextAttempt.getId());
         sessionRepository.save(session);
 
-        Map<String, Object> response = new LinkedHashMap<>();
-        response.put("nextQuestionId", nextAttempt.getId());
-        response.put("nextQuestionText", nextQuestionText);
-        response.put("topicId", nextAttempt.getTopic() != null ? nextAttempt.getTopic().getId() : null);
-        response.put("completed", false);
-        response.put("isFollowUp", false);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new AnswerResponseDto()
+                .nextQuestionId(nextAttempt.getId())
+                .nextQuestionText(nextQuestionText)
+                .topicId(nextAttempt.getTopic() != null ? nextAttempt.getTopic().getId() : null)
+                .completed(false)
+                .isFollowUp(false));
     }
 
     /**
