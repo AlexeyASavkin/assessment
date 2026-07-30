@@ -1,0 +1,381 @@
+openapi: 3.0.3
+info:
+  title: Assessment Service — Employee API
+  version: 1.0.0
+  description: >
+    REST API для прохождения оценки компетенций сотрудником.
+    Сотрудник не вводит логин и пароль — доступ осуществляется через
+    пригласительную HMAC-подписанную ссылку и cookie SESSION_EMPLOYEE.
+
+    Порядок работы:
+      1. Сотрудник открывает пригласительную ссылку /api/employee/invite/{token}.
+      2. Сервер проверяет HMAC-подпись, создаёт/возвращает сессию,
+         устанавливает cookie SESSION_EMPLOYEE.
+      3. Фронтенд запрашивает текущий вопрос GET /sessions/{id}/questions.
+      4. Сотрудник отвечает, отправляет ответ POST /sessions/{id}/answers.
+      5. При завершении сессии сотрудник получает отчёт GET /sessions/{id}/report.
+servers:
+  - url: http://localhost:8080/api/employee
+    description: Локальный сервер разработки
+paths:
+  # ─── Invite ────────────────────────────────────────────────────────────
+  /invite/{token}:
+    get:
+      summary: Открыть пригласительную ссылку
+      description: |
+        Проверяет HMAC-подпись токена, создаёт или возвращает существующую
+        сессию, устанавливает cookie SESSION_EMPLOYEE.
+        Перенаправляет на страницу сессии или на страницу отчёта,
+        если сессия уже завершена.
+        При невалидном/просроченном токене — 403.
+      operationId: handleInvite
+      tags: [Приглашение]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: HMAC-подписанный пригласительный токен
+      responses:
+        '302':
+          description: Редирект на страницу сессии или отчёта
+          headers:
+            Location:
+              schema:
+                type: string
+              examples:
+                session_page: /session/{sessionId}
+                report_page: /session/{sessionId}/report
+            Set-Cookie:
+              schema:
+                type: string
+              description: |
+                HttpOnly cookie SESSION_EMPLOYEE для аутентификации
+                последующих запросов
+              example: SESSION_EMPLOYEE=uuid|hmac_signature; Path=/; HttpOnly; Secure
+        '403':
+          description: Невалидный или просроченный токен
+
+  # ─── Session ──────────────────────────────────────────────────────────
+  /sessions:
+    post:
+      summary: Получить текущую сессию
+      description: |
+        Возвращает сессию по cookie SESSION_EMPLOYEE.
+        Используется фронтендом при загрузке страницы сессии
+        для проверки валидности cookie.
+      operationId: getSession
+      tags: [Сессия]
+      responses:
+        '200':
+          description: Текущая сессия
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '401':
+          description: Cookie отсутствует или невалидна
+
+  # ─── Questions ────────────────────────────────────────────────────────
+  /sessions/{sessionId}/questions:
+    get:
+      summary: Получить текущий вопрос
+      description: |
+        Возвращает текущий вопрос сессии. Если сессия завершена —
+        возвращает { "completed": true }.
+        Если текущий вопрос ещё не задан — создаёт новый из банка вопросов.
+        Вопросы выбираются по темам, темы — по компетенции сотрудника.
+      operationId: getCurrentQuestion
+      tags: [Вопросы]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Текущий вопрос или признак завершения
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/QuestionResponse'
+                  - $ref: '#/components/schemas/CompletedResponse'
+        '401':
+          description: Сессия не соответствует cookie
+
+  # ─── Answers ──────────────────────────────────────────────────────────
+  /sessions/{sessionId}/answers:
+    post:
+      summary: Отправить ответ
+      description: |
+        Принимает ответ сотрудника на текущий вопрос.
+        Оценивает ответ через LLM (синхронно для уточняющих вопросов,
+        асинхронно для основных).
+        Если тема исчерпана — ищет кандидатов на уточняющий вопрос
+        (оценка ≤ 2). Если находит — генерирует уточнение.
+        Если все темы пройдены — завершает сессию.
+      operationId: submitAnswer
+      tags: [Вопросы]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionAttemptId, finalTranscript]
+              properties:
+                questionAttemptId:
+                  type: string
+                  format: uuid
+                  description: Идентификатор текущего вопроса (из QuestionResponse.questionId)
+                finalTranscript:
+                  type: string
+                  description: >
+                    Отредактированный текст ответа сотрудника.
+                    При голосовом вводе — результат SpeechRecognition
+                    после ручной коррекции.
+      responses:
+        '200':
+          description: Следующий вопрос или признак завершения
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/AnswerResponse'
+                  - $ref: '#/components/schemas/CompletedResponse'
+        '401':
+          description: Сессия не соответствует cookie
+
+  # ─── Report ──────────────────────────────────────────────────────────
+  /sessions/{sessionId}/report:
+    get:
+      summary: Получить итоговый отчёт
+      description: |
+        Итоговый отчёт по завершённой сессии оценки.
+        Содержит оценки по темам, общий результат и рекомендацию ИИ.
+        Доступен только после завершения сессии (статус COMPLETED).
+      operationId: getReport
+      tags: [Отчёт]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Итоговый отчёт
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeReport'
+        '401':
+          description: Сессия не соответствует cookie
+        '403':
+          description: Сессия ещё не завершена
+
+components:
+  schemas:
+    # ───── Core entity (employee-facing subset) ──────────────────────
+    Session:
+      type: object
+      description: Сессия оценки (employee-facing)
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED]
+          example: ACTIVE
+
+    # ───── Question / Answer schemas ─────────────────────────────────
+    QuestionResponse:
+      type: object
+      description: Текущий вопрос для сотрудника
+      properties:
+        questionId:
+          type: string
+          format: uuid
+          description: Идентификатор попытки (нужен для submitAnswer)
+        questionText:
+          type: string
+          description: Текст вопроса
+          example: Расскажите о Stream API в Java
+        topicId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Идентификатор темы
+        isFollowUp:
+          type: boolean
+          description: true, если это уточняющий вопрос
+          example: false
+        followupParentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Идентификатор родительской попытки.
+            Заполнен только для уточняющих вопросов.
+
+    AnswerResponse:
+      type: object
+      description: Ответ на submitAnswer с данными следующего вопроса
+      properties:
+        nextQuestionId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Идентификатор следующего вопроса
+        nextQuestionText:
+          type: string
+          description: Текст следующего вопроса
+        topicId:
+          type: string
+          format: uuid
+          nullable: true
+        completed:
+          type: boolean
+          description: true, если оценка завершена
+          example: false
+        isFollowUp:
+          type: boolean
+          description: true, если следующий вопрос — уточняющий
+          example: false
+
+    CompletedResponse:
+      type: object
+      description: Признак завершения сессии
+      properties:
+        completed:
+          type: boolean
+          enum: [true]
+          example: true
+
+    # ───── Report schemas ──────────────────────────────────────────
+    EmployeeReport:
+      type: object
+      description: Итоговый отчёт по сессии
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+          example: Иванов Иван Иванович
+        competencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicReport'
+        passed:
+          type: boolean
+          description: true, если средний балл ≥ 3.0 по всем темам
+          example: true
+        overallRecommendation:
+          type: string
+          example: Сотрудник успешно прошёл оценку компетенций.
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeAttemptDetail'
+          description: |
+            Полный список попыток (основные + уточняющие).
+            Вложенность восстанавливается на клиенте через followupParentId.
+
+    TopicReport:
+      type: object
+      description: Результат по теме
+      properties:
+        topicId:
+          type: string
+          format: uuid
+        topicName:
+          type: string
+          example: Stream API
+        sectionName:
+          type: string
+          example: Java Core
+        competencyName:
+          type: string
+          example: Java
+        averageScore:
+          type: number
+          format: float
+          description: Средний балл по теме (только основные вопросы)
+          example: 4.50
+        passed:
+          type: boolean
+          description: true, если средний балл ≥ 3.0
+          example: true
+        followUpScores:
+          type: array
+          items:
+            type: number
+            format: float
+          description: Оценки за уточняющие вопросы
+          example: [4.0]
+        feedbacks:
+          type: array
+          items:
+            type: string
+          description: Рекомендации ИИ
+          example: ["Отличное понимание Stream API"]
+
+    EmployeeAttemptDetail:
+      type: object
+      description: Детали попытки ответа (employee-facing)
+      properties:
+        attemptId:
+          type: string
+          format: uuid
+        questionText:
+          type: string
+          description: Текст вопроса
+        finalTranscript:
+          type: string
+          nullable: true
+          description: Ответ сотрудника
+        score:
+          type: number
+          format: float
+          nullable: true
+          description: >
+            Текущая оценка (после переоценки с учётом уточнения, если было)
+        baseScore:
+          type: number
+          format: float
+          nullable: true
+          description: Исходная оценка до переоценки
+        validJudge:
+          type: boolean
+          nullable: true
+        feedback:
+          type: string
+          nullable: true
+        followupDepth:
+          type: integer
+          description: 0 — основной, 1+ — уточняющий
+          example: 0
+        followupParentId:
+          type: string
+          format: uuid
+          nullable: true
+        topicName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
