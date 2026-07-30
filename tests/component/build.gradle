@@ -49,7 +49,7 @@ dependencies {
 
 test {
     useJUnitPlatform()
-    systemProperty 'cucumber.plugin', 'pretty,json:build/reports/cucumber.json,io.qameta.allure.cucumber7jvm.AllureCucumber7Jvm'
+    systemProperty 'allure.results.directory', layout.buildDirectory.dir('allure-results').get().asFile.absolutePath
 }
 
 // Allure CLI task — downloads Allure CLI on demand and generates HTML report
