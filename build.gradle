@@ -63,7 +63,16 @@ dependencies {
 
     // Lombok
     compileOnly 'org.projectlombok:lombok'
+
+    // Dotenv — загрузка .env в PropertySource при локальном запуске
+    implementation 'me.paulschwarz:springboot4-dotenv:5.0.1'
+
+    // MapStruct
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    // lombok-mapstruct-binding lets MapStruct see Lombok-generated getters/setters/builders
     annotationProcessor 'org.projectlombok:lombok'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+    annotationProcessor 'org.projectlombok:lombok-mapstruct-binding:0.2.0'
 
     // OpenAPI
     implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
