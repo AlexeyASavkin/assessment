@@ -1,49 +1,79 @@
-package com.assessment.controller;
+package com.assessment.management.adapter.in;
 
-import com.assessment.dto.*;
-import com.assessment.entity.*;
+import com.assessment.dto.AiPromptsDto;
+import com.assessment.dto.ApplicationSummaryDto;
+import com.assessment.dto.AssessmentInviteTokenDto;
+import com.assessment.dto.CompetencyDto;
+import com.assessment.dto.CreateCompetencyRequestDto;
+import com.assessment.dto.CreateEmployeeRequestDto;
+import com.assessment.dto.CreateSectionRequestDto;
+import com.assessment.dto.CreateTopicRequestDto;
+import com.assessment.dto.EmployeeDto;
+import com.assessment.dto.GenerateQuestionsRequestDto;
+import com.assessment.dto.GenerateTopicQuestionsRequestDto;
+import com.assessment.dto.GetAiSettings200ResponseDto;
+import com.assessment.dto.QuestionBankItemDto;
+import com.assessment.dto.SectionDto;
+import com.assessment.dto.TopicDto;
+import com.assessment.dto.UpdateAiSettings200ResponseDto;
+import com.assessment.dto.UpdateAiSettingsRequestDto;
+import com.assessment.dto.UpdateCompetencyRequestDto;
+import com.assessment.dto.UpdateEmployeeRequestDto;
+import com.assessment.dto.UpdateQuestionRequestDto;
+import com.assessment.dto.UpdateSectionRequestDto;
+import com.assessment.dto.UpdateTopicRequestDto;
 import com.assessment.dto.mapper.CompetencyMapper;
 import com.assessment.dto.mapper.EmployeeMapper;
 import com.assessment.dto.mapper.InviteTokenMapper;
 import com.assessment.dto.mapper.QuestionBankMapper;
 import com.assessment.dto.mapper.SectionMapper;
 import com.assessment.dto.mapper.TopicMapper;
-import com.assessment.repository.*;
-import com.assessment.security.HmacTokenValidator;
-import com.assessment.service.AiProviderService;
-import com.assessment.service.QuestionGeneratorService;
-import com.assessment.service.ReportService;
+import com.assessment.management.application.AiSettingsUseCase;
+import com.assessment.management.application.ApplicationManagementUseCase;
+import com.assessment.management.application.ApplicationSummary;
+import com.assessment.management.application.CompetencyCrudUseCase;
+import com.assessment.management.application.EmployeeCrudUseCase;
+import com.assessment.management.application.QuestionBankManagementUseCase;
+import com.assessment.management.application.SectionCrudUseCase;
+import com.assessment.management.application.TokenManagementUseCase;
+import com.assessment.management.application.TopicCrudUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * REST-контроллер для административных операций.
- * Обрабатывает все запросы по пути {@code /api/admin} и требует аутентификации с ролью ADMIN.
- * Управляет компетенциями, разделами, темами,
- * банком вопросов, сотрудниками и настройками ИИ.
+ * Входящий HTTP-адаптер (driving adapter) административных операций.
+ *
+ * <p>Тонкий контроллер: обрабатывает все запросы по пути {@code /api/admin},
+ * требует аутентификации с ролью ADMIN, преобразует DTO ↔ сущности через
+ * MapStruct-мапперы и делегирует бизнес-логику use case'ам management-контекста.
+ * Не инжектит репозитории и не работает с JPA-сущностями напрямую.
  */
 @RestController
 @RequestMapping("/api/admin")
-public class AdminController {
+public class AdminWebAdapter {
 
-    private final CompetencyRepository competencyRepository;
-    private final SectionRepository sectionRepository;
-    private final TopicRepository topicRepository;
-    private final EmployeeRepository employeeRepository;
-    private final AssessmentInviteTokenRepository tokenRepository;
-    private final HmacTokenValidator hmacValidator;
-    private final AiProviderService aiProviderService;
-    private final QuestionGeneratorService questionGeneratorService;
-    private final QuestionBankRepository questionBankRepository;
-    private final com.assessment.repository.SessionRepository sessionRepository;
-    private final ReportService reportService;
+    private final CompetencyCrudUseCase competencyCrud;
+    private final SectionCrudUseCase sectionCrud;
+    private final TopicCrudUseCase topicCrud;
+    private final EmployeeCrudUseCase employeeCrud;
+    private final TokenManagementUseCase tokenManagement;
+    private final QuestionBankManagementUseCase questionBankManagement;
+    private final AiSettingsUseCase aiSettings;
+    private final ApplicationManagementUseCase applicationManagement;
     private final CompetencyMapper competencyMapper;
     private final SectionMapper sectionMapper;
     private final TopicMapper topicMapper;
@@ -52,54 +82,45 @@ public class AdminController {
     private final InviteTokenMapper inviteTokenMapper;
 
     /**
-     * Конструктор с внедрением зависимостей репозиториев, сервисов и мапперов.
+     * Конструктор с внедрением use case'ов management-контекста и MapStruct-мапперов.
      *
-     * @param competencyRepository      репозиторий компетенций
-     * @param sectionRepository         репозиторий разделов
-     * @param topicRepository           репозиторий тем
-     * @param employeeRepository        репозиторий сотрудников
-     * @param tokenRepository           репозиторий пригласительных токенов
-     * @param hmacValidator             сервис валидации HMAC-токенов
-     * @param aiProviderService         сервис переключения провайдера ИИ
-     * @param questionGeneratorService  сервис генерации вопросов
-     * @param questionBankRepository    репозиторий банка вопросов
-     * @param sessionRepository         репозиторий сессий оценки
-     * @param reportService             сервис формирования отчётов
-     * @param competencyMapper          маппер компетенций
-     * @param sectionMapper             маппер разделов
-     * @param topicMapper               маппер тем
-     * @param employeeMapper            маппер сотрудников
-     * @param questionBankMapper        маппер банка вопросов
-     * @param inviteTokenMapper         маппер пригласительных токенов
+     * @param competencyCrud         use case CRUD компетенций
+     * @param sectionCrud            use case CRUD разделов
+     * @param topicCrud              use case CRUD тем
+     * @param employeeCrud           use case CRUD сотрудников
+     * @param tokenManagement        use case управления пригласительными токенами
+     * @param questionBankManagement use case управления банком вопросов
+     * @param aiSettings             use case настроек ИИ
+     * @param applicationManagement  use case заявок на оценку и отчётов
+     * @param competencyMapper       маппер компетенций
+     * @param sectionMapper          маппер разделов
+     * @param topicMapper            маппер тем
+     * @param employeeMapper         маппер сотрудников
+     * @param questionBankMapper     маппер банка вопросов
+     * @param inviteTokenMapper      маппер пригласительных токенов
      */
-    public AdminController(CompetencyRepository competencyRepository,
-                           SectionRepository sectionRepository,
-                           TopicRepository topicRepository,
-                           EmployeeRepository employeeRepository,
-                           AssessmentInviteTokenRepository tokenRepository,
-                           HmacTokenValidator hmacValidator,
-                           AiProviderService aiProviderService,
-                           QuestionGeneratorService questionGeneratorService,
-                           QuestionBankRepository questionBankRepository,
-                           com.assessment.repository.SessionRepository sessionRepository,
-                           ReportService reportService,
+    public AdminWebAdapter(CompetencyCrudUseCase competencyCrud,
+                           SectionCrudUseCase sectionCrud,
+                           TopicCrudUseCase topicCrud,
+                           EmployeeCrudUseCase employeeCrud,
+                           TokenManagementUseCase tokenManagement,
+                           QuestionBankManagementUseCase questionBankManagement,
+                           AiSettingsUseCase aiSettings,
+                           ApplicationManagementUseCase applicationManagement,
                            CompetencyMapper competencyMapper,
                            SectionMapper sectionMapper,
                            TopicMapper topicMapper,
                            EmployeeMapper employeeMapper,
                            QuestionBankMapper questionBankMapper,
                            InviteTokenMapper inviteTokenMapper) {
-        this.competencyRepository = competencyRepository;
-        this.sectionRepository = sectionRepository;
-        this.topicRepository = topicRepository;
-        this.employeeRepository = employeeRepository;
-        this.tokenRepository = tokenRepository;
-        this.hmacValidator = hmacValidator;
-        this.aiProviderService = aiProviderService;
-        this.questionGeneratorService = questionGeneratorService;
-        this.questionBankRepository = questionBankRepository;
-        this.sessionRepository = sessionRepository;
-        this.reportService = reportService;
+        this.competencyCrud = competencyCrud;
+        this.sectionCrud = sectionCrud;
+        this.topicCrud = topicCrud;
+        this.employeeCrud = employeeCrud;
+        this.tokenManagement = tokenManagement;
+        this.questionBankManagement = questionBankManagement;
+        this.aiSettings = aiSettings;
+        this.applicationManagement = applicationManagement;
         this.competencyMapper = competencyMapper;
         this.sectionMapper = sectionMapper;
         this.topicMapper = topicMapper;
@@ -118,9 +139,9 @@ public class AdminController {
      */
     @PostMapping("/competencies")
     public ResponseEntity<CompetencyDto> createCompetency(@RequestBody CreateCompetencyRequestDto dto) {
-        Competency entity = competencyMapper.toEntity(dto);
+        var entity = competencyMapper.toEntity(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(competencyMapper.toDto(competencyRepository.save(entity)));
+                .body(competencyMapper.toDto(competencyCrud.createCompetency(entity)));
     }
 
     /**
@@ -130,7 +151,7 @@ public class AdminController {
      */
     @GetMapping("/competencies")
     public ResponseEntity<List<CompetencyDto>> listCompetencies() {
-        return ResponseEntity.ok(competencyRepository.findAll().stream()
+        return ResponseEntity.ok(competencyCrud.listCompetencies().stream()
                 .map(competencyMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -143,26 +164,28 @@ public class AdminController {
      */
     @GetMapping("/competencies/{id}")
     public ResponseEntity<CompetencyDto> getCompetency(@PathVariable UUID id) {
-        return competencyRepository.findById(id)
-                .map(e -> ResponseEntity.ok(competencyMapper.toDto(e)))
+        return competencyCrud.getCompetency(id)
+                .map(competencyMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     /**
      * Обновляет название и описание компетенции.
      *
-     * @param id      идентификатор обновляемой компетенции
-     * @param dto  новые данные компетенции из тела запроса
+     * @param id  идентификатор обновляемой компетенции
+     * @param dto новые данные компетенции из тела запроса
      * @return обновленная компетенция с HTTP 200 или HTTP 404
      */
     @PutMapping("/competencies/{id}")
     public ResponseEntity<CompetencyDto> updateCompetency(@PathVariable UUID id,
                                                            @RequestBody UpdateCompetencyRequestDto dto) {
-        return competencyRepository.findById(id)
-                .map(entity -> {
-                    competencyMapper.updateEntity(entity, dto);
-                    return ResponseEntity.ok(competencyMapper.toDto(competencyRepository.save(entity)));
+        return competencyCrud.updateCompetency(id, e -> {
+                    competencyMapper.updateEntity(e, dto);
+                    return e;
                 })
+                .map(competencyMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -174,7 +197,7 @@ public class AdminController {
      */
     @DeleteMapping("/competencies/{id}")
     public ResponseEntity<Void> deleteCompetency(@PathVariable UUID id) {
-        competencyRepository.deleteById(id);
+        competencyCrud.deleteCompetency(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -190,13 +213,10 @@ public class AdminController {
     @PostMapping("/competencies/{competencyId}/sections")
     public ResponseEntity<SectionDto> createSection(@PathVariable UUID competencyId,
                                                      @RequestBody CreateSectionRequestDto dto) {
-        return competencyRepository.findById(competencyId)
-                .map(competency -> {
-                    Section section = sectionMapper.toEntity(competencyId, dto);
-                    section.setCompetency(competency);
-                    return ResponseEntity.status(HttpStatus.CREATED)
-                            .body(sectionMapper.toDto(sectionRepository.save(section)));
-                })
+        var section = sectionMapper.toEntity(competencyId, dto);
+        return sectionCrud.createSection(competencyId, section)
+                .map(sectionMapper::toDto)
+                .map(e -> ResponseEntity.status(HttpStatus.CREATED).body(e))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -208,7 +228,7 @@ public class AdminController {
      */
     @GetMapping("/competencies/{competencyId}/sections")
     public ResponseEntity<List<SectionDto>> listSections(@PathVariable UUID competencyId) {
-        return ResponseEntity.ok(sectionRepository.findByCompetencyId(competencyId).stream()
+        return ResponseEntity.ok(sectionCrud.listSections(competencyId).stream()
                 .map(sectionMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -216,18 +236,19 @@ public class AdminController {
     /**
      * Обновляет название, описание и порядок сортировки раздела.
      *
-     * @param id      идентификатор обновляемого раздела
-     * @param dto  новые данные раздела из тела запроса
+     * @param id  идентификатор обновляемого раздела
+     * @param dto новые данные раздела из тела запроса
      * @return обновленный раздел с HTTP 200 или HTTP 404
      */
     @PutMapping("/sections/{id}")
     public ResponseEntity<SectionDto> updateSection(@PathVariable UUID id,
                                                      @RequestBody UpdateSectionRequestDto dto) {
-        return sectionRepository.findById(id)
-                .map(entity -> {
-                    sectionMapper.updateEntity(entity, dto);
-                    return ResponseEntity.ok(sectionMapper.toDto(sectionRepository.save(entity)));
+        return sectionCrud.updateSection(id, e -> {
+                    sectionMapper.updateEntity(e, dto);
+                    return e;
                 })
+                .map(sectionMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -239,7 +260,7 @@ public class AdminController {
      */
     @DeleteMapping("/sections/{id}")
     public ResponseEntity<Void> deleteSection(@PathVariable UUID id) {
-        sectionRepository.deleteById(id);
+        sectionCrud.deleteSection(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -249,19 +270,16 @@ public class AdminController {
      * Создает тему внутри указанного раздела.
      *
      * @param sectionId идентификатор раздела
-     * @param dto      данные темы из тела запроса
+     * @param dto       данные темы из тела запроса
      * @return созданная тема с HTTP 201 или HTTP 404, если раздел не найден
      */
     @PostMapping("/sections/{sectionId}/topics")
     public ResponseEntity<TopicDto> createTopic(@PathVariable UUID sectionId,
                                                  @RequestBody CreateTopicRequestDto dto) {
-        return sectionRepository.findById(sectionId)
-                .map(section -> {
-                    Topic topic = topicMapper.toEntity(sectionId, dto);
-                    topic.setSection(section);
-                    return ResponseEntity.status(HttpStatus.CREATED)
-                            .body(topicMapper.toDto(topicRepository.save(topic)));
-                })
+        var topic = topicMapper.toEntity(sectionId, dto);
+        return topicCrud.createTopic(sectionId, topic)
+                .map(topicMapper::toDto)
+                .map(e -> ResponseEntity.status(HttpStatus.CREATED).body(e))
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -273,7 +291,7 @@ public class AdminController {
      */
     @GetMapping("/sections/{sectionId}/topics")
     public ResponseEntity<List<TopicDto>> listTopics(@PathVariable UUID sectionId) {
-        return ResponseEntity.ok(topicRepository.findBySectionId(sectionId).stream()
+        return ResponseEntity.ok(topicCrud.listTopics(sectionId).stream()
                 .map(topicMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -281,18 +299,19 @@ public class AdminController {
     /**
      * Обновляет название, описание, вес и порядок сортировки темы.
      *
-     * @param id      идентификатор обновляемой темы
-     * @param dto  новые данные темы из тела запроса
+     * @param id  идентификатор обновляемой темы
+     * @param dto новые данные темы из тела запроса
      * @return обновленная тема с HTTP 200 или HTTP 404
      */
     @PutMapping("/topics/{id}")
     public ResponseEntity<TopicDto> updateTopic(@PathVariable UUID id,
                                                  @RequestBody UpdateTopicRequestDto dto) {
-        return topicRepository.findById(id)
-                .map(entity -> {
-                    topicMapper.updateEntity(entity, dto);
-                    return ResponseEntity.ok(topicMapper.toDto(topicRepository.save(entity)));
+        return topicCrud.updateTopic(id, e -> {
+                    topicMapper.updateEntity(e, dto);
+                    return e;
                 })
+                .map(topicMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -304,7 +323,7 @@ public class AdminController {
      */
     @DeleteMapping("/topics/{id}")
     public ResponseEntity<Void> deleteTopic(@PathVariable UUID id) {
-        topicRepository.deleteById(id);
+        topicCrud.deleteTopic(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -313,9 +332,9 @@ public class AdminController {
     /**
      * Генерирует вопросы для указанной темы с помощью ИИ и сохраняет их в банк вопросов.
      *
-     *
      * @param topicId идентификатор темы
-     * @param dto    тело запроса с полями {@code count} (количество, 1–10) и {@code difficulty} (ALL, JUNIOR, MIDDLE, SENIOR)
+     * @param dto     тело запроса с полями {@code count} (количество, 1–10)
+     *                и {@code difficulty} (ALL, JUNIOR, MIDDLE, SENIOR)
      * @return список сгенерированных вопросов с HTTP 200,
      *         HTTP 404 если тема не найдена,
      *         HTTP 400 при неверных параметрах,
@@ -328,9 +347,12 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of("error", "count должен быть от 1 до 10"));
         }
         try {
-            List<QuestionBank> questions = questionGeneratorService.generateAndSaveForTopic(
-                    topicId, dto.getCount(), dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL");
-            return ResponseEntity.ok(questions.stream().map(questionBankMapper::toDto).collect(Collectors.toList()));
+            List<QuestionBankItemDto> questions = questionBankManagement
+                    .generateForTopic(topicId, dto.getCount(),
+                            dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL")
+                    .stream().map(questionBankMapper::toDto)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(questions);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException e) {
@@ -350,7 +372,7 @@ public class AdminController {
      */
     @GetMapping("/topics/{topicId}/questions")
     public ResponseEntity<List<QuestionBankItemDto>> listTopicQuestions(@PathVariable UUID topicId) {
-        return ResponseEntity.ok(questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId).stream()
+        return ResponseEntity.ok(questionBankManagement.listByTopic(topicId).stream()
                 .map(questionBankMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -358,23 +380,14 @@ public class AdminController {
     /**
      * Переупорядочивает вопросы банка для указанной темы.
      *
-     * @param topicId   идентификатор темы
+     * @param topicId    идентификатор темы
      * @param orderedIds список идентификаторов вопросов в новом порядке
      * @return HTTP 204 при успешном обновлении
      */
     @PutMapping("/topics/{topicId}/questions/reorder")
     public ResponseEntity<Void> reorderTopicQuestions(@PathVariable UUID topicId,
-                                                      @RequestBody List<UUID> orderedIds) {
-        List<QuestionBank> questions = questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId);
-        for (int i = 0; i < orderedIds.size(); i++) {
-            UUID id = orderedIds.get(i);
-            int sortOrder = i;
-            questions.stream()
-                    .filter(q -> q.getId().equals(id))
-                    .findFirst()
-                    .ifPresent(q -> q.setSortOrder(sortOrder));
-        }
-        questionBankRepository.saveAll(questions);
+                                                       @RequestBody List<UUID> orderedIds) {
+        questionBankManagement.reorder(topicId, orderedIds);
         return ResponseEntity.noContent().build();
     }
 
@@ -388,14 +401,9 @@ public class AdminController {
      */
     @PostMapping("/employees")
     public ResponseEntity<EmployeeDto> createEmployee(@RequestBody CreateEmployeeRequestDto dto) {
-        Employee employee = employeeMapper.toEntity(dto);
-        if (dto.getCompetencyId() != null) {
-            Competency comp = competencyRepository.findById(dto.getCompetencyId())
-                    .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + dto.getCompetencyId()));
-            employee.setCompetency(comp);
-        }
+        var employee = employeeMapper.toEntity(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(employeeMapper.toDto(employeeRepository.save(employee)));
+                .body(employeeMapper.toDto(employeeCrud.createEmployee(employee, dto.getCompetencyId())));
     }
 
     /**
@@ -405,7 +413,7 @@ public class AdminController {
      */
     @GetMapping("/employees")
     public ResponseEntity<List<EmployeeDto>> listEmployees() {
-        return ResponseEntity.ok(employeeRepository.findAllByOrderByCreatedAtDesc().stream()
+        return ResponseEntity.ok(employeeCrud.listEmployees().stream()
                 .map(employeeMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -418,82 +426,57 @@ public class AdminController {
      */
     @GetMapping("/employees/{id}")
     public ResponseEntity<EmployeeDto> getEmployee(@PathVariable UUID id) {
-        return employeeRepository.findById(id)
-                .map(e -> ResponseEntity.ok(employeeMapper.toDto(e)))
+        return employeeCrud.getEmployee(id)
+                .map(employeeMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     /**
      * Обновляет данные сотрудника, включая ФИО, должность, отдел и компетенцию.
      *
-     * @param id      идентификатор обновляемого сотрудника
+     * @param id  идентификатор обновляемого сотрудника
      * @param dto новые данные сотрудника из тела запроса
      * @return обновленный сотрудник с HTTP 200 или HTTP 404
      */
     @PutMapping("/employees/{id}")
     public ResponseEntity<EmployeeDto> updateEmployee(@PathVariable UUID id,
                                                        @RequestBody UpdateEmployeeRequestDto dto) {
-        return employeeRepository.findById(id)
-                .map(employee -> {
-                    employeeMapper.updateEntity(employee, dto);
-                    if (dto.getCompetencyId() != null) {
-                        Competency comp = competencyRepository.findById(dto.getCompetencyId())
-                                .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + dto.getCompetencyId()));
-                        employee.setCompetency(comp);
-                    } else {
-                        employee.setCompetency(null);
-                    }
-                    return ResponseEntity.ok(employeeMapper.toDto(employeeRepository.save(employee)));
-                })
+        return employeeCrud.updateEmployee(id, e -> {
+                    employeeMapper.updateEntity(e, dto);
+                    return e;
+                }, dto.getCompetencyId())
+                .map(employeeMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     /**
      * Удаляет сотрудника вместе с его пригласительными токенами и сессиями.
-     * Сессии каскадно удаляют попытки ответов через JPA CascadeType.ALL.
      *
      * @param id идентификатор удаляемого сотрудника
      * @return HTTP 204 при успешном удалении или HTTP 404
      */
-    @Transactional
     @DeleteMapping("/employees/{id}")
     public ResponseEntity<Void> deleteEmployee(@PathVariable UUID id) {
-        return employeeRepository.findById(id)
-                .map(employee -> {
-                    tokenRepository.deleteByEmployeeId(employee.getId());
-                    new ArrayList<>(sessionRepository.findByEmployeeId(employee.getId()))
-                            .forEach(session -> sessionRepository.deleteById(session.getId()));
-                    employeeRepository.delete(employee);
-                    return ResponseEntity.noContent().<Void>build();
-                })
-                .orElse(ResponseEntity.notFound().build());
+        if (employeeCrud.deleteEmployee(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     // ---- Invite Tokens ----
 
     /**
      * Генерирует одноразовую пригласительную ссылку для сотрудника.
-     * Удаляет предыдущие токены этого сотрудника, чтобы избежать нарушения уникального ограничения.
      *
      * @param employeeId идентификатор сотрудника
      * @return пригласительный URL с HTTP 200 или HTTP 404, если сотрудник не найден
      */
-    @Transactional
     @PostMapping("/employees/{employeeId}/invite")
     public ResponseEntity<String> generateInviteLink(@PathVariable UUID employeeId) {
-        return employeeRepository.findById(employeeId)
-                .map(employee -> {
-                    tokenRepository.deleteByEmployeeId(employeeId);
-                    String token = hmacValidator.generateToken(employeeId.toString());
-                    String hash = hmacValidator.generateToken(token);
-                    AssessmentInviteToken inviteToken = AssessmentInviteToken.builder()
-                            .tokenHash(hash)
-                            .employee(employee)
-                            .expiresAt(Instant.now().plusSeconds(72 * 3600))
-                            .build();
-                    tokenRepository.save(inviteToken);
-                    return ResponseEntity.ok("/api/employee/invite/" + token);
-                })
+        return tokenManagement.generateInviteLink(employeeId)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -504,7 +487,7 @@ public class AdminController {
      */
     @GetMapping("/tokens")
     public ResponseEntity<List<AssessmentInviteTokenDto>> listTokens() {
-        return ResponseEntity.ok(tokenRepository.findAll().stream()
+        return ResponseEntity.ok(tokenManagement.listTokens().stream()
                 .map(inviteTokenMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -513,52 +496,48 @@ public class AdminController {
 
     /**
      * Возвращает список всех заявок на оценку.
-     * Заявка связывает пригласительный токен, сотрудника, сессию и агрегированные метрики результата.
      *
      * @return список заявок с HTTP 200
      */
     @GetMapping("/applications")
-    @Transactional(readOnly = true)
     public ResponseEntity<List<ApplicationSummaryDto>> listApplications() {
-        List<AssessmentInviteToken> tokens = tokenRepository.findAll();
-        List<ApplicationSummaryDto> summaries = new ArrayList<>();
-        for (AssessmentInviteToken token : tokens) {
-            Employee employee = token.getEmployee();
-            com.assessment.entity.Session session = token.getSession();
-            UUID sessionId = session != null ? session.getId() : null;
-            String sessionStatus = session != null ? session.getStatus() : null;
-            Instant completedAt = session != null && "COMPLETED".equals(session.getStatus())
-                    ? session.getUpdatedAt() : null;
-            String competencyName = employee != null && employee.getCompetency() != null
-                    ? employee.getCompetency().getName() : null;
-            BigDecimal averageScore = null;
-            boolean passed = false;
-            if (sessionId != null && "COMPLETED".equals(sessionStatus)) {
-                ReportService.SessionSummary summary = reportService.computeSummary(sessionId);
-                averageScore = summary.averageScore();
-                passed = summary.passed();
-            }
-            summaries.add(new ApplicationSummaryDto()
-                    .tokenId(token.getId())
-                    .employeeId(employee != null ? employee.getId() : null)
-                    .employeeName(employee != null ? employee.getFullName() : null)
-                    .competencyName(competencyName)
-                    .sessionStatus(sessionStatus != null ? ApplicationSummaryDto.SessionStatusEnum.fromValue(sessionStatus) : null)
-                    .sessionId(sessionId)
-                    .averageScore(averageScore != null ? averageScore.floatValue() : null)
-                    .passed(passed)
-                    .createdAt(token.getCreatedAt() != null ? token.getCreatedAt().atOffset(java.time.ZoneOffset.UTC) : null)
-                    .completedAt(completedAt != null ? completedAt.atOffset(java.time.ZoneOffset.UTC) : null));
-        }
-        return ResponseEntity.ok(summaries);
+        return ResponseEntity.ok(applicationManagement.listApplications().stream()
+                .map(this::toApplicationSummaryDto)
+                .collect(Collectors.toList()));
     }
 
+    /**
+     * Возвращает развёрнутый отчёт по сессии для админ-панели.
+     *
+     * @param sessionId идентификатор сессии
+     * @return отчёт с HTTP 200 или HTTP 404, если сессия не найдена
+     */
     @GetMapping("/applications/{sessionId}/report")
     public ResponseEntity<Map<String, Object>> getApplicationReport(@PathVariable UUID sessionId) {
-        if (!sessionRepository.existsById(sessionId)) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(reportService.generateAdminReport(sessionId));
+        return applicationManagement.getAdminReport(sessionId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Преобразует сводку заявки из доменной модели в API-DTO.
+     *
+     * @param s сводка заявки
+     * @return DTO заявки
+     */
+    private ApplicationSummaryDto toApplicationSummaryDto(ApplicationSummary s) {
+        return new ApplicationSummaryDto()
+                .tokenId(s.tokenId())
+                .employeeId(s.employeeId())
+                .employeeName(s.employeeName())
+                .competencyName(s.competencyName())
+                .sessionStatus(s.sessionStatus() != null
+                        ? ApplicationSummaryDto.SessionStatusEnum.fromValue(s.sessionStatus()) : null)
+                .sessionId(s.sessionId())
+                .averageScore(s.averageScore() != null ? s.averageScore().floatValue() : null)
+                .passed(s.passed())
+                .createdAt(s.createdAt() != null ? s.createdAt().atOffset(java.time.ZoneOffset.UTC) : null)
+                .completedAt(s.completedAt() != null ? s.completedAt().atOffset(java.time.ZoneOffset.UTC) : null);
     }
 
     // ---- AI Settings ----
@@ -570,10 +549,10 @@ public class AdminController {
      */
     @GetMapping("/settings/ai")
     public ResponseEntity<GetAiSettings200ResponseDto> getAiSettings() {
-        String activeProvider = aiProviderService.getActiveProvider();
+        String activeProvider = aiSettings.getActiveProvider();
         return ResponseEntity.ok(new GetAiSettings200ResponseDto()
                 .activeProvider(GetAiSettings200ResponseDto.ActiveProviderEnum.fromValue(activeProvider))
-                .availableProviders(List.of("gemini", "gigachat", "openrouter", "opencode")));
+                .availableProviders(aiSettings.getAvailableProviders()));
     }
 
     /**
@@ -588,11 +567,11 @@ public class AdminController {
         if (provider == null || provider.isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        aiProviderService.setActiveProvider(provider);
-        String activeProvider = aiProviderService.getActiveProvider();
+        aiSettings.setActiveProvider(provider);
+        String activeProvider = aiSettings.getActiveProvider();
         return ResponseEntity.ok(new UpdateAiSettings200ResponseDto()
                 .activeProvider(activeProvider)
-                .availableProviders(List.of("gemini", "gigachat", "openrouter", "opencode")));
+                .availableProviders(aiSettings.getAvailableProviders()));
     }
 
     // ---- AI Prompts ----
@@ -604,7 +583,7 @@ public class AdminController {
      */
     @GetMapping("/settings/ai/prompts")
     public ResponseEntity<AiPromptsDto> getAiPrompts() {
-        Map<String, String> prompts = aiProviderService.getAllPrompts();
+        Map<String, String> prompts = aiSettings.getAllPrompts();
         return ResponseEntity.ok(new AiPromptsDto()
                 .promptScoring(prompts.get("prompt_scoring"))
                 .promptQuestion(prompts.get("prompt_question"))
@@ -621,10 +600,10 @@ public class AdminController {
      */
     @PutMapping("/settings/ai/prompts")
     public ResponseEntity<AiPromptsDto> updateAiPrompts(@RequestBody AiPromptsDto dto) {
-        if (dto.getPromptScoring() != null) aiProviderService.setPrompt("prompt_scoring", dto.getPromptScoring());
-        if (dto.getPromptQuestion() != null) aiProviderService.setPrompt("prompt_question", dto.getPromptQuestion());
-        if (dto.getPromptFollowup() != null) aiProviderService.setPrompt("prompt_followup", dto.getPromptFollowup());
-        if (dto.getPromptRescore() != null) aiProviderService.setPrompt("prompt_rescore", dto.getPromptRescore());
+        if (dto.getPromptScoring() != null) aiSettings.setPrompt("prompt_scoring", dto.getPromptScoring());
+        if (dto.getPromptQuestion() != null) aiSettings.setPrompt("prompt_question", dto.getPromptQuestion());
+        if (dto.getPromptFollowup() != null) aiSettings.setPrompt("prompt_followup", dto.getPromptFollowup());
+        if (dto.getPromptRescore() != null) aiSettings.setPrompt("prompt_rescore", dto.getPromptRescore());
         return getAiPrompts();
     }
 
@@ -634,7 +613,8 @@ public class AdminController {
      * Генерирует вопросы для всех тем указанной компетенции с помощью ИИ.
      *
      * @param competencyId идентификатор компетенции
-     * @param dto         тело запроса с полями {@code count} (количество, 1–10) и {@code difficulty} (ALL, JUNIOR, MIDDLE, SENIOR)
+     * @param dto          тело запроса с полями {@code count} (количество, 1–10)
+     *                     и {@code difficulty} (ALL, JUNIOR, MIDDLE, SENIOR)
      * @return список сгенерированных вопросов с HTTP 200,
      *         HTTP 404 если компетенция не найдена,
      *         HTTP 400 при неверных параметрах,
@@ -647,9 +627,12 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of("error", "count должен быть от 1 до 10"));
         }
         try {
-            List<QuestionBank> questions = questionGeneratorService.generateAndSave(
-                    competencyId, dto.getCount(), dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL");
-            return ResponseEntity.ok(questions.stream().map(questionBankMapper::toDto).collect(Collectors.toList()));
+            List<QuestionBankItemDto> questions = questionBankManagement
+                    .generateForCompetency(competencyId, dto.getCount(),
+                            dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL")
+                    .stream().map(questionBankMapper::toDto)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(questions);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException e) {
@@ -669,7 +652,7 @@ public class AdminController {
      */
     @GetMapping("/competencies/{competencyId}/questions")
     public ResponseEntity<List<QuestionBankItemDto>> listQuestions(@PathVariable UUID competencyId) {
-        return ResponseEntity.ok(questionBankRepository.findByCompetencyIdOrderByCreatedAtDesc(competencyId).stream()
+        return ResponseEntity.ok(questionBankManagement.listByCompetency(competencyId).stream()
                 .map(questionBankMapper::toDto)
                 .collect(Collectors.toList()));
     }
@@ -677,7 +660,7 @@ public class AdminController {
     /**
      * Обновляет текст вопроса в банке вопросов.
      *
-     * @param id   идентификатор вопроса
+     * @param id  идентификатор вопроса
      * @param dto тело запроса с полем {@code questionText}
      * @return обновленный вопрос с HTTP 200, HTTP 404 если не найден, или HTTP 400 при пустом тексте
      */
@@ -686,11 +669,9 @@ public class AdminController {
         if (dto.getQuestionText() == null || dto.getQuestionText().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "questionText обязателен"));
         }
-        return questionBankRepository.findById(id)
-                .map(question -> {
-                    question.setQuestionText(dto.getQuestionText().trim());
-                    return ResponseEntity.ok(questionBankMapper.toDto(questionBankRepository.save(question)));
-                })
+        return questionBankManagement.updateQuestion(id, dto.getQuestionText())
+                .map(questionBankMapper::toDto)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -702,7 +683,7 @@ public class AdminController {
      */
     @DeleteMapping("/questions/{id}")
     public ResponseEntity<Void> deleteQuestion(@PathVariable UUID id) {
-        questionBankRepository.deleteById(id);
+        questionBankManagement.deleteQuestion(id);
         return ResponseEntity.noContent().build();
     }
 }
