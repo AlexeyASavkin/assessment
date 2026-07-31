@@ -1,13 +1,9 @@
 package com.assessment.service;
 
+import com.assessment.ai.domain.QuestionResult;
+import com.assessment.ai.port.LlmQuestionGenerationPort;
 import com.assessment.entity.*;
 import com.assessment.repository.TopicRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -19,26 +15,19 @@ import java.util.UUID;
 @Service
 public class QuestionSelector {
 
-    private static final Logger logger = LoggerFactory.getLogger(QuestionSelector.class);
-
-    private final ChatModel chatModel;
+    private final LlmQuestionGenerationPort llmQuestionGenerationPort;
     private final TopicRepository topicRepository;
-    private final AiProviderService aiProviderService;
 
     /**
      * Конструктор сервиса выбора вопросов.
      *
-     * @param chatModelProvider            провайдер ChatModel для вызова LLM
+     * @param llmQuestionGenerationPort    порт генерации вопросов через LLM
      * @param topicRepository              репозиторий тем
-     * @param aiProviderService            сервис провайдера AI (для чтения промтов из БД)
      */
-    public QuestionSelector(
-            ObjectProvider<ChatModel> chatModelProvider,
-            TopicRepository topicRepository,
-            AiProviderService aiProviderService) {
-        this.chatModel = chatModelProvider.getIfAvailable();
+    public QuestionSelector(LlmQuestionGenerationPort llmQuestionGenerationPort,
+                            TopicRepository topicRepository) {
+        this.llmQuestionGenerationPort = llmQuestionGenerationPort;
         this.topicRepository = topicRepository;
-        this.aiProviderService = aiProviderService;
     }
 
     /**
@@ -51,18 +40,9 @@ public class QuestionSelector {
     public String generateQuestion(Session session, UUID topicId) {
         Topic topic = topicRepository.findById(topicId).orElseThrow();
 
-        String prompt = String.format(aiProviderService.getPrompt(AiProviderService.PROMPT_QUESTION),
+        QuestionResult result = llmQuestionGenerationPort.generateQuestion(
                 topic.getSection().getCompetency().getName(),
                 topic.getName());
-
-        if (chatModel == null) {
-            throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
-        }
-        try {
-            return chatModel.call(new Prompt(new UserMessage(prompt))).getResult().getOutput().getText();
-        } catch (Exception e) {
-            logger.error("Ошибка генерации вопроса через LLM: {}", e.getMessage(), e);
-            throw new RuntimeException("Ошибка генерации вопроса: " + e.getMessage(), e);
-        }
+        return result.getQuestionText();
     }
 }
