@@ -16,7 +16,7 @@ build/
 .settings/
 .classpath
 .project
-out/
+/out/
 bin/
 generated-src/
 .codegraph/
