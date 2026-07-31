@@ -24,6 +24,16 @@
 | Тестирование (component/BDD) | Cucumber 7.21, JUnit 5, OkHttp 4, Allure 2.30 |
 | Деплой | Docker Compose |
 
+## Архитектура
+
+Бэкенд построен по гексагональной архитектуре (порты и адаптеры) с тремя bounded context в одном Gradle-модуле:
+
+- **`ai`** (Контекст 1: LLM) — порты `LlmScoringPort`, `LlmQuestionGenerationPort`, `LlmFollowUpPort` и их адаптеры: `SpringAi*Adapter` (реальные провайдеры) и `Stub*Adapter` (тесты, фиксированные ответы). Конфигурация провайдеров — `ai/config/ChatClientConfig.java`.
+- **`assessment`** (Контекст 2: session flow сотрудника) — иммутабельные domain-модели (`AssessmentSession`, `Attempt`, `AssessmentResult`), use case'ы в `application/` (`GetQuestionUseCase`, `SubmitAnswerUseCase`, `GetReportUseCase`, `InviteEmployeeUseCase`), outbound-порты в `port/out/`, тонкий контроллер `adapter/in/EmployeeWebAdapter`.
+- **`management`** (Контекст 3: админский CRUD) — use case'ы в `application/` (`CompetencyCrudUseCase`, `SectionCrudUseCase`, `TopicCrudUseCase`, `EmployeeCrudUseCase`, `TokenManagementUseCase`, `QuestionBankManagementUseCase`, `AiSettingsUseCase`, `ApplicationManagementUseCase`), outbound-порты в `port/out/`, тонкий контроллер `adapter/in/AdminWebAdapter`.
+
+**Правила зависимостей:** контроллеры не импортируют репозитории и JPA-сущности; domain-модели не зависят от Spring/JPA/Lombok; use case'ы зависят от портов, но не от адаптеров. JPA-сущности (`entity/`) и Spring Data репозитории (`repository/`) — внутренняя деталь outbound-адаптеров.
+
 ## Локальный запуск
 
 ### Требования
@@ -71,14 +81,20 @@ docker compose up --build
 
 ### Unit-тесты
 
-47 unit-тестов в `src/test/` (запуск: `./gradlew test`):
+159 unit-тестов в `src/test/` (запуск: `./gradlew test`):
 
 | Файл | Сколько | Что проверяет |
 |------|---------|---------------|
 | `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из БД |
-| `HmacTokenValidatorTest` | 8 | Генерация и валидация HMAC-токенов |
+| `HmacTokenValidatorTest` | 9 | Генерация и валидация HMAC-токенов |
 | `AiProviderServiceTest` | 16 | Переключение провайдеров, API-ключи, промпты |
-| `LlmJsonParserTest` | 12 | Извлечение значений из JSON-ответов LLM |
+| `LlmJsonParserTest` | 17 | Извлечение значений из JSON-ответов LLM |
+| `AssessmentSessionTest`, `AttemptTest`, `AssessmentResultTest`, `InviteTokenTest` | 14 | Иммутабельные domain-модели assessment-контекста |
+| `InviteEmployeeUseCaseImplTest`, `GetQuestionUseCaseImplTest`, `SubmitAnswerUseCaseImplTest`, `GetReportUseCaseImplTest` | 27 | Use case'ы session flow сотрудника |
+| `AttemptScoringExecutorTest`, `SessionQuestionPickerTest` | 17 | Асинхронная оценка ответов и выбор вопросов |
+| `CompetencyCrudUseCaseImplTest`, `SectionCrudUseCaseImplTest`, `TopicCrudUseCaseImplTest` | 18 | CRUD компетенций, разделов и тем |
+| `EmployeeCrudUseCaseImplTest`, `TokenManagementUseCaseImplTest` | 15 | CRUD сотрудников и пригласительные токены |
+| `QuestionBankManagementUseCaseImplTest`, `AiSettingsUseCaseImplTest`, `ApplicationManagementUseCaseImplTest` | 21 | Банк вопросов, настройки AI, управление приложением |
 
 ### Component (BDD) тесты
 

@@ -16,7 +16,7 @@ import org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoCon
  * Главный класс Spring Boot приложения для оценки компетенций сотрудников.
  * <p>
  * Исключает автоконфигурации Google Gemini, GigaChat и OpenAI, чтобы загружать их
- * вручную через {@link com.assessment.config.ChatClientConfig} с учетом
+ * вручную через {@link com.assessment.ai.config.ChatClientConfig} с учетом
  * выбранного провайдера и настроек rate limiting.
  */
 @SpringBootApplication(exclude = {
