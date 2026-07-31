@@ -1,5 +1,8 @@
-package com.assessment.config;
+package com.assessment.ai.config;
 
+import com.assessment.config.RateLimitingChatModelDecorator;
+import com.assessment.config.RoutingChatModel;
+import com.assessment.config.StubChatModel;
 import com.assessment.service.AiProviderService;
 import com.google.genai.Client;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
