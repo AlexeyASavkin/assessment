@@ -40,6 +40,7 @@ spring:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
 
 assessment:
   security:
@@ -48,8 +49,6 @@ assessment:
     token-expiry-hours: 72
   question:
     max-questions-per-session: 20
-  rate-limiter:
-    max-requests-per-minute: 15
   ai:
     active-provider: ${AI_PROVIDER:gemini}
 
