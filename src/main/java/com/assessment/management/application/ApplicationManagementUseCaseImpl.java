@@ -46,7 +46,7 @@ public class ApplicationManagementUseCaseImpl implements ApplicationManagementUs
     @Override
     @Transactional(readOnly = true)
     public List<ApplicationSummary> listApplications() {
-        List<AssessmentInviteToken> tokens = tokenRepositoryPort.findAll();
+        List<AssessmentInviteToken> tokens = tokenRepositoryPort.findAllWithDetails();
         List<ApplicationSummary> summaries = new ArrayList<>();
         for (AssessmentInviteToken token : tokens) {
             Employee employee = token.getEmployee();

@@ -29,6 +29,14 @@ public interface TokenRepositoryPort {
     List<AssessmentInviteToken> findAll();
 
     /**
+     * Возвращает все выданные пригласительные токены с предзагруженными
+     * сотрудником, его компетенцией и сессией (одним запросом с JOIN FETCH).
+     *
+     * @return список токенов с заполненными связями
+     */
+    List<AssessmentInviteToken> findAllWithDetails();
+
+    /**
      * Удаляет все токены указанного сотрудника.
      *
      * @param employeeId идентификатор сотрудника

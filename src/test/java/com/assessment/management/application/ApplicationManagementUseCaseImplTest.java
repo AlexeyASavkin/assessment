@@ -59,7 +59,7 @@ class ApplicationManagementUseCaseImplTest {
         AssessmentInviteToken token = AssessmentInviteToken.builder()
                 .id(tokenId).employee(employee).session(session).build();
         token.setCreatedAt(createdAt);
-        when(tokenRepositoryPort.findAll()).thenReturn(List.of(token));
+        when(tokenRepositoryPort.findAllWithDetails()).thenReturn(List.of(token));
         when(reportService.computeSummary(sessionId))
                 .thenReturn(new ReportService.SessionSummary(new BigDecimal("4.25"), true));
 
@@ -88,7 +88,7 @@ class ApplicationManagementUseCaseImplTest {
         Session session = Session.builder().id(sessionId).status("ACTIVE").build();
         AssessmentInviteToken token = AssessmentInviteToken.builder()
                 .id(UUID.randomUUID()).employee(employee).session(session).build();
-        when(tokenRepositoryPort.findAll()).thenReturn(List.of(token));
+        when(tokenRepositoryPort.findAllWithDetails()).thenReturn(List.of(token));
 
         List<ApplicationSummary> result = useCase.listApplications();
 
@@ -108,7 +108,7 @@ class ApplicationManagementUseCaseImplTest {
         Employee employee = Employee.builder().id(UUID.randomUUID()).fullName("Сидоров Сидор").build();
         AssessmentInviteToken token = AssessmentInviteToken.builder()
                 .id(UUID.randomUUID()).employee(employee).build();
-        when(tokenRepositoryPort.findAll()).thenReturn(List.of(token));
+        when(tokenRepositoryPort.findAllWithDetails()).thenReturn(List.of(token));
 
         List<ApplicationSummary> result = useCase.listApplications();
 
@@ -127,7 +127,7 @@ class ApplicationManagementUseCaseImplTest {
     @DisplayName("listApplications для токена без сотрудника оставляет поля сотрудника пустыми")
     void listApplicationsWithoutEmployee() {
         AssessmentInviteToken token = AssessmentInviteToken.builder().id(UUID.randomUUID()).build();
-        when(tokenRepositoryPort.findAll()).thenReturn(List.of(token));
+        when(tokenRepositoryPort.findAllWithDetails()).thenReturn(List.of(token));
 
         List<ApplicationSummary> result = useCase.listApplications();
 
@@ -142,7 +142,7 @@ class ApplicationManagementUseCaseImplTest {
     @Test
     @DisplayName("listApplications возвращает пустой список, если токенов нет")
     void listApplicationsEmpty() {
-        when(tokenRepositoryPort.findAll()).thenReturn(List.of());
+        when(tokenRepositoryPort.findAllWithDetails()).thenReturn(List.of());
 
         List<ApplicationSummary> result = useCase.listApplications();
 
