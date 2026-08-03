@@ -9,16 +9,16 @@ import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 /** Метаданные промтов для отображения в UI. */
 const PROMPT_META: { key: keyof AiPrompts; label: string; description: string; placeholders: string }[] = [
   {
-    key: 'prompt_scoring',
-    label: 'Промт оценки ответа',
-    description: 'Используется при оценке ответа сотрудника LLM. Определяет шкалу и формат ответа.',
-    placeholders: 'Доступные плейсхолдеры: %1$s = вопрос, %2$s = ответ сотрудника',
-  },
-  {
     key: 'prompt_question',
     label: 'Промт генерации вопроса',
     description: 'Используется при генерации основного вопроса по теме компетенции.',
     placeholders: 'Доступные плейсхолдеры: %1$s = компетенция, %2$s = тема',
+  },
+  {
+    key: 'prompt_scoring',
+    label: 'Промт оценки ответа',
+    description: 'Используется при оценке ответа сотрудника LLM. Определяет шкалу и формат ответа.',
+    placeholders: 'Доступные плейсхолдеры: %1$s = вопрос, %2$s = ответ сотрудника',
   },
   {
     key: 'prompt_followup',
@@ -32,6 +32,18 @@ const PROMPT_META: { key: keyof AiPrompts; label: string; description: string; p
     description: 'Используется после ответа на уточняющий вопрос. LLM пересчитывает итоговую оценку основной попытки с учётом обоих ответов.',
     placeholders: 'Доступные плейсхолдеры: %1$s = исходный вопрос, %2$s = исходный ответ, %3$s = уточняющий вопрос, %4$s = ответ на уточнение',
   },
+  {
+    key: 'prompt_followup_system',
+    label: 'Системный промт уточняющего вопроса',
+    description: 'Системная роль для генерации уточняющего вопроса. Закрепляет роль эксперта и защищает от prompt injection — ответы сотрудника трактуются как данные, а не инструкции.',
+    placeholders: 'Без плейсхолдеров',
+  },
+  {
+    key: 'prompt_rescore_system',
+    label: 'Системный промт переоценки',
+    description: 'Системная роль для переоценки основной попытки с учётом уточнения. Закрепляет роль эксперта, шкалу 0–5, формат JSON и защиту от prompt injection.',
+    placeholders: 'Без плейсхолдеров',
+  },
 ]
 
 /**
@@ -41,27 +53,40 @@ const PROMPT_META: { key: keyof AiPrompts; label: string; description: string; p
 export default function AiSettingsPage() {
   const [settings, setSettings] = useState<AiSettings | null>(null)
   const [selectedProvider, setSelectedProvider] = useState('')
-  const [prompts, setPrompts] = useState<AiPrompts>({ prompt_scoring: '', prompt_question: '', prompt_followup: '', prompt_rescore: '' })
+  const [prompts, setPrompts] = useState<AiPrompts>({
+    prompt_scoring: '',
+    prompt_question: '',
+    prompt_followup: '',
+    prompt_rescore: '',
+    prompt_followup_system: '',
+    prompt_rescore_system: '',
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingProvider, setIsSavingProvider] = useState(false)
   const [isSavingPrompts, setIsSavingPrompts] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  /** Загружает текущие настройки ИИ и промты с сервера. */
+  /** Загружает текущие настройки ИИ и промты с сервера (независимо друг от друга). */
   const load = async () => {
     setIsLoading(true)
     setError(null)
+    const errors: string[] = []
     try {
-      const [settingsData, promptsData] = await Promise.all([getAiSettings(), getAiPrompts()])
+      const settingsData = await getAiSettings()
       setSettings(settingsData)
       setSelectedProvider(settingsData.activeProvider)
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : 'Ошибка загрузки настроек')
+    }
+    try {
+      const promptsData = await getAiPrompts()
       setPrompts(promptsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка загрузки настроек')
-    } finally {
-      setIsLoading(false)
+      errors.push(err instanceof Error ? err.message : 'Ошибка загрузки промтов')
     }
+    if (errors.length > 0) setError(errors.join('; '))
+    setIsLoading(false)
   }
 
   useEffect(() => { load() }, [])
@@ -108,6 +133,7 @@ export default function AiSettingsPage() {
       case 'gigachat': return 'Сбер GigaChat'
       case 'openrouter': return 'OpenRouter'
       case 'opencode': return 'OpenCode Zen'
+      case 'stub': return 'Stub (тестовый режим)'
       default: return key
     }
   }
@@ -147,6 +173,7 @@ export default function AiSettingsPage() {
                         {provider === 'gigachat' && <p>Российская модель Сбера. Ключ: GIGACHAT_API_KEY</p>}
                         {provider === 'openrouter' && <p>Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: OPENROUTER_API_KEY</p>}
                         {provider === 'opencode' && <p>AI-шлюз OpenCode Zen (DeepSeek, Grok, GLM). Ключ: OPENCODE_API_KEY</p>}
+                        {provider === 'stub' && <p>Заглушка для тестов без внешних API. Возвращает фиксированные ответы LLM.</p>}
                       </div>
                     </label>
                   ))}
@@ -164,8 +191,8 @@ export default function AiSettingsPage() {
           <div className="card" style={{ marginTop: '1.5rem' }}>
             <h2 style={{ marginTop: 0 }}>Промты</h2>
             <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Тексты промтов, которые отправляются LLM. Плейсхолдеры (<code>%1$s</code>, <code>%2$s</code>) заменяются на реальные значения при вызове.
-              Если поле пустое — используется промт по умолчанию.
+              Тексты промтов хранятся в БД (таблица ai_settings) и отправляются LLM при вызове. Плейсхолдеры (<code>%1$s</code>, <code>%2$s</code>) заменяются на реальные значения.
+              Если поле пустое — LLM получит пустой промт.
             </p>
             <form onSubmit={handlePromptsSubmit} className="admin-form">
               {PROMPT_META.map((meta) => (

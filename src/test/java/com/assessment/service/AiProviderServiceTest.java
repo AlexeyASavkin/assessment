@@ -1,5 +1,6 @@
 package com.assessment.service;
 
+import com.assessment.common.BadRequestException;
 import com.assessment.entity.AiSettings;
 import com.assessment.repository.AiSettingsRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -27,7 +29,7 @@ class AiProviderServiceTest {
 
     @BeforeEach
     void setUp() {
-        aiProviderService = new AiProviderService(settingsRepository);
+        aiProviderService = new AiProviderService(settingsRepository, new MockEnvironment());
         ReflectionTestUtils.setField(aiProviderService, "defaultProvider", "gemini");
     }
 
@@ -80,7 +82,7 @@ class AiProviderServiceTest {
     @Test
     @DisplayName("setActiveProvider с неизвестным провайдером выбрасывает исключение")
     void setActiveProviderInvalidProviderThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(BadRequestException.class,
             () -> aiProviderService.setActiveProvider("unknown"));
         verify(settingsRepository, never()).save(any());
     }
@@ -133,14 +135,12 @@ class AiProviderServiceTest {
     }
 
     @Test
-    @DisplayName("getPrompt возвращает дефолтный промпт, если в БД нет записи")
-    void getPromptFallbackToDefault() {
+    @DisplayName("getPrompt возвращает пустую строку, если в БД нет записи (дефолтов в коде нет)")
+    void getPromptMissingKeyReturnsEmpty() {
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_SCORING))
             .thenReturn(Optional.empty());
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING);
-        assertTrue(prompt.contains("Оцени ответ сотрудника"));
-        assertTrue(prompt.contains("%1$s"));
+        assertEquals("", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
     }
 
     @Test
@@ -153,25 +153,25 @@ class AiProviderServiceTest {
     }
 
     @Test
-    @DisplayName("getPrompt для followup имеет дефолтный промпт")
-    void getPromptFollowupHasDefault() {
+    @DisplayName("getPrompt для followup возвращает значение из БД")
+    void getPromptFollowupFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("followup prompt from db");
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_FOLLOWUP))
-            .thenReturn(Optional.empty());
+            .thenReturn(Optional.of(setting));
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP);
-        assertTrue(prompt.contains("уточняющий вопрос"));
+        assertEquals("followup prompt from db", aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP));
     }
 
     @Test
-    @DisplayName("getPrompt для rescore имеет дефолтный промпт")
-    void getPromptRescoreHasDefault() {
+    @DisplayName("getPrompt для rescore возвращает значение из БД")
+    void getPromptRescoreFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("rescore prompt from db");
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_RESCORE))
-            .thenReturn(Optional.empty());
+            .thenReturn(Optional.of(setting));
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE);
-        assertTrue(prompt.contains("Пересчитай итоговую оценку"));
-        assertTrue(prompt.contains("%1$s"));
-        assertTrue(prompt.contains("Исходный вопрос"));
+        assertEquals("rescore prompt from db", aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE));
     }
 
     @Test
@@ -206,15 +206,95 @@ class AiProviderServiceTest {
     }
 
     @Test
-    @DisplayName("getAllPrompts возвращает все 4 типа промптов")
-    void getAllPromptsReturnsAllFour() {
+    @DisplayName("getActiveProvider кэширует значение — повторный вызов не читает БД")
+    void getActiveProviderCachesSecondCall() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("gigachat");
+        when(settingsRepository.findBySettingKey("active_provider")).thenReturn(Optional.of(setting));
+
+        assertEquals("gigachat", aiProviderService.getActiveProvider());
+        assertEquals("gigachat", aiProviderService.getActiveProvider());
+
+        verify(settingsRepository, times(1)).findBySettingKey("active_provider");
+    }
+
+    @Test
+    @DisplayName("setActiveProvider инвалидирует кэш — следующий getActiveProvider возвращает новый провайдер")
+    void setActiveProviderInvalidatesCache() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("gemini");
+        when(settingsRepository.findBySettingKey("active_provider")).thenReturn(Optional.of(setting));
+        when(settingsRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("gemini", aiProviderService.getActiveProvider());
+
+        aiProviderService.setActiveProvider("opencode");
+        assertEquals("opencode", aiProviderService.getActiveProvider());
+    }
+
+    @Test
+    @DisplayName("getPrompt кэширует значение — повторный вызов не читает БД")
+    void getPromptCachesSecondCall() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("custom scoring prompt");
+        when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_SCORING))
+            .thenReturn(Optional.of(setting));
+
+        assertEquals("custom scoring prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+        assertEquals("custom scoring prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+
+        verify(settingsRepository, times(1)).findBySettingKey(AiProviderService.PROMPT_SCORING);
+    }
+
+    @Test
+    @DisplayName("setPrompt инвалидирует кэш — следующий getPrompt возвращает новый промпт")
+    void setPromptInvalidatesCache() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("old prompt");
+        when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_SCORING))
+            .thenReturn(Optional.of(setting));
+        when(settingsRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("old prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+
+        aiProviderService.setPrompt(AiProviderService.PROMPT_SCORING, "new prompt");
+        assertEquals("new prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+    }
+
+    @Test
+    @DisplayName("getAllPrompts возвращает все 6 типов промптов")
+    void getAllPromptsReturnsAllSix() {
         when(settingsRepository.findBySettingKey(anyString())).thenReturn(Optional.empty());
 
         var all = aiProviderService.getAllPrompts();
-        assertEquals(4, all.size());
+        assertEquals(6, all.size());
         assertTrue(all.containsKey(AiProviderService.PROMPT_SCORING));
         assertTrue(all.containsKey(AiProviderService.PROMPT_QUESTION));
         assertTrue(all.containsKey(AiProviderService.PROMPT_FOLLOWUP));
         assertTrue(all.containsKey(AiProviderService.PROMPT_RESCORE));
+        assertTrue(all.containsKey(AiProviderService.PROMPT_FOLLOWUP_SYSTEM));
+        assertTrue(all.containsKey(AiProviderService.PROMPT_RESCORE_SYSTEM));
+    }
+
+    @Test
+    @DisplayName("getPrompt для followup_system возвращает значение из БД")
+    void getPromptFollowupSystemFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("system followup from db");
+        when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_FOLLOWUP_SYSTEM))
+            .thenReturn(Optional.of(setting));
+
+        assertEquals("system followup from db", aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP_SYSTEM));
+    }
+
+    @Test
+    @DisplayName("getPrompt для rescore_system возвращает значение из БД")
+    void getPromptRescoreSystemFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("system rescore from db");
+        when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_RESCORE_SYSTEM))
+            .thenReturn(Optional.of(setting));
+
+        assertEquals("system rescore from db", aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE_SYSTEM));
     }
 }

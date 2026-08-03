@@ -11,14 +11,18 @@ import java.time.Duration;
 /**
  * Конфигурация Resilience4j для ограничения скорости вызовов внешних API.
  * <p>
- * Защищает приложение от превышения лимитов LLM-провайдеров,
- * настраивая rate limiter с лимитом 15 запросов в минуту.
+ * LLM-вызовы в сессии сотрудника ограничиваются персональными bucket'ами
+ * на сессию (см. {@link SessionLlmRateLimiter}), админская генерация вопросов —
+ * общим bucket'ом {@code geminiApi} (см. {@code QuestionSelector}). При
+ * превышении лимита Resilience4j выбрасывает {@code RequestNotPermitted},
+ * который {@link GlobalExceptionHandler} превращает в HTTP 429 с заголовком
+ * {@code Retry-After}.
  */
 @Configuration
 public class Resilience4jConfig {
 
     /**
-     * Создает реестр rate limiter'ов с настройками для Gemini API.
+     * Создает реестр rate limiter'ов с настройками для LLM API.
      * <p>
      * Лимит: 15 запросов за период обновления 1 минута,
      * таймаут ожидания разрешения: 10 секунд.

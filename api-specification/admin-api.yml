@@ -1,0 +1,1289 @@
+openapi: 3.0.3
+info:
+  title: Assessment Service — Admin API
+  version: 1.0.0
+  description: >
+    REST API для административного управления сервисом оценки компетенций.
+    Администратор управляет компетенциями, разделами, темами, банком вопросов,
+    сотрудниками и настройками ИИ через веб-интерфейс или напрямую через API.
+
+    Аутентификация: form-login POST /api/admin/login.
+    Все остальные endpoint'ы требуют cookie JSESSIONID с ролью ADMIN.
+servers:
+  - url: http://localhost:8080/api/admin
+    description: Локальный сервер разработки
+paths:
+  /login:
+    post:
+      summary: Вход администратора
+      description: |
+        Стандартная Spring Security form-login. При успехе возвращает
+        JSON { "status": "authenticated" } и устанавливает JSESSIONID cookie.
+        При неудаче — 401 { "error": "invalid credentials" }.
+      operationId: adminLogin
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                  description: Логин администратора (из ADMIN_USERNAME)
+                  example: admin
+                password:
+                  type: string
+                  description: Пароль администратора
+                  example: admin
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: authenticated
+        '401':
+          description: Неверные учётные данные
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: invalid credentials
+
+  # ─── Competencies ──────────────────────────────────────────────────────
+  /competencies:
+    get:
+      summary: Список компетенций
+      operationId: listCompetencies
+      tags: [Компетенции]
+      responses:
+        '200':
+          description: Список всех компетенций
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Competency'
+    post:
+      summary: Создать компетенцию
+      operationId: createCompetency
+      tags: [Компетенции]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  description: Название компетенции (уникальное)
+                  example: Java
+                description:
+                  type: string
+                  description: Описание компетенции
+                  example: Оценка знаний Java
+      responses:
+        '201':
+          description: Созданная компетенция
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Competency'
+
+  /competencies/{id}:
+    get:
+      summary: Получить компетенцию
+      operationId: getCompetency
+      tags: [Компетенции]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Идентификатор компетенции
+      responses:
+        '200':
+          description: Компетенция
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Competency'
+        '404':
+          description: Компетенция не найдена
+    put:
+      summary: Обновить компетенцию
+      operationId: updateCompetency
+      tags: [Компетенции]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Java
+                description:
+                  type: string
+                  example: Оценка знаний Java Core
+      responses:
+        '200':
+          description: Обновлённая компетенция
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Competency'
+        '404':
+          description: Компетенция не найдена
+    delete:
+      summary: Удалить компетенцию
+      operationId: deleteCompetency
+      tags: [Компетенции]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Компетенция удалена
+
+  # ─── Sections ──────────────────────────────────────────────────────────
+  /competencies/{competencyId}/sections:
+    get:
+      summary: Список разделов компетенции
+      operationId: listSections
+      tags: [Разделы]
+      parameters:
+        - name: competencyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список разделов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Section'
+    post:
+      summary: Создать раздел
+      operationId: createSection
+      tags: [Разделы]
+      parameters:
+        - name: competencyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: Основы
+                sortOrder:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Созданный раздел
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+
+  /sections/{id}:
+    put:
+      summary: Обновить раздел
+      operationId: updateSection
+      tags: [Разделы]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Продвинутый уровень
+                sortOrder:
+                  type: integer
+                  example: 2
+      responses:
+        '200':
+          description: Обновлённый раздел
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Section'
+    delete:
+      summary: Удалить раздел
+      operationId: deleteSection
+      tags: [Разделы]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Раздел удалён
+
+  # ─── Topics ────────────────────────────────────────────────────────────
+  /sections/{sectionId}/topics:
+    get:
+      summary: Список тем раздела
+      operationId: listTopics
+      tags: [Темы]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список тем
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Topic'
+    post:
+      summary: Создать тему
+      operationId: createTopic
+      tags: [Темы]
+      parameters:
+        - name: sectionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: Stream API
+                weight:
+                  type: number
+                  format: float
+                  example: 1.0
+                sortOrder:
+                  type: integer
+                  example: 1
+      responses:
+        '201':
+          description: Созданная тема
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+
+  /topics/{id}:
+    put:
+      summary: Обновить тему
+      operationId: updateTopic
+      tags: [Темы]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Optional
+                weight:
+                  type: number
+                  format: float
+                  example: 0.5
+                sortOrder:
+                  type: integer
+                  example: 2
+      responses:
+        '200':
+          description: Обновлённая тема
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Topic'
+    delete:
+      summary: Удалить тему
+      operationId: deleteTopic
+      tags: [Темы]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Тема удалена
+
+  # ─── Question Bank (topic-level) ──────────────────────────────────────
+  /topics/{topicId}/questions/generate:
+    post:
+      summary: Сгенерировать вопросы для темы
+      description: |
+        Генерирует вопросы с помощью ИИ для указанной темы.
+        Требует настроенного AI-провайдера.
+      operationId: generateTopicQuestions
+      tags: [Вопросы]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  description: Количество вопросов (1–10)
+                  example: 5
+                difficulty:
+                  type: string
+                  enum: [ALL, JUNIOR, MIDDLE, SENIOR]
+                  default: ALL
+                  description: Уровень сложности
+      responses:
+        '200':
+          description: Сгенерированные вопросы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItem'
+        '400':
+          description: Неверные параметры
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Тема не найдена
+        '503':
+          description: Ошибка генерации (ИИ недоступен)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /topics/{topicId}/questions:
+    get:
+      summary: Список вопросов темы
+      operationId: listTopicQuestions
+      tags: [Вопросы]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список вопросов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItem'
+
+  /topics/{topicId}/questions/reorder:
+    put:
+      summary: Переупорядочить вопросы темы
+      operationId: reorderTopicQuestions
+      tags: [Вопросы]
+      parameters:
+        - name: topicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+                format: uuid
+              description: Идентификаторы вопросов в новом порядке
+              example: [uuid1, uuid2, uuid3]
+      responses:
+        '204':
+          description: Порядок обновлён
+
+  # ─── Question Bank (competency-level) ─────────────────────────────────
+  /competencies/{competencyId}/questions/generate:
+    post:
+      summary: Сгенерировать вопросы для компетенции
+      description: |
+        Генерирует вопросы с помощью ИИ для всех тем компетенции.
+      operationId: generateQuestions
+      tags: [Вопросы]
+      parameters:
+        - name: competencyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+                  example: 5
+                difficulty:
+                  type: string
+                  enum: [ALL, JUNIOR, MIDDLE, SENIOR]
+                  default: ALL
+      responses:
+        '200':
+          description: Сгенерированные вопросы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItem'
+        '400':
+          description: Неверные параметры
+        '404':
+          description: Компетенция не найдена
+        '503':
+          description: Ошибка генерации
+
+  /competencies/{competencyId}/questions:
+    get:
+      summary: Список вопросов компетенции
+      operationId: listQuestions
+      tags: [Вопросы]
+      parameters:
+        - name: competencyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список вопросов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuestionBankItem'
+
+  /questions/{id}:
+    put:
+      summary: Обновить текст вопроса
+      operationId: updateQuestion
+      tags: [Вопросы]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [questionText]
+              properties:
+                questionText:
+                  type: string
+                  description: Новый текст вопроса
+      responses:
+        '200':
+          description: Обновлённый вопрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuestionBankItem'
+        '400':
+          description: Пустой текст вопроса
+    delete:
+      summary: Удалить вопрос
+      operationId: deleteQuestion
+      tags: [Вопросы]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Вопрос удалён
+
+  # ─── Employees ────────────────────────────────────────────────────────
+  /employees:
+    get:
+      summary: Список сотрудников
+      operationId: listEmployees
+      tags: [Сотрудники]
+      responses:
+        '200':
+          description: Список сотрудников (сортировка по дате создания, новые сверху)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+    post:
+      summary: Создать сотрудника
+      operationId: createEmployee
+      tags: [Сотрудники]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName]
+              properties:
+                fullName:
+                  type: string
+                  description: ФИО сотрудника
+                  example: Иванов Иван Иванович
+                position:
+                  type: string
+                  description: Должность
+                  example: Java-разработчик
+                department:
+                  type: string
+                  description: Отдел / стрим
+                  example: Цифровые продукты
+                competencyId:
+                  type: string
+                  format: uuid
+                  description: Идентификатор компетенции (может быть null)
+                  example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '201':
+          description: Созданный сотрудник
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+
+  /employees/{id}:
+    get:
+      summary: Получить сотрудника
+      operationId: getEmployee
+      tags: [Сотрудники]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Сотрудник
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          description: Сотрудник не найден
+    put:
+      summary: Обновить сотрудника
+      operationId: updateEmployee
+      tags: [Сотрудники]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: Иванов Иван Иванович
+                position:
+                  type: string
+                  example: Senior Java-разработчик
+                department:
+                  type: string
+                  example: Цифровые продукты
+                competencyId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Обновлённый сотрудник
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          description: Сотрудник не найден
+    delete:
+      summary: Удалить сотрудника
+      description: Каскадно удаляет пригласительные токены, сессии и попытки ответов
+      operationId: deleteEmployee
+      tags: [Сотрудники]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Сотрудник удалён
+        '404':
+          description: Сотрудник не найден
+
+  # ─── Invite tokens ────────────────────────────────────────────────────
+  /employees/{employeeId}/invite:
+    post:
+      summary: Сгенерировать пригласительную ссылку
+      description: >
+        Создаёт одноразовую HMAC-подписанную пригласительную ссылку
+        для сотрудника. Предыдущие токены сотрудника удаляются.
+        Срок действия — 72 часа.
+      operationId: generateInviteLink
+      tags: [Приглашения]
+      parameters:
+        - name: employeeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Путь пригласительной ссылки
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: /api/employee/invite/a1b2c3d4e5f6...
+        '404':
+          description: Сотрудник не найден
+
+  /tokens:
+    get:
+      summary: Список пригласительных токенов
+      operationId: listTokens
+      tags: [Приглашения]
+      responses:
+        '200':
+          description: Список токенов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssessmentInviteToken'
+
+  # ─── Applications ─────────────────────────────────────────────────────
+  /applications:
+    get:
+      summary: Список заявок на оценку
+      description: |
+        Сводка по всем пригласительным токенам с агрегированными метриками.
+        Связывает токен, сотрудника, сессию и результат.
+        Сортировка: новые сверху.
+      operationId: listApplications
+      tags: [Заявки]
+      responses:
+        '200':
+          description: Список заявок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApplicationSummary'
+
+  /applications/{sessionId}/report:
+    get:
+      summary: Детальный отчёт по заявке
+      description: |
+        Полный отчёт для администратора: оценки по темам, все попытки ответов
+        с текстом вопроса, ответом сотрудника, оценкой, feedback ИИ и общей рекомендацией.
+      operationId: getApplicationReport
+      tags: [Заявки]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Полный отчёт
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationReport'
+        '404':
+          description: Сессия не найдена
+
+  # ─── AI Settings ──────────────────────────────────────────────────────
+  /settings/ai:
+    get:
+      summary: Настройки AI-провайдера
+      operationId: getAiSettings
+      tags: [AI]
+      responses:
+        '200':
+          description: Текущий провайдер и список доступных
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activeProvider:
+                    type: string
+                    enum: [gemini, gigachat, openrouter, opencode, stub]
+                    example: gemini
+                  availableProviders:
+                    type: array
+                    items:
+                      type: string
+                    example: [gemini, gigachat, openrouter, opencode, stub]
+    put:
+      summary: Обновить AI-провайдера
+      operationId: updateAiSettings
+      tags: [AI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [activeProvider]
+              properties:
+                activeProvider:
+                  type: string
+                  enum: [gemini, gigachat, openrouter, opencode, stub]
+      responses:
+        '200':
+          description: Обновлённые настройки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activeProvider:
+                    type: string
+                  availableProviders:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Провайдер не указан
+
+  /settings/ai/prompts:
+    get:
+      summary: Получить промты ИИ
+      operationId: getAiPrompts
+      tags: [AI]
+      responses:
+        '200':
+          description: Промты для оценки, генерации вопросов и уточнений
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiPrompts'
+    put:
+      summary: Обновить промты ИИ
+      operationId: updateAiPrompts
+      tags: [AI]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiPrompts'
+      responses:
+        '200':
+          description: Обновлённые промты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiPrompts'
+
+components:
+  schemas:
+    # ───── Entity schemas ──────────────────────────────────────────────
+    Competency:
+      type: object
+      description: Компетенция (напр. «Java», «Коммуникация»)
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          example: Java
+        description:
+          type: string
+          example: Оценка знаний Java Core и экосистемы
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-07-26T17:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-07-26T17:00:00Z
+        sections:
+          type: array
+          description: Секции компетенции (только при запросе одной компетенции)
+          items:
+            $ref: '#/components/schemas/Section'
+        questionBanks:
+          type: array
+          description: Банк вопросов (только при запросе одной компетенции)
+          items:
+            $ref: '#/components/schemas/QuestionBankItem'
+
+    Section:
+      type: object
+      description: Раздел внутри компетенции
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Основы Java
+        description:
+          type: string
+          example: Базовые конструкции языка
+        sortOrder:
+          type: integer
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Topic:
+      type: object
+      description: Тема внутри раздела
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Stream API
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          example: 1
+        weight:
+          type: number
+          format: float
+          example: 1.0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Employee:
+      type: object
+      description: Сотрудник, проходящий оценку
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+          example: Иванов Иван Иванович
+        position:
+          type: string
+          example: Java-разработчик
+        department:
+          type: string
+          example: Цифровые продукты
+        competency:
+          $ref: '#/components/schemas/CompetencyRef'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CompetencyRef:
+      type: object
+      description: Ссылка на компетенцию (id + name)
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Java
+
+    AssessmentInviteToken:
+      type: object
+      description: Пригласительный токен для сотрудника
+      properties:
+        id:
+          type: string
+          format: uuid
+        tokenHash:
+          type: string
+        employee:
+          $ref: '#/components/schemas/Employee'
+        session:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            status:
+              type: string
+              example: ACTIVE
+        used:
+          type: boolean
+        usedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    QuestionBankItem:
+      type: object
+      description: Вопрос в банке вопросов
+      properties:
+        id:
+          type: string
+          format: uuid
+        competencyId:
+          type: string
+          format: uuid
+        topicId:
+          type: string
+          format: uuid
+          nullable: true
+        questionText:
+          type: string
+          example: Расскажите о Stream API в Java
+        difficulty:
+          type: string
+          enum: [ALL, JUNIOR, MIDDLE, SENIOR]
+          example: MIDDLE
+        sortOrder:
+          type: integer
+          example: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ───── DTO schemas ─────────────────────────────────────────────────
+    ApplicationSummary:
+      type: object
+      description: Сводка по заявке на оценку (связывает токен, сессию и результат)
+      properties:
+        tokenId:
+          type: string
+          format: uuid
+        employeeId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+          example: Иванов Иван Иванович
+        competencyName:
+          type: string
+          nullable: true
+          example: Java
+        sessionStatus:
+          type: string
+          nullable: true
+          enum: [ACTIVE, COMPLETED]
+        sessionId:
+          type: string
+          format: uuid
+          nullable: true
+        averageScore:
+          type: number
+          format: float
+          nullable: true
+          example: 4.25
+        passed:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ApplicationReport:
+      type: object
+      description: Полный отчёт по заявке для администратора
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        employeeId:
+          type: string
+          format: uuid
+        employeeName:
+          type: string
+        competencyName:
+          type: string
+          nullable: true
+        sessionStatus:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        competencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompetencyReportItem'
+        passed:
+          type: boolean
+        overallRecommendation:
+          type: string
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttemptDetail'
+
+    CompetencyReportItem:
+      type: object
+      description: Агрегированный отчёт по теме в заявке
+      properties:
+        topicId:
+          type: string
+          format: uuid
+        topicName:
+          type: string
+        sectionName:
+          type: string
+        competencyName:
+          type: string
+        averageScore:
+          type: number
+          format: float
+        passed:
+          type: boolean
+        followUpScores:
+          type: array
+          items:
+            type: number
+            format: float
+        feedbacks:
+          type: array
+          items:
+            type: string
+
+    AttemptDetail:
+      type: object
+      description: Детальная попытка ответа
+      properties:
+        attemptId:
+          type: string
+          format: uuid
+        questionText:
+          type: string
+        finalTranscript:
+          type: string
+          nullable: true
+        score:
+          type: number
+          format: float
+          nullable: true
+        baseScore:
+          type: number
+          format: float
+          nullable: true
+        confidence:
+          type: string
+          nullable: true
+          enum: [high, medium, low]
+        validJudge:
+          type: boolean
+          nullable: true
+        feedback:
+          type: string
+          nullable: true
+        followupDepth:
+          type: integer
+          example: 0
+        followupParentId:
+          type: string
+          format: uuid
+          nullable: true
+        topicId:
+          type: string
+          format: uuid
+          nullable: true
+        topicName:
+          type: string
+          nullable: true
+        sectionName:
+          type: string
+          nullable: true
+        competencyName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AiPrompts:
+      type: object
+      description: Промты для LLM
+      properties:
+        prompt_scoring:
+          type: string
+          description: Промт оценки ответа
+        prompt_question:
+          type: string
+          description: Промт генерации вопроса
+        prompt_followup:
+          type: string
+          description: Промт генерации уточняющего вопроса
+        prompt_rescore:
+          type: string
+          description: Промт переоценки с учётом уточнения
+        prompt_followup_system:
+          type: string
+          description: Системный промт генерации уточняющего вопроса
+        prompt_rescore_system:
+          type: string
+          description: Системный промт переоценки с учётом уточнения
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: Тема не найдена

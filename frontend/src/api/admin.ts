@@ -326,11 +326,10 @@ export async function getEmployee(id: string): Promise<Employee> {
  * @return созданный сотрудник
  */
 export async function createEmployee(fullName: string, position: string, department: string, competencyId: string | null): Promise<Employee> {
-  const competency = competencyId ? { id: competencyId } : null
   return adminJson<Employee>('/employees', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName, position, department, competency }),
+    body: JSON.stringify({ fullName, position, department, competencyId }),
   })
 }
 
@@ -344,11 +343,10 @@ export async function createEmployee(fullName: string, position: string, departm
  * @return обновленный сотрудник
  */
 export async function updateEmployee(id: string, fullName: string, position: string, department: string, competencyId: string | null): Promise<Employee> {
-  const competency = competencyId ? { id: competencyId } : null
   return adminJson<Employee>(`/employees/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fullName, position, department, competency }),
+    body: JSON.stringify({ fullName, position, department, competencyId }),
   })
 }
 
@@ -425,6 +423,8 @@ export interface AiPrompts {
   prompt_question: string
   prompt_followup: string
   prompt_rescore: string
+  prompt_followup_system: string
+  prompt_rescore_system: string
 }
 
 /**

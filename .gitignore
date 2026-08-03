@@ -1,10 +1,10 @@
 build/
 .gradle/
-!gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 *.class
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.ear
 *.log
@@ -16,7 +16,7 @@ build/
 .settings/
 .classpath
 .project
-out/
+/out/
 bin/
 generated-src/
 .codegraph/

@@ -2,7 +2,6 @@ package com.assessment;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration;
 import chat.giga.springai.autoconfigure.GigaChatAutoConfiguration;
 import org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration;
@@ -16,7 +15,7 @@ import org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoCon
  * Главный класс Spring Boot приложения для оценки компетенций сотрудников.
  * <p>
  * Исключает автоконфигурации Google Gemini, GigaChat и OpenAI, чтобы загружать их
- * вручную через {@link com.assessment.config.ChatClientConfig} с учетом
+ * вручную через {@link com.assessment.ai.config.ChatClientConfig} с учетом
  * выбранного провайдера и настроек rate limiting.
  */
 @SpringBootApplication(exclude = {
@@ -29,7 +28,6 @@ import org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoCon
     OpenAiImageAutoConfiguration.class,
     OpenAiModerationAutoConfiguration.class
 })
-@EnableAsync
 public class AssessmentApplication {
 
     /**

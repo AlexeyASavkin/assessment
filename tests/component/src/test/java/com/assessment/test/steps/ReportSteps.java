@@ -114,28 +114,39 @@ public class ReportSteps {
             int attempt = 0;
             while (!completed && attempt < maxAttempts) {
                 Response qResp = employeeClient.employeeGet("/api/employee/sessions/" + sessionId + "/questions");
+                assertThat(employeeClient.statusCode(qResp))
+                        .as("GET questions для сессии %s должен возвращать 200", sessionId)
+                        .isEqualTo(200);
                 String qBody = employeeClient.body(qResp);
-                if (qBody == null || qBody.isEmpty() || qBody.equals("null")) {
-                    break;
-                }
+                assertThat(qBody).as("тело GET questions не должно быть пустым").isNotNull().isNotEmpty();
+                assertThat(qBody).as("тело GET questions не должно быть 'null'").isNotEqualTo("null");
+
                 String questionAttemptId;
                 try {
                     questionAttemptId = JsonPath.read(qBody, "$.questionId");
                 } catch (Exception e) {
+                    // Сессия завершена: GET questions возвращает {"completed": true}
+                    Boolean done = JsonPath.read(qBody, "$.completed");
+                    assertThat(done).as("при отсутствии questionId ответ должен содержать completed: %s", qBody).isTrue();
                     break;
                 }
+                assertThat(questionAttemptId).isNotNull();
 
                 Response aResp = employeeClient.employeePost(
                         "/api/employee/sessions/" + sessionId + "/answers",
                         Map.of("questionAttemptId", questionAttemptId, "finalTranscript", "Тестовый ответ"));
+                assertThat(employeeClient.statusCode(aResp))
+                        .as("POST answers для сессии %s должен возвращать 200", sessionId)
+                        .isEqualTo(200);
                 String aBody = employeeClient.body(aResp);
-                try {
-                    completed = JsonPath.read(aBody, "$.completed");
-                } catch (Exception e) {
-                    break;
-                }
+                assertThat(aBody).as("тело POST answers не должно быть пустым").isNotNull().isNotEmpty();
+                completed = JsonPath.read(aBody, "$.completed");
+                assertThat(completed).as("каждый ответ должен содержать поле completed: %s", aBody).isNotNull();
                 attempt++;
             }
+            assertThat(completed)
+                    .as("сессия должна завершиться в течение %d ответов", maxAttempts)
+                    .isTrue();
         }
     }
 
