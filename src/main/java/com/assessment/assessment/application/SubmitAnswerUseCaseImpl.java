@@ -10,8 +10,11 @@ import com.assessment.assessment.port.out.TopicQueryPort;
 import com.assessment.ai.domain.FollowUpResult;
 import com.assessment.ai.domain.ScoreResult;
 import com.assessment.ai.port.LlmFollowUpPort;
+import com.assessment.common.ForbiddenException;
+import com.assessment.config.SessionLlmRateLimiter;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -24,12 +27,13 @@ import java.util.stream.Collectors;
 /**
  * Реализация use case отправки ответа сотрудника.
  *
- * <p>Сохраняет транскрипт ответа, при необходимости оценивает его через LLM
- * (синхронно для уточняющих вопросов, асинхронно для основных), генерирует
- * уточняющие вопросы для слабых ответов и возвращает следующий вопрос либо
- * завершает сессию, когда все темы пройдены. Зависит только от выходных портов,
- * AI-портов и вспомогательных компонентов {@link AttemptScoringExecutor} и
- * {@link SessionQuestionPicker}.
+ * <p>Сохраняет транскрипт ответа, оценивает его через LLM (синхронно),
+ * генерирует уточняющие вопросы для слабых ответов (глубина ≤ 1) и возвращает
+ * следующий вопрос либо завершает сессию, когда все темы пройдены или достигнут
+ * лимит вопросов сессии. LLM-вызовы уточнений ограничиваются персональным
+ * bucket'ом сессии через {@link SessionLlmRateLimiter}. Зависит
+ * только от выходных портов, AI-портов и вспомогательных компонентов
+ * {@link AttemptScoringExecutor} и {@link SessionQuestionPicker}.
  */
 @Service
 public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
@@ -40,30 +44,48 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
     private final LlmFollowUpPort llmFollowUpPort;
     private final AttemptScoringExecutor scoringExecutor;
     private final SessionQuestionPicker questionPicker;
+    private final SessionLlmRateLimiter sessionLlmRateLimiter;
 
     public SubmitAnswerUseCaseImpl(SessionRepositoryPort sessionRepositoryPort,
                                    AttemptRepositoryPort attemptRepositoryPort,
                                    TopicQueryPort topicQueryPort,
                                    LlmFollowUpPort llmFollowUpPort,
                                    AttemptScoringExecutor scoringExecutor,
-                                   SessionQuestionPicker questionPicker) {
+                                   SessionQuestionPicker questionPicker,
+                                   SessionLlmRateLimiter sessionLlmRateLimiter) {
         this.sessionRepositoryPort = sessionRepositoryPort;
         this.attemptRepositoryPort = attemptRepositoryPort;
         this.topicQueryPort = topicQueryPort;
         this.llmFollowUpPort = llmFollowUpPort;
         this.scoringExecutor = scoringExecutor;
         this.questionPicker = questionPicker;
+        this.sessionLlmRateLimiter = sessionLlmRateLimiter;
     }
 
     @Override
+    @Transactional
     public AnswerOutcome submitAnswer(UUID sessionId, UUID questionAttemptId, String finalTranscript) {
         AssessmentSession session = sessionRepositoryPort.findById(sessionId).orElseThrow();
+
+        // Завершённая сессия не принимает ответы — защита от повторной отправки после отчёта.
+        if (session.getStatus() == SessionStatus.COMPLETED) {
+            throw new ForbiddenException("Сессия уже завершена");
+        }
+
         Attempt currentAttempt = attemptRepositoryPort.findById(questionAttemptId).orElseThrow();
+
+        // SEC: IDOR-защита — попытка должна принадлежать текущей сессии, иначе 403.
+        if (!sessionId.equals(currentAttempt.getSessionId())) {
+            throw new ForbiddenException("Попытка ответа не принадлежит текущей сессии");
+        }
+
         currentAttempt = attemptRepositoryPort.save(currentAttempt.withFinalTranscript(finalTranscript));
 
         List<TopicInfo> topics = topicsFor(session);
         UUID currentTopicId = currentAttempt.getTopicId();
         int currentDepth = currentAttempt.getFollowupDepth() != null ? currentAttempt.getFollowupDepth() : 0;
+        List<Attempt> allAttempts = attemptRepositoryPort.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        boolean limitReached = questionPicker.hasReachedQuestionLimit(allAttempts);
 
         if (currentDepth > 0) {
             Attempt scored = scoringExecutor.scoreNow(currentAttempt);
@@ -75,14 +97,16 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
                 }
             }
 
-            if (currentTopicId != null) {
+            if (currentTopicId != null && !limitReached) {
                 Attempt candidate = findFollowUpCandidate(sessionId, currentTopicId);
                 if (candidate != null) {
                     String followUpQuestion = generateFollowUp(candidate);
                     if (followUpQuestion != null && !followUpQuestion.isBlank()) {
+                        // Глубина уточнения = глубина кандидата + 1. Кандидаты — только основные
+                        // попытки (depth 0), поэтому уточнение всегда depth=1: цепочка не растёт.
                         Attempt followUpAttempt = attemptRepositoryPort.save(
                                 Attempt.of(null, sessionId, followUpQuestion, null, null, null, null, null, null,
-                                        currentDepth + 1, candidate.getId(), candidate.getTopicId(),
+                                        candidate.getFollowupDepth() + 1, candidate.getId(), candidate.getTopicId(),
                                         null, null, null, null));
                         sessionRepositoryPort.save(session.withCurrentQuestionId(followUpAttempt.getId()));
                         return new AnswerOutcome.NextQuestion(followUpAttempt, currentTopicId);
@@ -93,11 +117,11 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
             return advanceToNextTopicOrComplete(session, topics);
         }
 
-        List<Attempt> allAttempts = attemptRepositoryPort.findBySessionIdOrderByCreatedAtAsc(sessionId);
-        boolean topicHasMore = currentTopicId != null && questionPicker.hasUnused(currentTopicId, allAttempts);
+        boolean topicHasMore = currentTopicId != null && !limitReached
+                && questionPicker.hasUnused(currentTopicId, allAttempts);
 
         if (topicHasMore) {
-            scoringExecutor.scoreAsync(currentAttempt.getId());
+            scoringExecutor.scoreNow(currentAttempt);
             String nextQuestionText = questionPicker.pickQuestion(currentTopicId, allAttempts);
             Attempt nextAttempt = attemptRepositoryPort.save(
                     Attempt.of(null, sessionId, nextQuestionText, null, null, null, null, null, null,
@@ -108,14 +132,14 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
 
         scoringExecutor.scoreUnscored(sessionId);
 
-        if (currentTopicId != null) {
+        if (currentTopicId != null && !limitReached) {
             Attempt candidate = findFollowUpCandidate(sessionId, currentTopicId);
             if (candidate != null) {
                 String followUpQuestion = generateFollowUp(candidate);
                 if (followUpQuestion != null && !followUpQuestion.isBlank()) {
                     Attempt followUpAttempt = attemptRepositoryPort.save(
                             Attempt.of(null, sessionId, followUpQuestion, null, null, null, null, null, null,
-                                    1, candidate.getId(), candidate.getTopicId(), null, null, null, null));
+                                    candidate.getFollowupDepth() + 1, candidate.getId(), candidate.getTopicId(), null, null, null, null));
                     sessionRepositoryPort.save(session.withCurrentQuestionId(followUpAttempt.getId()));
                     return new AnswerOutcome.NextQuestion(followUpAttempt, currentTopicId);
                 }
@@ -134,6 +158,13 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
      */
     private AnswerOutcome advanceToNextTopicOrComplete(AssessmentSession session, List<TopicInfo> topics) {
         List<Attempt> allAttempts = attemptRepositoryPort.findBySessionIdOrderByCreatedAtAsc(session.getId());
+
+        if (questionPicker.hasReachedQuestionLimit(allAttempts)) {
+            scoringExecutor.scoreUnscored(session.getId());
+            sessionRepositoryPort.save(session.withStatus(SessionStatus.COMPLETED));
+            return new AnswerOutcome.Completed();
+        }
+
         UUID nextTopicId = questionPicker.findNextTopicId(allAttempts, topics);
 
         if (nextTopicId == null) {
@@ -165,11 +196,13 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
             mainAttempt = mainAttempt.withBaseScore(mainAttempt.getScore());
         }
 
-        Optional<ScoreResult> result = llmFollowUpPort.rescoreMainAttempt(
-                mainAttempt.getQuestionText(),
-                mainAttempt.getFinalTranscript(),
-                followUpAttempt.getQuestionText(),
-                followUpAttempt.getFinalTranscript());
+        final Attempt attempt = mainAttempt;
+        Optional<ScoreResult> result = sessionLlmRateLimiter.execute(attempt.getSessionId(),
+                () -> llmFollowUpPort.rescoreMainAttempt(
+                        attempt.getQuestionText(),
+                        attempt.getFinalTranscript(),
+                        followUpAttempt.getQuestionText(),
+                        followUpAttempt.getFinalTranscript()));
         if (result.isEmpty()) {
             return;
         }
@@ -191,9 +224,10 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
      * @return текст уточняющего вопроса или {@code null} при сбое LLM
      */
     private String generateFollowUp(Attempt candidate) {
-        return llmFollowUpPort.generateFollowUpQuestion(candidate.getQuestionText(), candidate.getFinalTranscript())
-                .map(FollowUpResult::getQuestionText)
-                .orElse(null);
+        return sessionLlmRateLimiter.execute(candidate.getSessionId(),
+                () -> llmFollowUpPort.generateFollowUpQuestion(candidate.getQuestionText(), candidate.getFinalTranscript())
+                        .map(FollowUpResult::getQuestionText)
+                        .orElse(null));
     }
 
     /**

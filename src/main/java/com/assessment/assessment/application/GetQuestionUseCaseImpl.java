@@ -56,6 +56,9 @@ public class GetQuestionUseCaseImpl implements GetQuestionUseCase {
         }
 
         List<Attempt> attempts = attemptRepositoryPort.findBySessionIdOrderByCreatedAtAsc(sessionId);
+        if (questionPicker.hasReachedQuestionLimit(attempts)) {
+            return new QuestionOutcome.Completed();
+        }
         List<TopicInfo> topics = topicsFor(session);
         UUID nextTopicId = questionPicker.findNextTopicId(attempts, topics);
 
