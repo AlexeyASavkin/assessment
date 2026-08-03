@@ -6,27 +6,33 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Маршрутизатор запросов к LLM между провайдерами Gemini и GigaChat.
+ * Маршрутизатор запросов к LLM между провайдерами Gemini, GigaChat,
+ * OpenRouter, OpenCode и stub.
  * <p>
  * Делегирует вызовы активному провайдеру, выбранному через
- * переменную окружения {@code AI_PROVIDER}.
+ * {@link AiProviderService} (env {@code AI_PROVIDER} или таблица
+ * {@code ai_settings}). Делегаты создаются лениво через {@link ChatModelFactory}
+ * при первом обращении к провайдеру и кэшируются — это позволяет переключать
+ * активного провайдера в рантайме без перезапуска приложения.
  */
 public class RoutingChatModel implements ChatModel {
 
-    private final Map<String, ChatModel> delegates;
     private final AiProviderService aiProviderService;
+    private final ChatModelFactory delegateFactory;
+    private final Map<String, ChatModel> delegates = new ConcurrentHashMap<>();
 
     /**
      * Конструктор маршрутизатора.
      *
-     * @param delegates карта делегатов: ключ — имя провайдера, значение — модель
      * @param aiProviderService сервис, определяющий активного провайдера
+     * @param delegateFactory   фабрика делегатов для провайдеров
      */
-    public RoutingChatModel(Map<String, ChatModel> delegates, AiProviderService aiProviderService) {
-        this.delegates = delegates;
+    public RoutingChatModel(AiProviderService aiProviderService, ChatModelFactory delegateFactory) {
         this.aiProviderService = aiProviderService;
+        this.delegateFactory = delegateFactory;
     }
 
     /**
@@ -39,11 +45,24 @@ public class RoutingChatModel implements ChatModel {
     @Override
     public ChatResponse call(Prompt prompt) {
         String provider = aiProviderService.getActiveProvider();
-        ChatModel delegate = delegates.get(provider);
-        if (delegate == null) {
-            throw new IllegalStateException("AI провайдер '" + provider + "' не доступен. Доступные: " + delegates.keySet());
-        }
+        ChatModel delegate = delegates.computeIfAbsent(provider, this::createDelegate);
         return delegate.call(prompt);
+    }
+
+    /**
+     * Создаёт делегат для провайдера через фабрику.
+     *
+     * @param provider имя провайдера
+     * @return модель чата
+     * @throws IllegalStateException если фабрика не может создать модель (нет API-ключа)
+     */
+    private ChatModel createDelegate(String provider) {
+        ChatModel delegate = delegateFactory.create(provider);
+        if (delegate == null) {
+            throw new IllegalStateException(
+                    "AI провайдер '" + provider + "' не доступен. Доступные: " + delegateFactory.availableProviders());
+        }
+        return delegate;
     }
 
     /**
