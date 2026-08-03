@@ -1,5 +1,6 @@
 package com.assessment.service;
 
+import com.assessment.common.BadRequestException;
 import com.assessment.entity.AiSettings;
 import com.assessment.repository.AiSettingsRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -100,6 +101,12 @@ public class AiProviderService {
     @Value("${assessment.ai.active-provider:gemini}")
     private String defaultProvider;
 
+    /** Кэш активного провайдера: сбрасывается при setActiveProvider, чтобы не читать БД на каждый LLM-вызов. */
+    private volatile String cachedActiveProvider;
+
+    /** Кэш промптов: сбрасывается при setPrompt. */
+    private final java.util.concurrent.ConcurrentHashMap<String, String> promptCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     /**
      * Конструктор сервиса управления провайдером AI.
      *
@@ -112,13 +119,20 @@ public class AiProviderService {
     /**
      * Возвращает текущий активный провайдер LLM.
      * Приоритет отдается значению из базы данных, иначе используется значение по умолчанию.
+     * Значение кэшируется до ближайшего {@link #setActiveProvider}.
      *
      * @return название активного провайдера
      */
     public String getActiveProvider() {
-        return settingsRepository.findBySettingKey("active_provider")
+        String cached = cachedActiveProvider;
+        if (cached != null) {
+            return cached;
+        }
+        String resolved = settingsRepository.findBySettingKey("active_provider")
                 .map(AiSettings::getSettingValue)
                 .orElse(defaultProvider);
+        cachedActiveProvider = resolved;
+        return resolved;
     }
 
     /**
@@ -129,13 +143,14 @@ public class AiProviderService {
      */
     public void setActiveProvider(String provider) {
         if (!provider.equals("gemini") && !provider.equals("gigachat") && !provider.equals("openrouter") && !provider.equals("opencode") && !provider.equals("stub")) {
-            throw new IllegalArgumentException("Неизвестный провайдер: " + provider);
+            throw new BadRequestException("Неизвестный провайдер: " + provider);
         }
         AiSettings settings = settingsRepository.findBySettingKey("active_provider")
                 .orElse(new AiSettings());
         settings.setSettingKey("active_provider");
         settings.setSettingValue(provider);
         settingsRepository.save(settings);
+        cachedActiveProvider = provider;
     }
 
     /**
@@ -154,11 +169,16 @@ public class AiProviderService {
 
     /**
      * Возвращает промт по ключу. Если в БД нет сохранённого значения — возвращает дефолт.
+     * Значение кэшируется до ближайшего {@link #setPrompt}, чтобы не читать БД на каждый LLM-вызов.
      *
      * @param key ключ промта (PROMPT_SCORING / PROMPT_QUESTION / PROMPT_FOLLOWUP / PROMPT_RESCORE)
      * @return текст промта (с placeholder'ами %1$s, %2$s, ...)
      */
     public String getPrompt(String key) {
+        return promptCache.computeIfAbsent(key, this::resolvePrompt);
+    }
+
+    private String resolvePrompt(String key) {
         String defaultValue = switch (key) {
             case PROMPT_SCORING -> DEFAULT_PROMPT_SCORING;
             case PROMPT_QUESTION -> DEFAULT_PROMPT_QUESTION;
@@ -172,7 +192,7 @@ public class AiProviderService {
     }
 
     /**
-     * Сохраняет промт в таблицу ai_settings.
+     * Сохраняет промт в таблицу ai_settings и обновляет кэш.
      *
      * @param key   ключ промта
      * @param value текст промта (с placeholder'ами)
@@ -183,6 +203,7 @@ public class AiProviderService {
         settings.setSettingKey(key);
         settings.setSettingValue(value);
         settingsRepository.save(settings);
+        promptCache.put(key, value);
     }
 
     /**

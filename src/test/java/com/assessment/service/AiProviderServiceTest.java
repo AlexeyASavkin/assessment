@@ -1,5 +1,6 @@
 package com.assessment.service;
 
+import com.assessment.common.BadRequestException;
 import com.assessment.entity.AiSettings;
 import com.assessment.repository.AiSettingsRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +81,7 @@ class AiProviderServiceTest {
     @Test
     @DisplayName("setActiveProvider с неизвестным провайдером выбрасывает исключение")
     void setActiveProviderInvalidProviderThrows() {
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(BadRequestException.class,
             () -> aiProviderService.setActiveProvider("unknown"));
         verify(settingsRepository, never()).save(any());
     }
@@ -203,6 +204,62 @@ class AiProviderServiceTest {
         verify(settingsRepository).save(argThat(s ->
             "updated prompt".equals(s.getSettingValue())
         ));
+    }
+
+    @Test
+    @DisplayName("getActiveProvider кэширует значение — повторный вызов не читает БД")
+    void getActiveProviderCachesSecondCall() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("gigachat");
+        when(settingsRepository.findBySettingKey("active_provider")).thenReturn(Optional.of(setting));
+
+        assertEquals("gigachat", aiProviderService.getActiveProvider());
+        assertEquals("gigachat", aiProviderService.getActiveProvider());
+
+        verify(settingsRepository, times(1)).findBySettingKey("active_provider");
+    }
+
+    @Test
+    @DisplayName("setActiveProvider инвалидирует кэш — следующий getActiveProvider возвращает новый провайдер")
+    void setActiveProviderInvalidatesCache() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("gemini");
+        when(settingsRepository.findBySettingKey("active_provider")).thenReturn(Optional.of(setting));
+        when(settingsRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("gemini", aiProviderService.getActiveProvider());
+
+        aiProviderService.setActiveProvider("opencode");
+        assertEquals("opencode", aiProviderService.getActiveProvider());
+    }
+
+    @Test
+    @DisplayName("getPrompt кэширует значение — повторный вызов не читает БД")
+    void getPromptCachesSecondCall() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("custom scoring prompt");
+        when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_SCORING))
+            .thenReturn(Optional.of(setting));
+
+        assertEquals("custom scoring prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+        assertEquals("custom scoring prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+
+        verify(settingsRepository, times(1)).findBySettingKey(AiProviderService.PROMPT_SCORING);
+    }
+
+    @Test
+    @DisplayName("setPrompt инвалидирует кэш — следующий getPrompt возвращает новый промпт")
+    void setPromptInvalidatesCache() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("old prompt");
+        when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_SCORING))
+            .thenReturn(Optional.of(setting));
+        when(settingsRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("old prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
+
+        aiProviderService.setPrompt(AiProviderService.PROMPT_SCORING, "new prompt");
+        assertEquals("new prompt", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
     }
 
     @Test
