@@ -4,31 +4,38 @@ import com.assessment.assessment.domain.Attempt;
 import com.assessment.assessment.port.out.AttemptRepositoryPort;
 import com.assessment.ai.domain.ScoreResult;
 import com.assessment.ai.port.LlmScoringPort;
+import com.assessment.config.SessionLlmRateLimiter;
 
-import org.springframework.scheduling.annotation.Async;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 /**
  * Исполнитель оценки ответов сотрудника через LLM.
  *
- * <p>Инкапсулирует синхронную, асинхронную и пакетную оценку попыток.
- * Зависит только от {@link AttemptRepositoryPort} и {@link LlmScoringPort}.
- * Асинхронная оценка включена на уровне проекта (см. {@code ScoringService}).
+ * <p>Инкапсулирует синхронную и пакетную оценку попыток. Каждый LLM-вызов
+ * ограничен персональным rate limit'ом сессии через {@link SessionLlmRateLimiter}.
+ * Зависит только от {@link AttemptRepositoryPort}, {@link LlmScoringPort}
+ * и {@link SessionLlmRateLimiter}.
  */
 @Component
 public class AttemptScoringExecutor {
 
+    private static final Logger logger = LoggerFactory.getLogger(AttemptScoringExecutor.class);
+
     private final AttemptRepositoryPort attemptRepositoryPort;
     private final LlmScoringPort llmScoringPort;
+    private final SessionLlmRateLimiter sessionLlmRateLimiter;
 
     public AttemptScoringExecutor(AttemptRepositoryPort attemptRepositoryPort,
-                                  LlmScoringPort llmScoringPort) {
+                                  LlmScoringPort llmScoringPort,
+                                  SessionLlmRateLimiter sessionLlmRateLimiter) {
         this.attemptRepositoryPort = attemptRepositoryPort;
         this.llmScoringPort = llmScoringPort;
+        this.sessionLlmRateLimiter = sessionLlmRateLimiter;
     }
 
     /**
@@ -40,31 +47,11 @@ public class AttemptScoringExecutor {
      * @throws RuntimeException      при сбое вызова LLM
      */
     public Attempt scoreNow(Attempt attempt) {
-        ScoreResult result = llmScoringPort.score(attempt.getQuestionText(), attempt.getFinalTranscript());
+        ScoreResult result = sessionLlmRateLimiter.execute(attempt.getSessionId(),
+                () -> llmScoringPort.score(attempt.getQuestionText(), attempt.getFinalTranscript()));
         return attemptRepositoryPort.save(
                 attempt.withScore(BigDecimal.valueOf(result.getScore()), result.getConfidence(),
                         result.isValid(), result.getFeedback()));
-    }
-
-    /**
-     * Асинхронно оценивает ответ в фоновом потоке, чтобы сотрудник не ждал LLM.
-     *
-     * <p>Если попытка уже оценена, ничего не делает. При сбое LLM логирует
-     * ошибку и не прерывает основной поток.
-     *
-     * @param attemptId идентификатор попытки (загружается заново из БД в фоновом потоке)
-     */
-    @Async
-    public void scoreAsync(UUID attemptId) {
-        Attempt attempt = attemptRepositoryPort.findById(attemptId).orElseThrow();
-        if (attempt.getScore() != null) {
-            return;
-        }
-        try {
-            scoreNow(attempt);
-        } catch (Exception e) {
-            System.err.println("Async scoring failed for attempt " + attemptId + ": " + e.getMessage());
-        }
     }
 
     /**
@@ -82,7 +69,7 @@ public class AttemptScoringExecutor {
                 try {
                     scoreNow(attempt);
                 } catch (Exception e) {
-                    System.err.println("Batch scoring failed for attempt " + attempt.getId() + ": " + e.getMessage());
+                    logger.error("Batch scoring failed for attempt {}", attempt.getId(), e);
                 }
             }
         }
