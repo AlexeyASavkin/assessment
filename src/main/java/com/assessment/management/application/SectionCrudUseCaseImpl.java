@@ -2,6 +2,7 @@ package com.assessment.management.application;
 
 import com.assessment.entity.Section;
 import com.assessment.management.port.out.CompetencyRepositoryPort;
+import com.assessment.management.port.out.QuestionAttemptRepositoryPort;
 import com.assessment.management.port.out.SectionRepositoryPort;
 
 import org.springframework.stereotype.Service;
@@ -26,11 +27,14 @@ public class SectionCrudUseCaseImpl implements SectionCrudUseCase {
 
     private final CompetencyRepositoryPort competencyRepositoryPort;
     private final SectionRepositoryPort sectionRepositoryPort;
+    private final QuestionAttemptRepositoryPort questionAttemptRepositoryPort;
 
     public SectionCrudUseCaseImpl(CompetencyRepositoryPort competencyRepositoryPort,
-                                  SectionRepositoryPort sectionRepositoryPort) {
+                                  SectionRepositoryPort sectionRepositoryPort,
+                                  QuestionAttemptRepositoryPort questionAttemptRepositoryPort) {
         this.competencyRepositoryPort = competencyRepositoryPort;
         this.sectionRepositoryPort = sectionRepositoryPort;
+        this.questionAttemptRepositoryPort = questionAttemptRepositoryPort;
     }
 
     @Override
@@ -59,7 +63,11 @@ public class SectionCrudUseCaseImpl implements SectionCrudUseCase {
     }
 
     @Override
+    @Transactional
     public void deleteSection(UUID id) {
+        // Попытки ответов по темам раздела ссылаются на них через FK fk_attempts_topic —
+        // чистим их до удаления самого раздела, иначе БД отклонит удаление.
+        questionAttemptRepositoryPort.deleteBySectionId(id);
         sectionRepositoryPort.deleteById(id);
     }
 }

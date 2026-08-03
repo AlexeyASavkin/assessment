@@ -2,6 +2,7 @@ package com.assessment.management.application;
 
 import com.assessment.entity.Competency;
 import com.assessment.management.port.out.CompetencyRepositoryPort;
+import com.assessment.management.port.out.QuestionAttemptRepositoryPort;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +23,12 @@ import java.util.function.UnaryOperator;
 public class CompetencyCrudUseCaseImpl implements CompetencyCrudUseCase {
 
     private final CompetencyRepositoryPort competencyRepositoryPort;
+    private final QuestionAttemptRepositoryPort questionAttemptRepositoryPort;
 
-    public CompetencyCrudUseCaseImpl(CompetencyRepositoryPort competencyRepositoryPort) {
+    public CompetencyCrudUseCaseImpl(CompetencyRepositoryPort competencyRepositoryPort,
+                                     QuestionAttemptRepositoryPort questionAttemptRepositoryPort) {
         this.competencyRepositoryPort = competencyRepositoryPort;
+        this.questionAttemptRepositoryPort = questionAttemptRepositoryPort;
     }
 
     @Override
@@ -53,7 +57,11 @@ public class CompetencyCrudUseCaseImpl implements CompetencyCrudUseCase {
     }
 
     @Override
+    @Transactional
     public void deleteCompetency(UUID id) {
+        // Попытки ответов по темам компетенции ссылаются на них через FK fk_attempts_topic —
+        // чистим их до удаления самой компетенции, иначе БД отклонит удаление.
+        questionAttemptRepositoryPort.deleteByCompetencyId(id);
         competencyRepositoryPort.deleteById(id);
     }
 }
