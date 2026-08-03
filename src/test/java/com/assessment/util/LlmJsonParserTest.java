@@ -123,4 +123,55 @@ class LlmJsonParserTest {
         var constructor = LlmJsonParser.class.getDeclaredConstructors()[0];
         assertFalse(constructor.canAccess(null));
     }
+
+    @Test
+    @DisplayName("Экранированные кавычки внутри строкового значения")
+    void escapedQuotesInsideStringValue() {
+        String json = "{\"feedback\": \"He said \\\"hi\\\"\"}";
+        assertEquals("He said \"hi\"", LlmJsonParser.extractJsonValue(json, "feedback"));
+    }
+
+    @Test
+    @DisplayName("Markdown-ограждения ```json не мешают парсингу")
+    void codeFencedJsonIsParsed() {
+        String json = "```json\n{\"score\": 4, \"confidence\": \"HIGH\"}\n```";
+        assertEquals("4", LlmJsonParser.extractJsonValue(json, "score"));
+        assertEquals("HIGH", LlmJsonParser.extractJsonValue(json, "confidence"));
+    }
+
+    @Test
+    @DisplayName("Ограничения без языка тоже парсятся")
+    void bareCodeFenceIsParsed() {
+        String json = "```\n{\"score\": 3}\n```";
+        assertEquals("3", LlmJsonParser.extractJsonValue(json, "score"));
+    }
+
+    @Test
+    @DisplayName("Точное совпадение ключа: score не путается со score_raw")
+    void exactKeyMatchDoesNotConfuseWithPrefix() {
+        String json = "{\"score_raw\": 5, \"score\": 4}";
+        // Jackson ищет точный ключ, а не первое текстовое вхождение
+        assertEquals("4", LlmJsonParser.extractJsonValue(json, "score"));
+    }
+
+    @Test
+    @DisplayName("Десятичная оценка округляется по HALF_UP")
+    void decimalScoreRoundsHalfUp() {
+        assertEquals(5, LlmJsonParser.extractScore("{\"score\": 4.5}", "score").orElse(-1));
+        assertEquals(4, LlmJsonParser.extractScore("{\"score\": 4.4}", "score").orElse(-1));
+    }
+
+    @Test
+    @DisplayName("extractScore возвращает empty для нечислового значения")
+    void extractScoreEmptyForNonNumeric() {
+        assertTrue(LlmJsonParser.extractScore("{\"score\": \"high\"}", "score").isEmpty());
+        assertTrue(LlmJsonParser.extractScore("{\"score\": 4.5}", "missing").isEmpty());
+        assertTrue(LlmJsonParser.extractScore("not json at all", "score").isEmpty());
+    }
+
+    @Test
+    @DisplayName("extractScore парсит markdown-ограждённый JSON")
+    void extractScoreFromCodeFencedJson() {
+        assertEquals(3, LlmJsonParser.extractScore("```json\n{\"score\": 3}\n```", "score").orElse(-1));
+    }
 }
