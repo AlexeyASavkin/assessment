@@ -22,6 +22,7 @@ public class EmployeeSessionSteps {
 
     private static final TestHttpClient adminClient = new TestHttpClient();
     private static final TestHttpClient employeeClient = new TestHttpClient();
+    private static final TestHttpClient secondEmployeeClient = new TestHttpClient();
     private static final Pattern VAR_PATTERN = Pattern.compile("\\{(\\w+)}");
     private static final Pattern SESSION_UUID_PATTERN = Pattern.compile("/session/([0-9a-fA-F-]+)");
     private Response lastEmployeeResponse;
@@ -36,6 +37,15 @@ public class EmployeeSessionSteps {
 
     @Given("существует компетенция с разделом и темой и сгенерированными вопросами")
     public void createCompetencyWithSectionTopicAndQuestions() {
+        createCompetencyWithQuestions(1);
+    }
+
+    @Given("существует компетенция с разделом и темой и {int} сгенерированными вопросами")
+    public void createCompetencyWithSectionTopicAndNQuestions(int count) {
+        createCompetencyWithQuestions(count);
+    }
+
+    private void createCompetencyWithQuestions(int count) {
         String uniqueName = "Java Session " + UUID.randomUUID().toString().substring(0, 8);
         Response compResp = adminClient.adminPost("/api/admin/competencies",
                 Map.of("name", uniqueName, "description", "Оценка знаний Java"));
@@ -60,7 +70,7 @@ public class EmployeeSessionSteps {
 
         Response genResp = adminClient.adminPost(
                 "/api/admin/competencies/" + competencyId + "/questions/generate",
-                Map.of("count", 1, "difficulty", "MIDDLE"));
+                Map.of("count", count, "difficulty", "MIDDLE"));
         assertThat(adminClient.statusCode(genResp)).isIn(200, 202);
         ScenarioContext.get().setLastResponse(adminClient.body(genResp), adminClient.statusCode(genResp));
     }
@@ -97,6 +107,65 @@ public class EmployeeSessionSteps {
             ScenarioContext.get().setVar("sessionId", matcher.group(1));
         }
         ScenarioContext.get().setLastResponse(employeeClient.body(response), status);
+    }
+
+    @Given("сотрудник повторно открывает пригласительную ссылку")
+    public void employeeReopensInvite() {
+        String token = ScenarioContext.get().getVar("inviteToken");
+        Response response = employeeClient.openInvite(token);
+        ScenarioContext.get().setLastResponse(employeeClient.body(response), employeeClient.statusCode(response));
+        String location = employeeClient.header(response, "Location");
+        assertThat(location).as("повторное открытие ссылки должно вести на сессию").contains("/session/");
+        String sessionId = ScenarioContext.get().getVar("sessionId");
+        assertThat(location).as("повторное открытие ссылки должно возвращать ту же сессию")
+                .contains("/session/" + sessionId);
+    }
+
+    @Given("сотрудник открывает пригласительную ссылку с невалидным токеном")
+    public void employeeOpensInviteWithInvalidToken() {
+        Response response = employeeClient.openInvite("invalid-token-123");
+        ScenarioContext.get().setLastResponse(employeeClient.body(response), employeeClient.statusCode(response));
+    }
+
+    @Given("существует второй сотрудник с пригласительной ссылкой")
+    public void createSecondEmployeeWithInvite() {
+        String competencyId = ScenarioContext.get().getVar("competencyId");
+        Response empResp = adminClient.adminPost("/api/admin/employees",
+                Map.of("fullName", "Второй Сотрудник", "email", "second@test.com", "competencyId", competencyId));
+        assertThat(adminClient.statusCode(empResp)).isEqualTo(201);
+        String empBody = adminClient.body(empResp);
+        String employeeId = JsonPath.read(empBody, "$.id");
+        ScenarioContext.get().setVar("secondEmployeeId", employeeId);
+
+        Response tokenResp = adminClient.adminPost("/api/admin/employees/" + employeeId + "/invite", "");
+        assertThat(adminClient.statusCode(tokenResp)).isEqualTo(200);
+        String tokenBody = adminClient.body(tokenResp);
+        String tokenPath = tokenBody.replace("\"", "").trim();
+        String token = tokenPath.substring(tokenPath.lastIndexOf('/') + 1);
+        ScenarioContext.get().setVar("inviteToken2", token);
+    }
+
+    @Given("второй сотрудник открыл пригласительную ссылку")
+    public void secondEmployeeOpensInvite() {
+        String token = ScenarioContext.get().getVar("inviteToken2");
+        Response response = secondEmployeeClient.openInvite(token);
+        int status = secondEmployeeClient.statusCode(response);
+        assertThat(status).isIn(200, 302, 303);
+        String location = secondEmployeeClient.header(response, "Location");
+        assertThat(location).contains("/session/");
+        Matcher matcher = SESSION_UUID_PATTERN.matcher(location);
+        assertThat(matcher.find()).isTrue();
+        ScenarioContext.get().setVar("secondSessionId", matcher.group(1));
+        ScenarioContext.get().setLastResponse(secondEmployeeClient.body(response), status);
+    }
+
+    @When("отправляю GET {string} как второй сотрудник для сессии")
+    public void secondEmployeeGetForSession(String path) {
+        String resolvedPath = resolvePath(path);
+        lastEmployeeResponse = secondEmployeeClient.employeeGet(resolvedPath);
+        ScenarioContext.get().setLastResponse(
+                secondEmployeeClient.body(lastEmployeeResponse),
+                secondEmployeeClient.statusCode(lastEmployeeResponse));
     }
 
     @When("отправляю GET {string} как сотрудник для сессии")
