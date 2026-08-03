@@ -4,18 +4,22 @@ import com.assessment.common.BadRequestException;
 import com.assessment.entity.AiSettings;
 import com.assessment.repository.AiSettingsRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
 /**
  * Сервис управления активным провайдером LLM и промтами.
  * Поддерживает переключение между Gemini, GigaChat, OpenRouter и OpenCode.
- * API-ключи хранятся только в переменных окружения (.env).
+ * API-ключи читаются из окружения Spring {@link Environment}: это покрывает
+ * как системные переменные (Docker env_file, shell), так и файл .env при
+ * локальном запуске (springboot4-dotenv грузит его в PropertySource).
  * Промты хранятся в таблице ai_settings.
  */
 @Service
 public class AiProviderService {
 
     private final AiSettingsRepository settingsRepository;
+    private final Environment environment;
 
     /** Ключи настроек для промтов в таблице ai_settings. */
     public static final String PROMPT_SCORING = "prompt_scoring";
@@ -38,9 +42,11 @@ public class AiProviderService {
      * Конструктор сервиса управления провайдером AI.
      *
      * @param settingsRepository репозиторий настроек AI
+     * @param environment        окружение Spring (системные env + .env через dotenv)
      */
-    public AiProviderService(AiSettingsRepository settingsRepository) {
+    public AiProviderService(AiSettingsRepository settingsRepository, Environment environment) {
         this.settingsRepository = settingsRepository;
+        this.environment = environment;
     }
 
     /**
@@ -81,14 +87,16 @@ public class AiProviderService {
     }
 
     /**
-     * Возвращает API-ключ для указанного провайдера из переменных окружения.
+     * Возвращает API-ключ для указанного провайдера из окружения Spring.
+     * Читается через {@link Environment#getProperty(String)}, что покрывает
+     * системные переменные окружения и файл .env (springboot4-dotenv).
      *
      * @param provider название провайдера (gemini, gigachat, openrouter, opencode)
      * @return API-ключ или пустую строку, если ключ не найден
      */
     public String getApiKey(String provider) {
         String envKey = provider.toUpperCase() + "_API_KEY";
-        String fromEnv = System.getenv(envKey);
+        String fromEnv = environment.getProperty(envKey);
         return fromEnv != null ? fromEnv : "";
     }
 

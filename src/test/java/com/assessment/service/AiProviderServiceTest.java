@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -28,7 +29,7 @@ class AiProviderServiceTest {
 
     @BeforeEach
     void setUp() {
-        aiProviderService = new AiProviderService(settingsRepository);
+        aiProviderService = new AiProviderService(settingsRepository, new MockEnvironment());
         ReflectionTestUtils.setField(aiProviderService, "defaultProvider", "gemini");
     }
 
