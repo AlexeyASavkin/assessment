@@ -4,6 +4,9 @@ import com.assessment.ai.domain.ScoreResult;
 import com.assessment.ai.port.LlmScoringPort;
 import com.assessment.assessment.domain.Attempt;
 import com.assessment.assessment.port.out.AttemptRepositoryPort;
+import com.assessment.config.SessionLlmRateLimiter;
+import io.github.resilience4j.ratelimiter.RateLimiterConfig;
+import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,9 +15,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AttemptScoringExecutor: синхронная, асинхронная и пакетная оценка ответов")
+@DisplayName("AttemptScoringExecutor: синхронная и пакетная оценка ответов")
 class AttemptScoringExecutorTest {
 
     private static final UUID SESSION_ID = UUID.randomUUID();
@@ -38,7 +41,15 @@ class AttemptScoringExecutorTest {
 
     @BeforeEach
     void setUp() {
-        executor = new AttemptScoringExecutor(attemptRepositoryPort, llmScoringPort);
+        executor = new AttemptScoringExecutor(attemptRepositoryPort, llmScoringPort, rateLimiter());
+    }
+
+    private static SessionLlmRateLimiter rateLimiter() {
+        return new SessionLlmRateLimiter(RateLimiterRegistry.of(RateLimiterConfig.custom()
+                .limitForPeriod(1000)
+                .limitRefreshPeriod(Duration.ofMinutes(1))
+                .timeoutDuration(Duration.ofSeconds(1))
+                .build()));
     }
 
     @Test
@@ -70,44 +81,6 @@ class AttemptScoringExecutorTest {
 
         assertEquals(0, scored.getScore().compareTo(BigDecimal.ZERO));
         assertFalse(scored.getValidJudge());
-    }
-
-    @Test
-    @DisplayName("scoreAsync пропускает уже оценённую попытку без вызова LLM")
-    void scoreAsyncSkipsAlreadyScoredAttempt() {
-        Attempt scored = unanswered(ATTEMPT_ID, "Вопрос", "Ответ")
-                .withScore(new BigDecimal("3"), "mid", true, "Нормально");
-        when(attemptRepositoryPort.findById(ATTEMPT_ID)).thenReturn(Optional.of(scored));
-
-        executor.scoreAsync(ATTEMPT_ID);
-
-        verifyNoInteractions(llmScoringPort);
-        verify(attemptRepositoryPort, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("scoreAsync оценивает неоценённую попытку и сохраняет результат")
-    void scoreAsyncScoresUnscoredAttempt() {
-        when(attemptRepositoryPort.findById(ATTEMPT_ID))
-                .thenReturn(Optional.of(unanswered(ATTEMPT_ID, "Вопрос", "Ответ")));
-        when(llmScoringPort.score("Вопрос", "Ответ")).thenReturn(ScoreResult.of(5, "high", "Отлично"));
-        when(attemptRepositoryPort.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        executor.scoreAsync(ATTEMPT_ID);
-
-        verify(attemptRepositoryPort).save(argThat(a ->
-                a.getScore() != null && a.getScore().compareTo(new BigDecimal("5")) == 0));
-    }
-
-    @Test
-    @DisplayName("scoreAsync при сбое LLM не пробрасывает исключение и не сохраняет попытку")
-    void scoreAsyncSwallowsLlmFailure() {
-        when(attemptRepositoryPort.findById(ATTEMPT_ID))
-                .thenReturn(Optional.of(unanswered(ATTEMPT_ID, "Вопрос", "Ответ")));
-        when(llmScoringPort.score("Вопрос", "Ответ")).thenThrow(new RuntimeException("LLM недоступна"));
-
-        assertDoesNotThrow(() -> executor.scoreAsync(ATTEMPT_ID));
-        verify(attemptRepositoryPort, never()).save(any());
     }
 
     @Test
