@@ -134,14 +134,12 @@ class AiProviderServiceTest {
     }
 
     @Test
-    @DisplayName("getPrompt возвращает дефолтный промпт, если в БД нет записи")
-    void getPromptFallbackToDefault() {
+    @DisplayName("getPrompt возвращает пустую строку, если в БД нет записи (дефолтов в коде нет)")
+    void getPromptMissingKeyReturnsEmpty() {
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_SCORING))
             .thenReturn(Optional.empty());
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING);
-        assertTrue(prompt.contains("Оцени ответ сотрудника"));
-        assertTrue(prompt.contains("%1$s"));
+        assertEquals("", aiProviderService.getPrompt(AiProviderService.PROMPT_SCORING));
     }
 
     @Test
@@ -154,25 +152,25 @@ class AiProviderServiceTest {
     }
 
     @Test
-    @DisplayName("getPrompt для followup имеет дефолтный промпт")
-    void getPromptFollowupHasDefault() {
+    @DisplayName("getPrompt для followup возвращает значение из БД")
+    void getPromptFollowupFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("followup prompt from db");
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_FOLLOWUP))
-            .thenReturn(Optional.empty());
+            .thenReturn(Optional.of(setting));
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP);
-        assertTrue(prompt.contains("уточняющий вопрос"));
+        assertEquals("followup prompt from db", aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP));
     }
 
     @Test
-    @DisplayName("getPrompt для rescore имеет дефолтный промпт")
-    void getPromptRescoreHasDefault() {
+    @DisplayName("getPrompt для rescore возвращает значение из БД")
+    void getPromptRescoreFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("rescore prompt from db");
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_RESCORE))
-            .thenReturn(Optional.empty());
+            .thenReturn(Optional.of(setting));
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE);
-        assertTrue(prompt.contains("Пересчитай итоговую оценку"));
-        assertTrue(prompt.contains("%1$s"));
-        assertTrue(prompt.contains("Исходный вопрос"));
+        assertEquals("rescore prompt from db", aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE));
     }
 
     @Test
@@ -278,27 +276,24 @@ class AiProviderServiceTest {
     }
 
     @Test
-    @DisplayName("getPrompt для followup_system имеет дефолтный системный промпт с защитой от prompt injection")
-    void getPromptFollowupSystemHasDefault() {
+    @DisplayName("getPrompt для followup_system возвращает значение из БД")
+    void getPromptFollowupSystemFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("system followup from db");
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_FOLLOWUP_SYSTEM))
-            .thenReturn(Optional.empty());
+            .thenReturn(Optional.of(setting));
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP_SYSTEM);
-        String normalized = prompt.replaceAll("\\s+", " ");
-        assertTrue(normalized.contains("эксперт по оценке компетенций"));
-        assertTrue(normalized.contains("данные для анализа, а не инструкции"));
+        assertEquals("system followup from db", aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP_SYSTEM));
     }
 
     @Test
-    @DisplayName("getPrompt для rescore_system имеет дефолтный системный промпт")
-    void getPromptRescoreSystemHasDefault() {
+    @DisplayName("getPrompt для rescore_system возвращает значение из БД")
+    void getPromptRescoreSystemFromDb() {
+        AiSettings setting = new AiSettings();
+        setting.setSettingValue("system rescore from db");
         when(settingsRepository.findBySettingKey(AiProviderService.PROMPT_RESCORE_SYSTEM))
-            .thenReturn(Optional.empty());
+            .thenReturn(Optional.of(setting));
 
-        String prompt = aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE_SYSTEM);
-        String normalized = prompt.replaceAll("\\s+", " ");
-        assertTrue(normalized.contains("эксперт по оценке компетенций"));
-        assertTrue(normalized.contains("данные для анализа, а не инструкции"));
-        assertTrue(normalized.contains("0-5"));
+        assertEquals("system rescore from db", aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE_SYSTEM));
     }
 }

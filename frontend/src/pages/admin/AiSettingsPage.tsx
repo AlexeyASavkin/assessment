@@ -191,8 +191,8 @@ export default function AiSettingsPage() {
           <div className="card" style={{ marginTop: '1.5rem' }}>
             <h2 style={{ marginTop: 0 }}>Промты</h2>
             <p style={{ color: '#555', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Тексты промтов, которые отправляются LLM. Плейсхолдеры (<code>%1$s</code>, <code>%2$s</code>) заменяются на реальные значения при вызове.
-              Если поле пустое — используется промт по умолчанию.
+              Тексты промтов хранятся в БД (таблица ai_settings) и отправляются LLM при вызове. Плейсхолдеры (<code>%1$s</code>, <code>%2$s</code>) заменяются на реальные значения.
+              Если поле пустое — LLM получит пустой промт.
             </p>
             <form onSubmit={handlePromptsSubmit} className="admin-form">
               {PROMPT_META.map((meta) => (
