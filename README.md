@@ -81,20 +81,21 @@ docker compose up --build
 
 ### Unit-тесты
 
-159 unit-тестов в `src/test/` (запуск: `./gradlew test`):
+170 unit-тестов в `src/test/` (запуск: `./gradlew test`):
 
 | Файл | Сколько | Что проверяет |
 |------|---------|---------------|
 | `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из БД |
 | `HmacTokenValidatorTest` | 9 | Генерация и валидация HMAC-токенов |
-| `AiProviderServiceTest` | 16 | Переключение провайдеров, API-ключи, промпты |
-| `LlmJsonParserTest` | 17 | Извлечение значений из JSON-ответов LLM |
+| `AiProviderServiceTest` | 20 | Переключение провайдеров, API-ключи, промпты |
+| `LlmJsonParserTest` | 24 | Извлечение значений из JSON-ответов LLM |
+| `SessionLlmRateLimiterTest` | 3 | Персональный rate limiter сессии (Resilience4j) |
 | `AssessmentSessionTest`, `AttemptTest`, `AssessmentResultTest`, `InviteTokenTest` | 14 | Иммутабельные domain-модели assessment-контекста |
-| `InviteEmployeeUseCaseImplTest`, `GetQuestionUseCaseImplTest`, `SubmitAnswerUseCaseImplTest`, `GetReportUseCaseImplTest` | 27 | Use case'ы session flow сотрудника |
-| `AttemptScoringExecutorTest`, `SessionQuestionPickerTest` | 17 | Асинхронная оценка ответов и выбор вопросов |
-| `CompetencyCrudUseCaseImplTest`, `SectionCrudUseCaseImplTest`, `TopicCrudUseCaseImplTest` | 18 | CRUD компетенций, разделов и тем |
-| `EmployeeCrudUseCaseImplTest`, `TokenManagementUseCaseImplTest` | 15 | CRUD сотрудников и пригласительные токены |
-| `QuestionBankManagementUseCaseImplTest`, `AiSettingsUseCaseImplTest`, `ApplicationManagementUseCaseImplTest` | 21 | Банк вопросов, настройки AI, управление приложением |
+| `InviteEmployeeUseCaseImplTest`, `GetQuestionUseCaseImplTest`, `SubmitAnswerUseCaseImplTest`, `GetReportUseCaseImplTest` | 36 | Use case'ы session flow сотрудника |
+| `AttemptScoringExecutorTest`, `SessionQuestionPickerTest` | 17 | Оценка ответов и выбор вопросов |
+| `CompetencyCrudUseCaseImplTest`, `SectionCrudUseCaseImplTest`, `TopicCrudUseCaseImplTest` | 11 | CRUD компетенций, разделов и тем |
+| `EmployeeCrudUseCaseImplTest`, `TokenManagementUseCaseImplTest` | 14 | CRUD сотрудников и пригласительные токены |
+| `QuestionBankManagementUseCaseImplTest`, `AiSettingsUseCaseImplTest`, `ApplicationManagementUseCaseImplTest` | 17 | Банк вопросов, настройки AI, управление приложением |
 
 ### Component (BDD) тесты
 
@@ -102,14 +103,14 @@ docker compose up --build
 
 **Стек тестов:** Cucumber 7.21 + JUnit 5 + OkHttp 4 + Allure 2.30 (`allure-cucumber7-jvm`).
 
-**5 feature-файлов, 16 сценариев:**
+**5 feature-файлов, 27 сценариев:**
 
 | Файл | Что проверяет |
 |------|---------------|
-| `admin_auth.feature` | Вход админа (успех/неверный пароль), доступ без авторизации |
+| `admin_auth.feature` | Вход админа (успех/неверный пароль), доступ без авторизации ко всем админским ресурсам |
 | `competencies.feature` | CRUD компетенций, разделов и тем |
 | `employees.feature` | CRUD сотрудников, генерация пригласительной ссылки, открытие ссылки |
-| `employee_session.feature` | Получение вопроса, отправка ответа, завершение сессии |
+| `employee_session.feature` | Получение вопроса, отправка ответа, уточняющие вопросы для слабых ответов, завершение сессии, повторное открытие ссылки, невалидный токен, изоляция сессий сотрудников (IDOR) |
 | `report.feature` | Отчёт по завершённой сессии, отказ для активной, админский отчёт |
 
 ### Запуск тестов
@@ -139,7 +140,7 @@ start-backend.bat
 
 Для тестов используется отдельный файл конфигурации `tests/component/src/test/resources/config/test-admin.properties` с credentials `admin / TestAdminPass!` — они отличаются от значений в `.env`. При запуске через `start-backend.bat` пароль автоматически подставляется через `ADMIN_PASSWORD_HASH`.
 
-**Stub AI-провайдер:** при `AI_PROVIDER=stub` все LLM-вызовы возвращают заранее заданные ответы (оценка 4.0, текст «Stub response»). Позволяет тестировать логику приложения без внешних API.
+**Stub AI-провайдер:** при `AI_PROVIDER=stub` все LLM-вызовы возвращают заранее заданные ответы без внешних API. Оценка ответов детерминированная по содержимому: ответ со словом «слабый» получает 1 балл (триггерит уточняющий вопрос), остальные — 4 балла. Генерация вопросов возвращает уникальные тексты для каждой темы (вопрос N). Позволяет тестировать логику приложения без внешних API.
 
 ## Конфигурация
 
@@ -165,8 +166,6 @@ assessment:
     token-expiry-hours: 72
   question:
     max-questions-per-session: 20
-  rate-limiter:
-    max-requests-per-minute: 15
   ai:
     active-provider: ${AI_PROVIDER:gemini}
 ```
@@ -194,9 +193,9 @@ assessment:
 ### Расчёт результата
 
 - Средняя оценка по теме считается только по основным вопросам (`followup_depth = 0`) и только по валидным оценкам (`valid_judge = true`).
-- `avg >= 3.5` → тема пройдена
+- `avg >= 3.0` → тема пройдена
 - иначе → тема не пройдена
-- Общий результат — «Пройден», если пройдены все темы.
+- Общий результат — «Пройден», если средний балл по всем темам ≥ 3.0.
 
 ## API
 
