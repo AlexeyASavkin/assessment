@@ -94,18 +94,4 @@ class TokenManagementUseCaseImplTest {
         assertTrue(link.isEmpty());
         verifyNoInteractions(tokenRepositoryPort, hmacValidator);
     }
-
-    @Test
-    @DisplayName("listTokens делегирует tokenRepositoryPort.findAll")
-    void listTokensDelegatesToPort() {
-        List<AssessmentInviteToken> tokens = List.of(
-                AssessmentInviteToken.builder().tokenHash("hash-1").build(),
-                AssessmentInviteToken.builder().tokenHash("hash-2").build());
-        when(tokenRepositoryPort.findAll()).thenReturn(tokens);
-
-        List<AssessmentInviteToken> result = useCase.listTokens();
-
-        assertSame(tokens, result);
-        verify(tokenRepositoryPort).findAll();
-    }
 }

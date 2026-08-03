@@ -86,6 +86,7 @@ class HmacTokenValidatorTest {
     @DisplayName("Пустой секрет вызывает ошибку при генерации")
     void emptySecretThrowsOnGenerate() {
         HmacTokenValidator v = new HmacTokenValidator("");
-        assertThrows(Exception.class, () -> v.generateToken(EMPLOYEE_ID));
+        // SecretKeySpec отклоняет пустой ключ IllegalArgumentException'ом
+        assertThrows(IllegalArgumentException.class, () -> v.generateToken(EMPLOYEE_ID));
     }
 }
