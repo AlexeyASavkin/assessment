@@ -8,6 +8,7 @@ import com.assessment.assessment.port.out.SessionRepositoryPort;
 import com.assessment.security.HmacTokenValidator;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -34,7 +35,18 @@ public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
         this.hmacValidator = hmacValidator;
     }
 
+    /**
+     * Валидирует пригласительный токен и создаёт/возвращает сессию сотрудника.
+     *
+     * <p>Операция read-modify-write (найти токен → создать сессию → пометить токен
+     * использованным) выполняется в одной транзакции, чтобы исключить гонку при
+     * одновременном открытии одной и той же пригласительной ссылки.
+     *
+     * @param token пригласительный токен
+     * @return результат валидации или {@link Optional#empty()} если токен невалиден/истёк
+     */
     @Override
+    @Transactional
     public Optional<InviteOutcome> validateInvite(String token) {
         String hash = hmacValidator.generateToken(token);
         return inviteTokenRepositoryPort.findByTokenHash(hash)

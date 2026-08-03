@@ -5,6 +5,7 @@ import com.assessment.assessment.domain.QuestionBankQuestion;
 import com.assessment.assessment.domain.TopicInfo;
 import com.assessment.assessment.port.out.QuestionBankRepositoryPort;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,9 +24,26 @@ import java.util.stream.Collectors;
 public class SessionQuestionPicker {
 
     private final QuestionBankRepositoryPort questionBankRepositoryPort;
+    private final int maxQuestionsPerSession;
 
-    public SessionQuestionPicker(QuestionBankRepositoryPort questionBankRepositoryPort) {
+    public SessionQuestionPicker(QuestionBankRepositoryPort questionBankRepositoryPort,
+                                 @Value("${assessment.question.max-questions-per-session:20}") int maxQuestionsPerSession) {
         this.questionBankRepositoryPort = questionBankRepositoryPort;
+        this.maxQuestionsPerSession = maxQuestionsPerSession;
+    }
+
+    /**
+     * Проверяет, достигнут ли лимит вопросов сессии.
+     *
+     * <p>Лимит {@code assessment.question.max-questions-per-session} ограничивает
+     * суммарное количество выданных вопросов (основных и уточняющих), не давая
+     * сессии расти бесконечно.
+     *
+     * @param sessionAttempts список всех попыток сессии
+     * @return {@code true}, если количество попыток достигло лимита
+     */
+    public boolean hasReachedQuestionLimit(List<Attempt> sessionAttempts) {
+        return sessionAttempts.size() >= maxQuestionsPerSession;
     }
 
     /**

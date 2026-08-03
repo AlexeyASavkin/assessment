@@ -6,6 +6,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -76,7 +78,8 @@ public class EmployeeTokenService {
     /**
      * Устанавливает cookie сессии сотрудника в HTTP-ответе.
      * <p>
-     * Cookie содержит идентификатор сессии и HMAC-подпись, защищен флагами HttpOnly и Secure.
+     * Cookie содержит идентификатор сессии и HMAC-подпись, защищен флагами HttpOnly,
+     * Secure (при HTTPS/за прокси) и SameSite=Lax (защита от CSRF-подобных сценариев).
      *
      * @param request  HTTP-запрос для определения флага Secure
      * @param response HTTP-ответ, в который добавляется cookie
@@ -86,11 +89,13 @@ public class EmployeeTokenService {
         String signature = hmacValidator.generateToken(session.getId().toString());
         String value = session.getId().toString() + "|" + signature;
 
-        Cookie cookie = new Cookie(cookieName, value);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(request.isSecure());
-        cookie.setMaxAge(tokenExpiryHours * 3600);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(cookieName, value)
+                .path("/")
+                .httpOnly(true)
+                .secure(request.isSecure())
+                .sameSite("Lax")
+                .maxAge((long) tokenExpiryHours * 3600)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 }

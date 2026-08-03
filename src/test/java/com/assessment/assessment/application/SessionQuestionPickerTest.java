@@ -12,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,7 +33,7 @@ class SessionQuestionPickerTest {
 
     @BeforeEach
     void setUp() {
-        picker = new SessionQuestionPicker(questionBankRepositoryPort);
+        picker = new SessionQuestionPicker(questionBankRepositoryPort, 20);
     }
 
     @Test
@@ -140,6 +141,37 @@ class SessionQuestionPickerTest {
         assertNull(picker.findNextTopicId(attempts, topics));
     }
 
+    @Test
+    @DisplayName("hasReachedQuestionLimit возвращает false, пока лимит не достигнут")
+    void hasReachedQuestionLimitReturnsFalseBelowLimit() {
+        List<Attempt> attempts = List.of(attempt(TOPIC_ID, "Вопрос 1", "Ответ"));
+
+        assertFalse(picker.hasReachedQuestionLimit(attempts));
+    }
+
+    @Test
+    @DisplayName("hasReachedQuestionLimit возвращает true при достижении лимита сессии")
+    void hasReachedQuestionLimitReturnsTrueAtLimit() {
+        List<Attempt> attempts = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            attempts.add(attempt(TOPIC_ID, "Вопрос " + i, "Ответ"));
+        }
+
+        assertTrue(picker.hasReachedQuestionLimit(attempts));
+    }
+
+    @Test
+    @DisplayName("hasReachedQuestionLimit учитывает и уточняющие вопросы")
+    void hasReachedQuestionLimitCountsFollowUpAttempts() {
+        List<Attempt> attempts = new ArrayList<>();
+        for (int i = 0; i < 19; i++) {
+            attempts.add(attempt(TOPIC_ID, "Вопрос " + i, "Ответ"));
+        }
+        attempts.add(attempt(TOPIC_ID, "Уточнение", "Ответ", 1));
+
+        assertTrue(picker.hasReachedQuestionLimit(attempts));
+    }
+
     private static QuestionBankQuestion bankQuestion(String questionText) {
         return QuestionBankQuestion.of(UUID.randomUUID(), TOPIC_ID, questionText);
     }
@@ -151,5 +183,10 @@ class SessionQuestionPickerTest {
     private static Attempt attempt(UUID topicId, String questionText, String transcript) {
         return Attempt.of(UUID.randomUUID(), UUID.randomUUID(), questionText, transcript, null, null,
                 null, null, null, 0, null, topicId, null, null, null, Instant.now());
+    }
+
+    private static Attempt attempt(UUID topicId, String questionText, String transcript, int followupDepth) {
+        return Attempt.of(UUID.randomUUID(), UUID.randomUUID(), questionText, transcript, null, null,
+                null, null, null, followupDepth, null, topicId, null, null, null, Instant.now());
     }
 }

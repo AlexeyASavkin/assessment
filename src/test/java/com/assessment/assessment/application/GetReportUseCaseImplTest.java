@@ -154,6 +154,22 @@ class GetReportUseCaseImplTest {
         assertSame(attempts, result.getAttempts());
     }
 
+    @Test
+    @DisplayName("Отчёт формируется и для активной сессии — статус проверяется на уровне адаптера")
+    void reportGeneratedForActiveSession() {
+        UUID topicId = UUID.randomUUID();
+        List<Attempt> attempts = List.of(attempt(topicId, 0, "4", true, "Хороший ответ"));
+        AssessmentSession session = AssessmentSession.of(SESSION_ID, UUID.randomUUID(), EMPLOYEE_NAME, null,
+                SessionStatus.ACTIVE, null, Instant.now());
+        when(sessionRepositoryPort.findById(SESSION_ID)).thenReturn(Optional.of(session));
+        when(attemptRepositoryPort.findBySessionIdOrderByCreatedAtAsc(SESSION_ID)).thenReturn(attempts);
+
+        AssessmentResult result = useCase.getReport(SESSION_ID);
+
+        assertEquals(1, result.getTopics().size());
+        assertTrue(result.isPassed());
+    }
+
     private void stubSessionAndAttempts(List<Attempt> attempts) {
         AssessmentSession session = AssessmentSession.of(SESSION_ID, UUID.randomUUID(), EMPLOYEE_NAME, null,
                 SessionStatus.COMPLETED, null, Instant.now());
