@@ -3,6 +3,7 @@ package com.assessment.service;
 import com.assessment.entity.*;
 import com.assessment.repository.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,19 +50,18 @@ public class QuestionGeneratorService {
      * @return список сохраненных вопросов
      * @throws NoSuchElementException   если компетенция не найдена
      */
+    @Transactional
     public List<QuestionBank> generateAndSave(UUID competencyId, int count, String difficulty) {
         Competency competency = competencyRepository.findById(competencyId)
                 .orElseThrow(() -> new NoSuchElementException("Компетенция не найдена: " + competencyId));
 
-        List<Topic> topics = topicRepository.findAll().stream()
-                .filter(t -> t.getSection().getCompetency().getId().equals(competencyId))
-                .toList();
+        List<Topic> topics = topicRepository.findBySection_Competency_Id(competencyId);
 
         if (topics.isEmpty()) {
             throw new IllegalStateException("У компетенции нет тем для генерации вопросов.");
         }
 
-        List<QuestionBank> saved = new ArrayList<>();
+        List<QuestionBank> generated = new ArrayList<>();
 
         for (Topic topic : topics) {
             for (int i = 0; i < count; i++) {
@@ -73,11 +73,11 @@ public class QuestionGeneratorService {
                 question.setQuestionText(questionText.trim());
                 question.setDifficulty(difficulty);
 
-                saved.add(questionBankRepository.save(question));
+                generated.add(question);
             }
         }
 
-        return saved;
+        return questionBankRepository.saveAll(generated);
     }
 
     /**
@@ -89,6 +89,7 @@ public class QuestionGeneratorService {
      * @return список сохраненных вопросов
      * @throws NoSuchElementException   если тема не найдена
      */
+    @Transactional
     public List<QuestionBank> generateAndSaveForTopic(UUID topicId, int count, String difficulty) {
         Topic topic = topicRepository.findById(topicId)
                 .orElseThrow(() -> new NoSuchElementException("Тема не найдена: " + topicId));
@@ -97,7 +98,7 @@ public class QuestionGeneratorService {
 
         int startOrder = questionBankRepository.findByTopicIdOrderBySortOrderAsc(topicId).size();
 
-        List<QuestionBank> saved = new ArrayList<>();
+        List<QuestionBank> generated = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
             String questionText = questionSelector.generateQuestion(null, topic.getId());
@@ -109,9 +110,9 @@ public class QuestionGeneratorService {
             question.setDifficulty(difficulty);
             question.setSortOrder(startOrder + i);
 
-            saved.add(questionBankRepository.save(question));
+            generated.add(question);
         }
 
-        return saved;
+        return questionBankRepository.saveAll(generated);
     }
 }

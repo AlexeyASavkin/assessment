@@ -18,4 +18,13 @@ public interface TopicRepository extends JpaRepository<Topic, UUID> {
      * @return список тем
      */
     List<Topic> findBySectionId(UUID sectionId);
+
+    /**
+     * Возвращает список тем, принадлежащих указанной компетенции
+     * (одним запросом без загрузки всех тем).
+     *
+     * @param competencyId идентификатор компетенции
+     * @return список тем компетенции
+     */
+    List<Topic> findBySection_Competency_Id(UUID competencyId);
 }
