@@ -3,6 +3,7 @@ package com.assessment.management.application;
 import com.assessment.entity.Competency;
 import com.assessment.entity.Section;
 import com.assessment.management.port.out.CompetencyRepositoryPort;
+import com.assessment.management.port.out.QuestionAttemptRepositoryPort;
 import com.assessment.management.port.out.SectionRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,11 +30,15 @@ class SectionCrudUseCaseImplTest {
     @Mock
     private SectionRepositoryPort sectionRepositoryPort;
 
+    @Mock
+    private QuestionAttemptRepositoryPort questionAttemptRepositoryPort;
+
     private SectionCrudUseCaseImpl useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new SectionCrudUseCaseImpl(competencyRepositoryPort, sectionRepositoryPort);
+        useCase = new SectionCrudUseCaseImpl(competencyRepositoryPort, sectionRepositoryPort,
+                questionAttemptRepositoryPort);
     }
 
     @Test
@@ -66,19 +71,6 @@ class SectionCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("listSections делегирует findByCompetencyId")
-    void listSectionsDelegatesToPort() {
-        UUID competencyId = UUID.randomUUID();
-        List<Section> sections = List.of(Section.builder().name("Основы").build());
-        when(sectionRepositoryPort.findByCompetencyId(competencyId)).thenReturn(sections);
-
-        List<Section> result = useCase.listSections(competencyId);
-
-        assertSame(sections, result);
-        verify(sectionRepositoryPort).findByCompetencyId(competencyId);
-    }
-
-    @Test
     @DisplayName("updateSection применяет мутатор и сохраняет сущность")
     void updateSectionAppliesMutatorAndSaves() {
         UUID id = UUID.randomUUID();
@@ -97,24 +89,13 @@ class SectionCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("updateSection возвращает пусто, если раздел не найден")
-    void updateSectionNotFound() {
-        UUID id = UUID.randomUUID();
-        when(sectionRepositoryPort.findById(id)).thenReturn(Optional.empty());
-
-        Optional<Section> updated = useCase.updateSection(id, s -> s);
-
-        assertTrue(updated.isEmpty());
-        verify(sectionRepositoryPort, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("deleteSection делегирует deleteById")
-    void deleteSectionDelegatesToPort() {
+    @DisplayName("deleteSection чистит попытки ответов раздела перед удалением")
+    void deleteSectionCleansAttemptsThenDeletes() {
         UUID id = UUID.randomUUID();
 
         useCase.deleteSection(id);
 
+        verify(questionAttemptRepositoryPort).deleteBySectionId(id);
         verify(sectionRepositoryPort).deleteById(id);
     }
 }

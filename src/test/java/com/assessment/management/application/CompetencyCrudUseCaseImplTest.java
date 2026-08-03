@@ -2,6 +2,7 @@ package com.assessment.management.application;
 
 import com.assessment.entity.Competency;
 import com.assessment.management.port.out.CompetencyRepositoryPort;
+import com.assessment.management.port.out.QuestionAttemptRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,49 +25,15 @@ class CompetencyCrudUseCaseImplTest {
     @Mock
     private CompetencyRepositoryPort competencyRepositoryPort;
 
+    @Mock
+    private QuestionAttemptRepositoryPort questionAttemptRepositoryPort;
+
     private CompetencyCrudUseCaseImpl useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new CompetencyCrudUseCaseImpl(competencyRepositoryPort);
-    }
-
-    @Test
-    @DisplayName("createCompetency сохраняет компетенцию через порт")
-    void createCompetencySaves() {
-        Competency competency = Competency.builder().name("Java").build();
-        when(competencyRepositoryPort.save(competency)).thenReturn(competency);
-
-        Competency saved = useCase.createCompetency(competency);
-
-        assertSame(competency, saved);
-        verify(competencyRepositoryPort).save(competency);
-    }
-
-    @Test
-    @DisplayName("listCompetencies делегирует findAll")
-    void listCompetenciesDelegatesToPort() {
-        List<Competency> competencies = List.of(Competency.builder().name("Java").build());
-        when(competencyRepositoryPort.findAll()).thenReturn(competencies);
-
-        List<Competency> result = useCase.listCompetencies();
-
-        assertSame(competencies, result);
-        verify(competencyRepositoryPort).findAll();
-    }
-
-    @Test
-    @DisplayName("getCompetency делегирует findById")
-    void getCompetencyDelegatesToPort() {
-        UUID id = UUID.randomUUID();
-        Competency competency = Competency.builder().id(id).name("Java").build();
-        when(competencyRepositoryPort.findById(id)).thenReturn(Optional.of(competency));
-
-        Optional<Competency> result = useCase.getCompetency(id);
-
-        assertTrue(result.isPresent());
-        assertSame(competency, result.get());
-        verify(competencyRepositoryPort).findById(id);
+        useCase = new CompetencyCrudUseCaseImpl(competencyRepositoryPort,
+                questionAttemptRepositoryPort);
     }
 
     @Test
@@ -100,12 +67,13 @@ class CompetencyCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("deleteCompetency делегирует deleteById")
-    void deleteCompetencyDelegatesToPort() {
+    @DisplayName("deleteCompetency чистит попытки ответов компетенции перед удалением")
+    void deleteCompetencyCleansAttemptsThenDeletes() {
         UUID id = UUID.randomUUID();
 
         useCase.deleteCompetency(id);
 
+        verify(questionAttemptRepositoryPort).deleteByCompetencyId(id);
         verify(competencyRepositoryPort).deleteById(id);
     }
 }

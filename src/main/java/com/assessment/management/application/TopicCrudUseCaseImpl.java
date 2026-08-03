@@ -1,6 +1,7 @@
 package com.assessment.management.application;
 
 import com.assessment.entity.Topic;
+import com.assessment.management.port.out.QuestionAttemptRepositoryPort;
 import com.assessment.management.port.out.SectionRepositoryPort;
 import com.assessment.management.port.out.TopicRepositoryPort;
 
@@ -26,11 +27,14 @@ public class TopicCrudUseCaseImpl implements TopicCrudUseCase {
 
     private final SectionRepositoryPort sectionRepositoryPort;
     private final TopicRepositoryPort topicRepositoryPort;
+    private final QuestionAttemptRepositoryPort questionAttemptRepositoryPort;
 
     public TopicCrudUseCaseImpl(SectionRepositoryPort sectionRepositoryPort,
-                                TopicRepositoryPort topicRepositoryPort) {
+                                TopicRepositoryPort topicRepositoryPort,
+                                QuestionAttemptRepositoryPort questionAttemptRepositoryPort) {
         this.sectionRepositoryPort = sectionRepositoryPort;
         this.topicRepositoryPort = topicRepositoryPort;
+        this.questionAttemptRepositoryPort = questionAttemptRepositoryPort;
     }
 
     @Override
@@ -59,7 +63,11 @@ public class TopicCrudUseCaseImpl implements TopicCrudUseCase {
     }
 
     @Override
+    @Transactional
     public void deleteTopic(UUID id) {
+        // Попытки ответов ссылаются на тему через FK fk_attempts_topic —
+        // чистим их до удаления самой темы, иначе БД отклонит удаление.
+        questionAttemptRepositoryPort.deleteByTopicId(id);
         topicRepositoryPort.deleteById(id);
     }
 }

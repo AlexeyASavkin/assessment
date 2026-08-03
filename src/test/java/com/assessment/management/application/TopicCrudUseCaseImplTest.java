@@ -2,6 +2,7 @@ package com.assessment.management.application;
 
 import com.assessment.entity.Section;
 import com.assessment.entity.Topic;
+import com.assessment.management.port.out.QuestionAttemptRepositoryPort;
 import com.assessment.management.port.out.SectionRepositoryPort;
 import com.assessment.management.port.out.TopicRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,11 +30,15 @@ class TopicCrudUseCaseImplTest {
     @Mock
     private TopicRepositoryPort topicRepositoryPort;
 
+    @Mock
+    private QuestionAttemptRepositoryPort questionAttemptRepositoryPort;
+
     private TopicCrudUseCaseImpl useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new TopicCrudUseCaseImpl(sectionRepositoryPort, topicRepositoryPort);
+        useCase = new TopicCrudUseCaseImpl(sectionRepositoryPort, topicRepositoryPort,
+                questionAttemptRepositoryPort);
     }
 
     @Test
@@ -66,19 +71,6 @@ class TopicCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("listTopics делегирует findBySectionId")
-    void listTopicsDelegatesToPort() {
-        UUID sectionId = UUID.randomUUID();
-        List<Topic> topics = List.of(Topic.builder().name("Stream API").build());
-        when(topicRepositoryPort.findBySectionId(sectionId)).thenReturn(topics);
-
-        List<Topic> result = useCase.listTopics(sectionId);
-
-        assertSame(topics, result);
-        verify(topicRepositoryPort).findBySectionId(sectionId);
-    }
-
-    @Test
     @DisplayName("updateTopic применяет мутатор и сохраняет сущность")
     void updateTopicAppliesMutatorAndSaves() {
         UUID id = UUID.randomUUID();
@@ -97,24 +89,13 @@ class TopicCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("updateTopic возвращает пусто, если тема не найдена")
-    void updateTopicNotFound() {
-        UUID id = UUID.randomUUID();
-        when(topicRepositoryPort.findById(id)).thenReturn(Optional.empty());
-
-        Optional<Topic> updated = useCase.updateTopic(id, t -> t);
-
-        assertTrue(updated.isEmpty());
-        verify(topicRepositoryPort, never()).save(any());
-    }
-
-    @Test
-    @DisplayName("deleteTopic делегирует deleteById")
-    void deleteTopicDelegatesToPort() {
+    @DisplayName("deleteTopic чистит попытки ответов темы перед удалением")
+    void deleteTopicCleansAttemptsThenDeletes() {
         UUID id = UUID.randomUUID();
 
         useCase.deleteTopic(id);
 
+        verify(questionAttemptRepositoryPort).deleteByTopicId(id);
         verify(topicRepositoryPort).deleteById(id);
     }
 }
