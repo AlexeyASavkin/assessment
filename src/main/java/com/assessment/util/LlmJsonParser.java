@@ -1,16 +1,26 @@
 package com.assessment.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.math.RoundingMode;
+import java.util.Optional;
+
 /**
- * Минималистичный парсер JSON-ответов LLM без зависимости от полноценного JSON-парсера.
- * Используется сервисами скоринга/переоценки для извлечения значений по ключу.
+ * Парсер JSON-ответов LLM на базе Jackson.
  *
- * <p>Поддерживает:
+ * <p>Извлекает значения по ключу из JSON-ответа модели. В отличие от ручного
+ * парсера корректно обрабатывает:
  * <ul>
- *   <li>строковые значения в кавычках — {@code "key": "value"}</li>
- *   <li>числовые/булевы без кавычек — {@code "key": 5}</li>
+ *   <li>экранированные кавычки в строковых значениях ({@code "He said \"hi\""});</li>
+ *   <li>markdown-ограждения {@code ```json ... ```};</li>
+ *   <li>точное совпадение ключей ({@code "score"} не путается с {@code "score_raw"});</li>
+ *   <li>десятичные оценки ({@code "score": 4.5} округляется по HALF_UP).</li>
  * </ul>
  */
 public final class LlmJsonParser {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private LlmJsonParser() {
     }
@@ -18,37 +28,69 @@ public final class LlmJsonParser {
     /**
      * Извлекает строковое значение по ключу из JSON-строки.
      *
-     * @param json JSON-строка
+     * @param json JSON-строка (допускаются markdown-ограждения ```json)
      * @param key  ключ для поиска
-     * @return найденное значение или пустая строка, если ключ не найден
+     * @return найденное значение или пустая строка, если ключ не найден или JSON невалиден
      */
     public static String extractJsonValue(String json, String key) {
-        String searchKey = "\"" + key + "\"";
-        int keyIndex = json.indexOf(searchKey);
-        if (keyIndex == -1) return "";
-
-        int colonIndex = json.indexOf(":", keyIndex);
-        if (colonIndex == -1) return "";
-
-        int valueStart = colonIndex + 1;
-        while (valueStart < json.length() && json.charAt(valueStart) == ' ') {
-            valueStart++;
-        }
-        if (valueStart >= json.length()) return "";
-
-        if (json.charAt(valueStart) == '"') {
-            // Строковое значение в кавычках
-            valueStart++;
-            int valueEnd = json.indexOf('"', valueStart);
-            if (valueEnd == -1) return "";
-            return json.substring(valueStart, valueEnd);
-        } else {
-            // Числовое / булево значение без кавычек — до запятой или закрывающей скобки
-            int valueEnd = valueStart;
-            while (valueEnd < json.length() && json.charAt(valueEnd) != ',' && json.charAt(valueEnd) != '}') {
-                valueEnd++;
+        try {
+            JsonNode root = MAPPER.readTree(stripCodeFences(json));
+            if (root == null) {
+                return "";
             }
-            return json.substring(valueStart, valueEnd).trim();
+            JsonNode node = root.get(key);
+            if (node == null || node.isNull()) {
+                return "";
+            }
+            return node.isValueNode() ? node.asText() : node.toString();
+        } catch (Exception e) {
+            return "";
         }
+    }
+
+    /**
+     * Извлекает числовую оценку по ключу из JSON-строки с округлением десятичных значений.
+     *
+     * @param json JSON-строка (допускаются markdown-ограждения ```json)
+     * @param key  ключ для поиска (обычно {@code "score"})
+     * @return оценка, округлённая до целого (HALF_UP), или {@link Optional#empty()},
+     *         если ключ отсутствует, значение нечисловое или JSON невалиден
+     */
+    public static Optional<Integer> extractScore(String json, String key) {
+        try {
+            JsonNode root = MAPPER.readTree(stripCodeFences(json));
+            if (root == null) {
+                return Optional.empty();
+            }
+            JsonNode node = root.get(key);
+            if (node == null || !node.isNumber()) {
+                return Optional.empty();
+            }
+            return Optional.of(node.decimalValue().setScale(0, RoundingMode.HALF_UP).intValue());
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Убирает markdown-ограждения кода ({@code ```json ... ```}), если они присутствуют.
+     *
+     * @param json исходная строка ответа LLM
+     * @return строка без ограждений (или исходная строка, если ограждений нет)
+     */
+    private static String stripCodeFences(String json) {
+        if (json == null) {
+            return "";
+        }
+        String trimmed = json.trim();
+        if (!trimmed.startsWith("```")) {
+            return trimmed;
+        }
+        int firstNewline = trimmed.indexOf('\n');
+        int lastFence = trimmed.lastIndexOf("```");
+        if (firstNewline == -1 || lastFence <= firstNewline) {
+            return trimmed;
+        }
+        return trimmed.substring(firstNewline + 1, lastFence).trim();
     }
 }
