@@ -843,13 +843,13 @@ paths:
                 properties:
                   activeProvider:
                     type: string
-                    enum: [gemini, gigachat, openrouter, opencode]
+                    enum: [gemini, gigachat, openrouter, opencode, stub]
                     example: gemini
                   availableProviders:
                     type: array
                     items:
                       type: string
-                    example: [gemini, gigachat, openrouter, opencode]
+                    example: [gemini, gigachat, openrouter, opencode, stub]
     put:
       summary: Обновить AI-провайдера
       operationId: updateAiSettings
@@ -1274,6 +1274,12 @@ components:
         prompt_rescore:
           type: string
           description: Промт переоценки с учётом уточнения
+        prompt_followup_system:
+          type: string
+          description: Системный промт генерации уточняющего вопроса
+        prompt_rescore_system:
+          type: string
+          description: Системный промт переоценки с учётом уточнения
 
     ErrorResponse:
       type: object

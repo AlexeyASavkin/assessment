@@ -564,7 +564,8 @@ public class AdminWebAdapter {
     // ---- AI Prompts ----
 
     /**
-     * Возвращает все промты ИИ (промт оценки, генерации вопроса, уточняющего вопроса).
+     * Возвращает все промты ИИ (оценки, генерации вопроса, уточняющего вопроса,
+     * переоценки и системные промты уточнения/переоценки).
      *
      * @return карта с промтами
      */
@@ -575,12 +576,15 @@ public class AdminWebAdapter {
                 .promptScoring(prompts.get("prompt_scoring"))
                 .promptQuestion(prompts.get("prompt_question"))
                 .promptFollowup(prompts.get("prompt_followup"))
-                .promptRescore(prompts.get("prompt_rescore")));
+                .promptRescore(prompts.get("prompt_rescore"))
+                .promptFollowupSystem(prompts.get("prompt_followup_system"))
+                .promptRescoreSystem(prompts.get("prompt_rescore_system")));
     }
 
     /**
      * Обновляет промты ИИ. Принимает карту ключ→значение.
-     * Ключи: prompt_scoring, prompt_question.
+     * Ключи: prompt_scoring, prompt_question, prompt_followup, prompt_rescore,
+     * prompt_followup_system, prompt_rescore_system.
      *
      * @param dto карта с промтами
      * @return обновленные промты
@@ -591,6 +595,8 @@ public class AdminWebAdapter {
         if (dto.getPromptQuestion() != null) aiSettings.setPrompt("prompt_question", dto.getPromptQuestion());
         if (dto.getPromptFollowup() != null) aiSettings.setPrompt("prompt_followup", dto.getPromptFollowup());
         if (dto.getPromptRescore() != null) aiSettings.setPrompt("prompt_rescore", dto.getPromptRescore());
+        if (dto.getPromptFollowupSystem() != null) aiSettings.setPrompt("prompt_followup_system", dto.getPromptFollowupSystem());
+        if (dto.getPromptRescoreSystem() != null) aiSettings.setPrompt("prompt_rescore_system", dto.getPromptRescoreSystem());
         return getAiPrompts();
     }
 

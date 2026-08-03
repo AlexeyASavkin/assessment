@@ -425,6 +425,8 @@ export interface AiPrompts {
   prompt_question: string
   prompt_followup: string
   prompt_rescore: string
+  prompt_followup_system: string
+  prompt_rescore_system: string
 }
 
 /**
