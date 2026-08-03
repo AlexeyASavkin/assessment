@@ -34,6 +34,11 @@ public class TokenJpaAdapter implements TokenRepositoryPort {
     }
 
     @Override
+    public List<AssessmentInviteToken> findAllWithDetails() {
+        return tokenRepository.findAllWithDetails();
+    }
+
+    @Override
     public void deleteByEmployeeId(UUID employeeId) {
         tokenRepository.deleteByEmployeeId(employeeId);
     }
