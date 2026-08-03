@@ -37,6 +37,7 @@ import com.assessment.management.application.QuestionBankManagementUseCase;
 import com.assessment.management.application.SectionCrudUseCase;
 import com.assessment.management.application.TokenManagementUseCase;
 import com.assessment.management.application.TopicCrudUseCase;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -50,7 +51,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -138,7 +138,7 @@ public class AdminWebAdapter {
      * @return созданная компетенция с HTTP 201
      */
     @PostMapping("/competencies")
-    public ResponseEntity<CompetencyDto> createCompetency(@RequestBody CreateCompetencyRequestDto dto) {
+    public ResponseEntity<CompetencyDto> createCompetency(@Valid @RequestBody CreateCompetencyRequestDto dto) {
         var entity = competencyMapper.toEntity(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(competencyMapper.toDto(competencyCrud.createCompetency(entity)));
@@ -179,7 +179,7 @@ public class AdminWebAdapter {
      */
     @PutMapping("/competencies/{id}")
     public ResponseEntity<CompetencyDto> updateCompetency(@PathVariable UUID id,
-                                                           @RequestBody UpdateCompetencyRequestDto dto) {
+                                                           @Valid @RequestBody UpdateCompetencyRequestDto dto) {
         return competencyCrud.updateCompetency(id, e -> {
                     competencyMapper.updateEntity(e, dto);
                     return e;
@@ -212,7 +212,7 @@ public class AdminWebAdapter {
      */
     @PostMapping("/competencies/{competencyId}/sections")
     public ResponseEntity<SectionDto> createSection(@PathVariable UUID competencyId,
-                                                     @RequestBody CreateSectionRequestDto dto) {
+                                                     @Valid @RequestBody CreateSectionRequestDto dto) {
         var section = sectionMapper.toEntity(competencyId, dto);
         return sectionCrud.createSection(competencyId, section)
                 .map(sectionMapper::toDto)
@@ -242,7 +242,7 @@ public class AdminWebAdapter {
      */
     @PutMapping("/sections/{id}")
     public ResponseEntity<SectionDto> updateSection(@PathVariable UUID id,
-                                                     @RequestBody UpdateSectionRequestDto dto) {
+                                                     @Valid @RequestBody UpdateSectionRequestDto dto) {
         return sectionCrud.updateSection(id, e -> {
                     sectionMapper.updateEntity(e, dto);
                     return e;
@@ -275,7 +275,7 @@ public class AdminWebAdapter {
      */
     @PostMapping("/sections/{sectionId}/topics")
     public ResponseEntity<TopicDto> createTopic(@PathVariable UUID sectionId,
-                                                 @RequestBody CreateTopicRequestDto dto) {
+                                                 @Valid @RequestBody CreateTopicRequestDto dto) {
         var topic = topicMapper.toEntity(sectionId, dto);
         return topicCrud.createTopic(sectionId, topic)
                 .map(topicMapper::toDto)
@@ -305,7 +305,7 @@ public class AdminWebAdapter {
      */
     @PutMapping("/topics/{id}")
     public ResponseEntity<TopicDto> updateTopic(@PathVariable UUID id,
-                                                 @RequestBody UpdateTopicRequestDto dto) {
+                                                 @Valid @RequestBody UpdateTopicRequestDto dto) {
         return topicCrud.updateTopic(id, e -> {
                     topicMapper.updateEntity(e, dto);
                     return e;
@@ -341,27 +341,14 @@ public class AdminWebAdapter {
      *         HTTP 503 при ошибке генерации
      */
     @PostMapping("/topics/{topicId}/questions/generate")
-    public ResponseEntity<?> generateTopicQuestions(@PathVariable UUID topicId,
-                                                     @RequestBody GenerateTopicQuestionsRequestDto dto) {
-        if (dto.getCount() < 1 || dto.getCount() > 10) {
-            return ResponseEntity.badRequest().body(Map.of("error", "count должен быть от 1 до 10"));
-        }
-        try {
-            List<QuestionBankItemDto> questions = questionBankManagement
-                    .generateForTopic(topicId, dto.getCount(),
-                            dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL")
-                    .stream().map(questionBankMapper::toDto)
-                    .collect(Collectors.toList());
-            return ResponseEntity.ok(questions);
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("error", "Ошибка генерации вопросов: " + e.getMessage()));
-        }
+    public ResponseEntity<List<QuestionBankItemDto>> generateTopicQuestions(@PathVariable UUID topicId,
+                                                                            @Valid @RequestBody GenerateTopicQuestionsRequestDto dto) {
+        List<QuestionBankItemDto> questions = questionBankManagement
+                .generateForTopic(topicId, dto.getCount(),
+                        dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL")
+                .stream().map(questionBankMapper::toDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(questions);
     }
 
     /**
@@ -386,7 +373,7 @@ public class AdminWebAdapter {
      */
     @PutMapping("/topics/{topicId}/questions/reorder")
     public ResponseEntity<Void> reorderTopicQuestions(@PathVariable UUID topicId,
-                                                       @RequestBody List<UUID> orderedIds) {
+                                                       @Valid @RequestBody List<UUID> orderedIds) {
         questionBankManagement.reorder(topicId, orderedIds);
         return ResponseEntity.noContent().build();
     }
@@ -400,7 +387,7 @@ public class AdminWebAdapter {
      * @return созданный сотрудник с HTTP 201
      */
     @PostMapping("/employees")
-    public ResponseEntity<EmployeeDto> createEmployee(@RequestBody CreateEmployeeRequestDto dto) {
+    public ResponseEntity<EmployeeDto> createEmployee(@Valid @RequestBody CreateEmployeeRequestDto dto) {
         var employee = employeeMapper.toEntity(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(employeeMapper.toDto(employeeCrud.createEmployee(employee, dto.getCompetencyId())));
@@ -441,7 +428,7 @@ public class AdminWebAdapter {
      */
     @PutMapping("/employees/{id}")
     public ResponseEntity<EmployeeDto> updateEmployee(@PathVariable UUID id,
-                                                       @RequestBody UpdateEmployeeRequestDto dto) {
+                                                       @Valid @RequestBody UpdateEmployeeRequestDto dto) {
         return employeeCrud.updateEmployee(id, e -> {
                     employeeMapper.updateEntity(e, dto);
                     return e;
@@ -562,7 +549,7 @@ public class AdminWebAdapter {
      * @return обновленные настройки с HTTP 200 или HTTP 400 при отсутствии провайдера
      */
     @PutMapping("/settings/ai")
-    public ResponseEntity<?> updateAiSettings(@RequestBody UpdateAiSettingsRequestDto dto) {
+    public ResponseEntity<?> updateAiSettings(@Valid @RequestBody UpdateAiSettingsRequestDto dto) {
         String provider = dto.getActiveProvider().getValue();
         if (provider == null || provider.isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -599,7 +586,7 @@ public class AdminWebAdapter {
      * @return обновленные промты
      */
     @PutMapping("/settings/ai/prompts")
-    public ResponseEntity<AiPromptsDto> updateAiPrompts(@RequestBody AiPromptsDto dto) {
+    public ResponseEntity<AiPromptsDto> updateAiPrompts(@Valid @RequestBody AiPromptsDto dto) {
         if (dto.getPromptScoring() != null) aiSettings.setPrompt("prompt_scoring", dto.getPromptScoring());
         if (dto.getPromptQuestion() != null) aiSettings.setPrompt("prompt_question", dto.getPromptQuestion());
         if (dto.getPromptFollowup() != null) aiSettings.setPrompt("prompt_followup", dto.getPromptFollowup());
@@ -621,27 +608,14 @@ public class AdminWebAdapter {
      *         HTTP 503 при ошибке генерации
      */
     @PostMapping("/competencies/{competencyId}/questions/generate")
-    public ResponseEntity<?> generateQuestions(@PathVariable UUID competencyId,
-                                                @RequestBody GenerateQuestionsRequestDto dto) {
-        if (dto.getCount() < 1 || dto.getCount() > 10) {
-            return ResponseEntity.badRequest().body(Map.of("error", "count должен быть от 1 до 10"));
-        }
-        try {
-            List<QuestionBankItemDto> questions = questionBankManagement
-                    .generateForCompetency(competencyId, dto.getCount(),
-                            dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL")
-                    .stream().map(questionBankMapper::toDto)
-                    .collect(Collectors.toList());
-            return ResponseEntity.ok(questions);
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(Map.of("error", "Ошибка генерации вопросов: " + e.getMessage()));
-        }
+    public ResponseEntity<List<QuestionBankItemDto>> generateQuestions(@PathVariable UUID competencyId,
+                                                                       @Valid @RequestBody GenerateQuestionsRequestDto dto) {
+        List<QuestionBankItemDto> questions = questionBankManagement
+                .generateForCompetency(competencyId, dto.getCount(),
+                        dto.getDifficulty() != null ? dto.getDifficulty().getValue() : "ALL")
+                .stream().map(questionBankMapper::toDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(questions);
     }
 
     /**
@@ -665,7 +639,7 @@ public class AdminWebAdapter {
      * @return обновленный вопрос с HTTP 200, HTTP 404 если не найден, или HTTP 400 при пустом тексте
      */
     @PutMapping("/questions/{id}")
-    public ResponseEntity<?> updateQuestion(@PathVariable UUID id, @RequestBody UpdateQuestionRequestDto dto) {
+    public ResponseEntity<?> updateQuestion(@PathVariable UUID id, @Valid @RequestBody UpdateQuestionRequestDto dto) {
         if (dto.getQuestionText() == null || dto.getQuestionText().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "questionText обязателен"));
         }

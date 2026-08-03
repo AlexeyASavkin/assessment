@@ -19,6 +19,7 @@ import com.assessment.dto.SubmitAnswerRequestDto;
 import com.assessment.security.EmployeeTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -168,7 +169,7 @@ public class EmployeeWebAdapter {
      */
     @PostMapping("/sessions/{sessionId}/answers")
     public ResponseEntity<?> submitAnswer(@PathVariable UUID sessionId,
-                                          @RequestBody SubmitAnswerRequestDto requestDto,
+                                          @Valid @RequestBody SubmitAnswerRequestDto requestDto,
                                           @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
                                           HttpServletRequest request) {
         Optional<AssessmentSession> sessionOpt = tokenService.validateSessionCookie(request);
