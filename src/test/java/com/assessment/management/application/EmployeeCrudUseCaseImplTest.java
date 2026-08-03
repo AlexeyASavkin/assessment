@@ -1,11 +1,10 @@
 package com.assessment.management.application;
 
+import com.assessment.common.NotFoundException;
 import com.assessment.entity.Competency;
 import com.assessment.entity.Employee;
-import com.assessment.entity.Session;
 import com.assessment.management.port.out.CompetencyRepositoryPort;
 import com.assessment.management.port.out.EmployeeRepositoryPort;
-import com.assessment.management.port.out.SessionRepositoryPort;
 import com.assessment.management.port.out.TokenRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +14,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,15 +34,12 @@ class EmployeeCrudUseCaseImplTest {
     @Mock
     private TokenRepositoryPort tokenRepositoryPort;
 
-    @Mock
-    private SessionRepositoryPort sessionRepositoryPort;
-
     private EmployeeCrudUseCaseImpl useCase;
 
     @BeforeEach
     void setUp() {
         useCase = new EmployeeCrudUseCaseImpl(
-                employeeRepositoryPort, competencyRepositoryPort, tokenRepositoryPort, sessionRepositoryPort);
+                employeeRepositoryPort, competencyRepositoryPort, tokenRepositoryPort);
     }
 
     @Test
@@ -77,13 +72,13 @@ class EmployeeCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("createEmployee бросает NoSuchElementException, если компетенция не найдена")
+    @DisplayName("createEmployee бросает NotFoundException, если компетенция не найдена")
     void createEmployeeCompetencyNotFound() {
         UUID competencyId = UUID.randomUUID();
         Employee employee = Employee.builder().fullName("Петров Пётр").build();
         when(competencyRepositoryPort.findById(competencyId)).thenReturn(Optional.empty());
 
-        NoSuchElementException exception = assertThrows(NoSuchElementException.class,
+        NotFoundException exception = assertThrows(NotFoundException.class,
                 () -> useCase.createEmployee(employee, competencyId));
 
         assertEquals("Компетенция не найдена: " + competencyId, exception.getMessage());
@@ -170,7 +165,7 @@ class EmployeeCrudUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("updateEmployee бросает NoSuchElementException, если компетенция не найдена")
+    @DisplayName("updateEmployee бросает NotFoundException, если компетенция не найдена")
     void updateEmployeeCompetencyNotFound() {
         UUID id = UUID.randomUUID();
         UUID competencyId = UUID.randomUUID();
@@ -178,28 +173,23 @@ class EmployeeCrudUseCaseImplTest {
         when(employeeRepositoryPort.findById(id)).thenReturn(Optional.of(employee));
         when(competencyRepositoryPort.findById(competencyId)).thenReturn(Optional.empty());
 
-        assertThrows(NoSuchElementException.class,
+        assertThrows(NotFoundException.class,
                 () -> useCase.updateEmployee(id, e -> e, competencyId));
 
         verify(employeeRepositoryPort, never()).save(any());
     }
 
     @Test
-    @DisplayName("deleteEmployee удаляет токены, сессии и самого сотрудника")
+    @DisplayName("deleteEmployee удаляет токены и сотрудника, сессии удаляются каскадом JPA")
     void deleteEmployeeSuccess() {
         UUID id = UUID.randomUUID();
         Employee employee = Employee.builder().id(id).build();
-        Session firstSession = Session.builder().id(UUID.randomUUID()).build();
-        Session secondSession = Session.builder().id(UUID.randomUUID()).build();
         when(employeeRepositoryPort.findById(id)).thenReturn(Optional.of(employee));
-        when(sessionRepositoryPort.findByEmployeeId(id)).thenReturn(List.of(firstSession, secondSession));
 
         boolean deleted = useCase.deleteEmployee(id);
 
         assertTrue(deleted);
         verify(tokenRepositoryPort).deleteByEmployeeId(id);
-        verify(sessionRepositoryPort).deleteById(firstSession.getId());
-        verify(sessionRepositoryPort).deleteById(secondSession.getId());
         verify(employeeRepositoryPort).delete(employee);
     }
 
@@ -213,6 +203,6 @@ class EmployeeCrudUseCaseImplTest {
 
         assertFalse(deleted);
         verify(employeeRepositoryPort, never()).delete(any());
-        verifyNoInteractions(tokenRepositoryPort, sessionRepositoryPort);
+        verifyNoInteractions(tokenRepositoryPort);
     }
 }

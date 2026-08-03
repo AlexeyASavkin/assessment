@@ -5,7 +5,6 @@ import com.assessment.management.port.out.SessionRepositoryPort;
 import com.assessment.repository.SessionRepository;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -13,8 +12,8 @@ import java.util.UUID;
  *
  * <p>Оборачивает {@link SessionRepository} и делегирует ему вызовы без
  * дополнительной логики (сущность используется как есть). Используется
- * management-контекстом для каскадного удаления сессий сотрудника и проверки
- * существования сессии при формировании админского отчёта.
+ * management-контекстом для проверки существования сессии при формировании
+ * админского отчёта.
  */
 @Component
 public class SessionJpaAdapter implements SessionRepositoryPort {
@@ -28,15 +27,5 @@ public class SessionJpaAdapter implements SessionRepositoryPort {
     @Override
     public boolean existsById(UUID id) {
         return sessionRepository.existsById(id);
-    }
-
-    @Override
-    public List<Session> findByEmployeeId(UUID employeeId) {
-        return sessionRepository.findByEmployeeId(employeeId);
-    }
-
-    @Override
-    public void deleteById(UUID id) {
-        sessionRepository.deleteById(id);
     }
 }
