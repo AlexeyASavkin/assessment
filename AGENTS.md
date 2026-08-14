@@ -109,7 +109,7 @@ com.assessment/
 
 ### Security model
 
-- **Admin**: Spring Security form-login at `/api/admin/login`. Credentials via env vars `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`; default seed in `.env.example` uses `admin / admin`. All `/api/admin/**` require `ADMIN` role.
+- **Admin**: Spring Security form-login at `/api/admin/login`. Credentials come from env vars `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` (BCrypt hash, read at runtime — NOT stored in DB); default in `.env.example` uses `admin / admin`. All `/api/admin/**` require `ADMIN` role.
 - **Employee**: No password. Access via HMAC-signed invite token at `/api/employee/invite/{token}`. Server validates token, creates session, sets cookie `SESSION_EMPLOYEE`. All subsequent employee API calls use this cookie.
 - **CSRF is disabled** (`SecurityConfig`)
 
@@ -131,7 +131,7 @@ Resilience4j (15 requests/minute, 10s timeout, `Resilience4jConfig.java`): LLM-�
 
 - PostgreSQL 18. Default local credentials: `assessment / assessment`, database `assessment`.
 - Migrations are **Liquibase YAML** in `src/main/resources/db/changelog/changes/`. Do not use Hibernate DDL auto; `ddl-auto: none` is set.
-- Tables: `competencies`, `sections`, `topics`, `criteria`, `criteria_levels`, `employees`, `employee_competencies`, `sessions`, `assessment_invite_tokens`, `question_attempts`, `ai_settings`, `question_banks`, `admin_users`.
+- Tables: `competencies`, `sections`, `topics`, `criteria`, `criteria_levels`, `employees`, `employee_competencies`, `sessions`, `assessment_invite_tokens`, `question_attempts`, `ai_settings`, `question_banks`.
 
 ## Environment variables
 
@@ -143,8 +143,8 @@ Resilience4j (15 requests/minute, 10s timeout, `Resilience4jConfig.java`): LLM-�
 | `GEMINI_API_KEY` | If using Gemini | — | Gemini API key |
 | `AI_PROVIDER` | No | `opencode` | `opencode` \| `gigachat` \| `openrouter` \| `gemini` \| `stub` |
 | `HMAC_SECRET` | No | `change-me-in-production` | HMAC signing for invite tokens |
-| `ADMIN_USERNAME` | Yes (seed) | — | Initial admin username (Liquibase seed) |
-| `ADMIN_PASSWORD_HASH` | Yes (seed) | — | Initial admin password hash (BCrypt, Liquibase seed) |
+| `ADMIN_USERNAME` | Yes | — | Admin username (env, not stored in DB) |
+| `ADMIN_PASSWORD_HASH` | Yes | — | Admin password hash (BCrypt, env, not stored in DB) |
 | `POSTGRES_USER` | Yes | — | PostgreSQL username |
 | `POSTGRES_PASSWORD` | Yes | — | PostgreSQL password |
 | `SERVER_PORT` | No | `8080` | Backend HTTP port (tests use 8081) |

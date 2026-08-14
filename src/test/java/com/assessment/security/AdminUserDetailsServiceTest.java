@@ -1,47 +1,19 @@
 package com.assessment.security;
 
-import com.assessment.entity.AdminUser;
-import com.assessment.repository.AdminUserRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
-import java.util.Optional;
-import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-@DisplayName("AdminUserDetailsService: загрузка пользователей из БД")
+@DisplayName("AdminUserDetailsService: загрузка администратора из окружения")
 class AdminUserDetailsServiceTest {
 
-    @Mock
-    private AdminUserRepository adminUserRepository;
-
-    private AdminUserDetailsService service;
-
-    @BeforeEach
-    void setUp() {
-        service = new AdminUserDetailsService(adminUserRepository);
-    }
-
     @Test
-    @DisplayName("Существующий пользователь возвращает корректные данные")
+    @DisplayName("Совпадающий логин возвращает корректные данные из env")
     void loadUserByUsernameFoundReturnsUserDetails() {
-        AdminUser admin = AdminUser.builder()
-                .id(UUID.randomUUID())
-                .username("admin")
-                .passwordHash("{bcrypt}hash")
-                .role("ADMIN")
-                .enabled(true)
-                .build();
-        when(adminUserRepository.findByUsername("admin")).thenReturn(Optional.of(admin));
+        AdminUserDetailsService service = new AdminUserDetailsService("admin", "{bcrypt}hash");
 
         UserDetails details = service.loadUserByUsername("admin");
 
@@ -56,43 +28,37 @@ class AdminUserDetailsServiceTest {
     }
 
     @Test
-    @DisplayName("Неизвестный пользователь вызывает UsernameNotFoundException")
+    @DisplayName("Неизвестный логин вызывает UsernameNotFoundException")
     void loadUserByUsernameNotFoundThrows() {
-        when(adminUserRepository.findByUsername("unknown")).thenReturn(Optional.empty());
+        AdminUserDetailsService service = new AdminUserDetailsService("admin", "{bcrypt}hash");
 
         assertThrows(UsernameNotFoundException.class,
             () -> service.loadUserByUsername("unknown"));
     }
 
     @Test
-    @DisplayName("Отключённый пользователь возвращается с enabled=false")
-    void loadUserByUsernameDisabledUser() {
-        AdminUser admin = AdminUser.builder()
-                .id(UUID.randomUUID())
-                .username("disabled")
-                .passwordHash("{bcrypt}hash")
-                .role("ADMIN")
-                .enabled(false)
-                .build();
-        when(adminUserRepository.findByUsername("disabled")).thenReturn(Optional.of(admin));
+    @DisplayName("Пустой ADMIN_PASSWORD_HASH означает ненастроенного администратора")
+    void loadUserByUsernameEmptyPasswordHashThrows() {
+        AdminUserDetailsService service = new AdminUserDetailsService("admin", "");
 
-        UserDetails details = service.loadUserByUsername("disabled");
-
-        assertFalse(details.isEnabled());
+        assertThrows(UsernameNotFoundException.class,
+            () -> service.loadUserByUsername("admin"));
     }
 
     @Test
-    @DisplayName("Поиск чувствителен к регистру username")
+    @DisplayName("Поиск чувствителен к регистру логина")
     void loadUserByUsernameCaseSensitive() {
-        when(adminUserRepository.findByUsername("Admin")).thenReturn(Optional.empty());
+        AdminUserDetailsService service = new AdminUserDetailsService("admin", "{bcrypt}hash");
 
         assertThrows(UsernameNotFoundException.class,
             () -> service.loadUserByUsername("Admin"));
     }
 
     @Test
-    @DisplayName("null-username вызывает UsernameNotFoundException")
+    @DisplayName("null-логин вызывает UsernameNotFoundException")
     void loadUserByUsernameNullUsername() {
+        AdminUserDetailsService service = new AdminUserDetailsService("admin", "{bcrypt}hash");
+
         assertThrows(UsernameNotFoundException.class,
             () -> service.loadUserByUsername(null));
     }

@@ -104,7 +104,7 @@ docker compose up --build
 
 | Файл | Сколько | Что проверяет |
 |------|---------|---------------|
-| `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из БД |
+| `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из переменных окружения |
 | `HmacTokenValidatorTest` | 9 | Генерация и валидация HMAC-токенов |
 | `AiProviderServiceTest` | 20 | Переключение провайдеров, API-ключи, промпты |
 | `LlmJsonParserTest` | 24 | Извлечение значений из JSON-ответов LLM |
@@ -174,9 +174,6 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yml
-    parameters:
-      adminUsername: ${ADMIN_USERNAME}
-      adminPasswordHash: ${ADMIN_PASSWORD_HASH}
 
 assessment:
   security:
@@ -429,7 +426,6 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
 | `question_attempts` | Вопросы, ответы и оценки (включая уточняющие) |
 | `question_banks` | Банк вопросов (сгенерированных или добавленных вручную) |
 | `ai_settings` | Настройки AI-провайдеров и промптов |
-| `admin_users` | Учётные записи администраторов |
 
 ## Известные ограничения
 

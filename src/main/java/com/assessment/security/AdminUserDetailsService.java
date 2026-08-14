@@ -1,7 +1,6 @@
 package com.assessment.security;
 
-import com.assessment.entity.AdminUser;
-import com.assessment.repository.AdminUserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,47 +9,56 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
- * Сервис загрузки данных администраторов для Spring Security.
+ * Сервис загрузки данных администратора для Spring Security.
  * <p>
- * Извлекает пользователей из базы данных, формирует объекты {@link UserDetails}
- * с ролями и статусом активности.
+ * Учётная запись администратора не хранится в БД: логин и BCrypt-хэш пароля
+ * задаются переменными окружения {@code ADMIN_USERNAME} и
+ * {@code ADMIN_PASSWORD_HASH} и читаются при каждом обращении.
  */
 @Service
 public class AdminUserDetailsService implements UserDetailsService {
 
-    private final AdminUserRepository adminUserRepository;
+    private final String adminUsername;
+    private final String adminPasswordHash;
 
     /**
-     * Конструктор, внедряющий репозиторий администраторов.
+     * Конструктор, принимающий учётные данные администратора из окружения.
      *
-     * @param adminUserRepository репозиторий пользователей-администраторов
+     * @param adminUsername     логин администратора (env {@code ADMIN_USERNAME})
+     * @param adminPasswordHash BCrypt-хэш пароля (env {@code ADMIN_PASSWORD_HASH})
      */
-    public AdminUserDetailsService(AdminUserRepository adminUserRepository) {
-        this.adminUserRepository = adminUserRepository;
+    public AdminUserDetailsService(
+            @Value("${ADMIN_USERNAME:}") String adminUsername,
+            @Value("${ADMIN_PASSWORD_HASH:}") String adminPasswordHash) {
+        this.adminUsername = adminUsername;
+        this.adminPasswordHash = adminPasswordHash;
     }
 
     /**
      * Загружает данные администратора по имени пользователя.
      * <p>
-     * Если пользователь не найден, выбрасывает {@link UsernameNotFoundException}.
-     * Роль пользователя префиксируется {@code ROLE_} для совместимости с Spring Security.
+     * Если имя не совпадает с {@code ADMIN_USERNAME} или пароль не настроен
+     * (пустой {@code ADMIN_PASSWORD_HASH}), выбрасывает
+     * {@link UsernameNotFoundException}. Роль всегда {@code ROLE_ADMIN}.
      *
      * @param username имя пользователя (логин)
-     * @return объект {@link UserDetails} с паролем, ролями и статусом
-     * @throws UsernameNotFoundException если пользователь не существует
+     * @return объект {@link UserDetails} с паролем и ролью ADMIN
+     * @throws UsernameNotFoundException если пользователь не существует или не настроен
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        AdminUser adminUser = adminUserRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+        if (adminPasswordHash.isBlank()
+                || !Objects.equals(adminUsername, username)) {
+            throw new UsernameNotFoundException("User not found: " + username);
+        }
 
         return User.builder()
-                .username(adminUser.getUsername())
-                .password(adminUser.getPasswordHash())
-                .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + adminUser.getRole())))
-                .disabled(!adminUser.getEnabled())
+                .username(adminUsername)
+                .password(adminPasswordHash)
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_ADMIN")))
                 .build();
     }
 }
