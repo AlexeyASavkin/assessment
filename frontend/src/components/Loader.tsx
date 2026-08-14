@@ -28,7 +28,17 @@ export default function Loader({ text = 'Загрузка...', subtext, overlay 
     )
   }
   return (
-    <div role="status" aria-live="polite" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', padding: '2rem' }}>
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.75rem',
+        padding: '2rem',
+      }}
+    >
       <div className="loading-spinner" />
       <div className="loading-text">{text}</div>
       {subtext && <div className="loading-subtext">{subtext}</div>}

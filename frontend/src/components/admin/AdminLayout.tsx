@@ -36,7 +36,7 @@ export function AdminLayout() {
   const { logout } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState<boolean>(
-    () => localStorage.getItem('sidebar-collapsed') === 'true'
+    () => localStorage.getItem('sidebar-collapsed') === 'true',
   )
 
   const handleLogout = () => {

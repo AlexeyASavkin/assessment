@@ -1,15 +1,15 @@
-import { useState, useEffect, FormEvent } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import {
-  listEmployees,
-  createEmployee,
-  updateEmployee,
-  deleteEmployee,
-  generateInvite,
-  listCompetencies,
-  listApplications,
-  type Employee,
-  type Competency,
   type ApplicationSummary,
+  type Competency,
+  createEmployee,
+  deleteEmployee,
+  type Employee,
+  generateInvite,
+  listApplications,
+  listCompetencies,
+  listEmployees,
+  updateEmployee,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
@@ -43,14 +43,18 @@ export default function EmployeesPage() {
   const [generating, setGenerating] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-/**
+  /**
    * Загружает список сотрудников и доступных компетенций.
    */
   const load = async () => {
     setIsLoading(true)
     setError(null)
     try {
-      const [data, comps, apps] = await Promise.all([listEmployees(), listCompetencies(), listApplications()])
+      const [data, comps, apps] = await Promise.all([
+        listEmployees(),
+        listCompetencies(),
+        listApplications(),
+      ])
       setItems(data)
       setCompetencies(comps)
       setApplications(apps)
@@ -65,7 +69,7 @@ export default function EmployeesPage() {
     load()
   }, [])
 
-/**
+  /**
    * Сбрасывает форму в начальное состояние и отменяет режим редактирования.
    */
   const resetForm = () => {
@@ -73,7 +77,7 @@ export default function EmployeesPage() {
     setEditingId(null)
   }
 
-/**
+  /**
    * Создаёт нового сотрудника или обновляет существующего, затем перезагружает список.
    */
   const handleSubmit = async (e: FormEvent) => {
@@ -82,7 +86,13 @@ export default function EmployeesPage() {
     setError(null)
     try {
       if (editingId) {
-        await updateEmployee(editingId, form.fullName, form.position, form.department, form.competencyId)
+        await updateEmployee(
+          editingId,
+          form.fullName,
+          form.position,
+          form.department,
+          form.competencyId,
+        )
       } else {
         await createEmployee(form.fullName, form.position, form.department, form.competencyId)
       }
@@ -95,7 +105,7 @@ export default function EmployeesPage() {
     }
   }
 
-/**
+  /**
    * Переключает форму в режим редактирования выбранного сотрудника.
    */
   const handleEdit = (item: Employee) => {
@@ -108,7 +118,7 @@ export default function EmployeesPage() {
     })
   }
 
-/**
+  /**
    * Генерирует одноразовую пригласительную ссылку для выбранного сотрудника.
    */
   const handleGenerateInvite = async (employee: Employee) => {
@@ -128,7 +138,7 @@ export default function EmployeesPage() {
     }
   }
 
-/**
+  /**
    * Удаляет сотрудника после подтверждения и обновляет список.
    */
   const handleDelete = async (employee: Employee) => {
@@ -142,7 +152,7 @@ export default function EmployeesPage() {
     }
   }
 
-/**
+  /**
    * Копирует пригласительную ссылку в буфер обмена.
    */
   const handleCopy = async () => {
@@ -164,7 +174,7 @@ export default function EmployeesPage() {
    */
   const getLatestApplication = (employeeId: string): ApplicationSummary | undefined => {
     return applications
-      .filter(app => app.employeeId === employeeId)
+      .filter((app) => app.employeeId === employeeId)
       .sort((a, b) => {
         const da = a.createdAt ?? ''
         const db = b.createdAt ?? ''
@@ -230,7 +240,9 @@ export default function EmployeesPage() {
             >
               <option value="">— Не выбрана —</option>
               {competencies.map((comp) => (
-                <option key={comp.id} value={comp.id}>{comp.name}</option>
+                <option key={comp.id} value={comp.id}>
+                  {comp.name}
+                </option>
               ))}
             </select>
           </div>
@@ -239,25 +251,47 @@ export default function EmployeesPage() {
               {saving ? 'Сохранение...' : 'Сохранить'}
             </button>
             {editingId && (
-              <button type="button" className="btn" onClick={resetForm}>Отмена</button>
+              <button type="button" className="btn" onClick={resetForm}>
+                Отмена
+              </button>
             )}
           </div>
         </form>
       </div>
 
       {inviteUrl && (
-        <div className="modal-overlay" onClick={() => { setInviteUrl(null); setInviteFor(null) }}>
+        <div
+          className="modal-overlay"
+          onClick={() => {
+            setInviteUrl(null)
+            setInviteFor(null)
+          }}
+        >
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <h3>Пригласительная ссылка</h3>
             <p>Ссылка для сотрудника {inviteFor}:</p>
             <div className="invite-url-row">
-              <input id="invite-url" type="text" readOnly value={inviteUrl} className="invite-url-input" />
+              <input
+                id="invite-url"
+                type="text"
+                readOnly
+                value={inviteUrl}
+                className="invite-url-input"
+              />
               <button className="btn btn-success" onClick={handleCopy}>
                 {copied ? 'Скопировано!' : 'Копировать'}
               </button>
             </div>
             <div className="form-actions">
-              <button className="btn" onClick={() => { setInviteUrl(null); setInviteFor(null) }}>Закрыть</button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setInviteUrl(null)
+                  setInviteFor(null)
+                }}
+              >
+                Закрыть
+              </button>
             </div>
           </div>
         </div>
@@ -281,9 +315,7 @@ export default function EmployeesPage() {
                   <h3>{item.fullName}</h3>
                   {item.position && <p>Должность: {item.position}</p>}
                   {item.department && <p>Стрим: {item.department}</p>}
-                  {item.competency && (
-                    <p>Компетенция: {item.competency.name}</p>
-                  )}
+                  {item.competency && <p>Компетенция: {item.competency.name}</p>}
 
                   {/* Inline-сводка результата */}
                   {app && (
@@ -293,7 +325,9 @@ export default function EmployeesPage() {
                         style={{
                           background: hasResult
                             ? resultColor(app.passed)
-                            : isActive ? '#d97706' : '#6b7280',
+                            : isActive
+                              ? '#d97706'
+                              : '#6b7280',
                         }}
                       >
                         {statusLabel(app)}
@@ -318,9 +352,7 @@ export default function EmployeesPage() {
                           )}
                         </>
                       )}
-                      {isActive && (
-                        <span className="employee-result-hint">Ожидает завершения</span>
-                      )}
+                      {isActive && <span className="employee-result-hint">Ожидает завершения</span>}
                       {!app.sessionStatus && (
                         <span className="employee-result-hint">Ссылка создана</span>
                       )}
@@ -335,8 +367,12 @@ export default function EmployeesPage() {
                   >
                     {generating === item.id ? 'Генерация...' : 'Пригласительная ссылка'}
                   </button>
-                  <button className="btn" onClick={() => handleEdit(item)}>Изменить</button>
-                  <button className="btn btn-danger" onClick={() => handleDelete(item)}>Удалить</button>
+                  <button className="btn" onClick={() => handleEdit(item)}>
+                    Изменить
+                  </button>
+                  <button className="btn btn-danger" onClick={() => handleDelete(item)}>
+                    Удалить
+                  </button>
                 </div>
               </div>
             )

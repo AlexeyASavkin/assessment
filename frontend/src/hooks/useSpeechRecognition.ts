@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Событие распознавания речи от Web Speech API.
@@ -66,7 +66,7 @@ export function useSpeechRecognition() {
         }
 
         if (final) {
-          setFinalTranscript(prev => prev + final)
+          setFinalTranscript((prev) => prev + final)
         }
         setInterimTranscript(interim)
       }

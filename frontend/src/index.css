@@ -1,7 +1,8 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -70,8 +71,14 @@ textarea {
 }
 
 @keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ---- Loader ---- */
@@ -98,7 +105,9 @@ textarea {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {
@@ -128,7 +137,9 @@ textarea {
   flex-direction: column;
   gap: 16px;
   flex-shrink: 0;
-  transition: width 200ms ease, padding 200ms ease;
+  transition:
+    width 200ms ease,
+    padding 200ms ease;
 }
 
 .admin-sidebar--collapsed {
@@ -274,7 +285,9 @@ textarea {
 .draggable-question {
   cursor: grab;
   position: relative;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .draggable-question:active {
@@ -621,7 +634,9 @@ textarea {
   line-height: 1;
   border-radius: 3px;
   color: #666;
-  transition: background-color 0.12s, color 0.12s;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
 }
 
 .tree-action-btn:hover {
@@ -839,8 +854,9 @@ textarea {
   outline: none;
   font-size: 14px;
   line-height: 1.5;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
+    "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 }
 
 .tiptap-editor .tiptap-editor-content p {
@@ -897,7 +913,7 @@ textarea {
   background-color: #f0f0f0;
   border-radius: 3px;
   padding: 2px 4px;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.9em;
   color: #c7254e;
 }
@@ -941,7 +957,7 @@ textarea {
   background-color: #f0f0f0;
   border-radius: 3px;
   padding: 2px 4px;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.9em;
   color: #c7254e;
 }
@@ -1004,7 +1020,7 @@ textarea {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 .info-hint::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: calc(100% + 2px);
   left: 50%;

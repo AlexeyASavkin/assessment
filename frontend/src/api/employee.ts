@@ -65,7 +65,11 @@ export async function getCurrentQuestion(sessionId: string): Promise<QuestionRes
  * @param finalTranscript - отредактированный финальный текст ответа
  * @return объект с информацией о следующем вопросе или завершении сессии
  */
-export async function submitAnswer(sessionId: string, questionAttemptId: string, finalTranscript: string): Promise<AnswerResponse> {
+export async function submitAnswer(
+  sessionId: string,
+  questionAttemptId: string,
+  finalTranscript: string,
+): Promise<AnswerResponse> {
   const response = await fetch(`${API_BASE}/employee/sessions/${sessionId}/answers`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
