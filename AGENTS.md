@@ -7,7 +7,7 @@ Java/Spring Boot backend + React frontend for employee competency assessment via
 ## Stack & versions
 
 - **Backend**: Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ, Spring AI 2.0.0
-- **LLM providers**: Google Gemini 2.0 Flash (default), Sber GigaChat, OpenRouter, OpenCode Zen, plus a `stub` provider for tests (5 total; switchable at runtime via `AI_PROVIDER` env / `AiSettings` table)
+- **LLM providers**: Google Gemini 2.0 Flash (default), Sber GigaChat, OpenRouter, OpenCode, plus a `stub` provider for tests (5 total; switchable at runtime via `AI_PROVIDER` env / `AiSettings` table)
 - **Database**: PostgreSQL 18, migrations via Liquibase
 - **Rate limiting**: Resilience4j
 - **Build**: Gradle 9.6.1 (wrapper), Java toolchain 25
@@ -140,7 +140,7 @@ Resilience4j (15 requests/minute, 10s timeout, `Resilience4jConfig.java`): LLM-�
 | `GEMINI_API_KEY` | Yes for LLM | — | Gemini API key |
 | `GIGACHAT_API_KEY` | If using GigaChat | — | GigaChat API key |
 | `OPENROUTER_API_KEY` | If using OpenRouter | — | OpenRouter API key (aggregates multiple models) |
-| `OPENCODE_API_KEY` | If using OpenCode Zen | — | OpenCode Zen API key (DeepSeek, Grok, GLM etc.) |
+| `OPENCODE_API_KEY` | If using OpenCode | — | OpenCode API key (DeepSeek, Grok, GLM etc.) |
 | `AI_PROVIDER` | No | `gemini` | `gemini` \| `gigachat` \| `openrouter` \| `opencode` \| `stub` |
 | `HMAC_SECRET` | No | `change-me-in-production` | HMAC signing for invite tokens |
 | `ADMIN_USERNAME` | Yes (seed) | — | Initial admin username (Liquibase seed) |

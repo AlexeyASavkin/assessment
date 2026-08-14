@@ -132,7 +132,7 @@ export default function AiSettingsPage() {
       case 'gemini': return 'Google Gemini'
       case 'gigachat': return 'Сбер GigaChat'
       case 'openrouter': return 'OpenRouter'
-      case 'opencode': return 'OpenCode Zen'
+      case 'opencode': return 'OpenCode'
       case 'stub': return 'Stub (тестовый режим)'
       default: return key
     }
@@ -172,7 +172,7 @@ export default function AiSettingsPage() {
                         {provider === 'gemini' && <p>Облачная модель Google. Ключ: GEMINI_API_KEY</p>}
                         {provider === 'gigachat' && <p>Российская модель Сбера. Ключ: GIGACHAT_API_KEY</p>}
                         {provider === 'openrouter' && <p>Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: OPENROUTER_API_KEY</p>}
-                        {provider === 'opencode' && <p>AI-шлюз OpenCode Zen (DeepSeek, Grok, GLM). Ключ: OPENCODE_API_KEY</p>}
+                        {provider === 'opencode' && <p>AI-шлюз OpenCode (DeepSeek, Grok, GLM). Ключ: OPENCODE_API_KEY</p>}
                         {provider === 'stub' && <p>Заглушка для тестов без внешних API. Возвращает фиксированные ответы LLM.</p>}
                       </div>
                     </label>

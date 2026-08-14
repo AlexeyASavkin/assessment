@@ -7,7 +7,7 @@ import com.assessment.ai.domain.ScoreResult;
  *
  * <p>Используется use case'ами скоринга для получения оценки ответа
  * по шкале 0-5. Адаптеры реализуют порт поверх конкретного LLM-провайдера
- * (Gemini, GigaChat, OpenRouter, OpenCode Zen, stub).
+ * (Gemini, GigaChat, OpenRouter, OpenCode, stub).
  */
 public interface LlmScoringPort {
 

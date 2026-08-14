@@ -6,7 +6,7 @@
 
 - **Администратор** через веб-интерфейс (`/admin`) или REST API управляет компетенциями, разделами, темами, сотрудниками и создаёт для каждого сотрудника одноразовую пригласительную ссылку.
 - **Сотрудник** получает ссылку, открывает её в Google Chrome, последовательно отвечает на вопросы из банка, используя голосовой ввод (`SpeechRecognition API`), при необходимости редактирует распознанный текст и отправляет ответ.
-- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter / OpenCode Zen)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
+- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter / OpenCode)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
 - **По завершении сессии** формируется итоговый отчёт с результатом «Пройден / Не пройден».
 
 ## Стек
@@ -14,7 +14,7 @@
 | Компонент | Технология |
 |-----------|-----------|
 | Бэкенд | Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ |
-| LLM | Spring AI 2.0.0 + Gemini 2.0 Flash (default), GigaChat, OpenRouter, OpenCode Zen, stub |
+| LLM | Spring AI 2.0.0 + Gemini 2.0 Flash (default), GigaChat, OpenRouter, OpenCode, stub |
 | База данных | PostgreSQL 18 |
 | Миграции | Liquibase |
 | Rate limiting | Resilience4j |
@@ -424,4 +424,4 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
 - Голосовой ввод работает только в Google Chrome.
 - Нет серверного распознавания речи и хранения аудиофайлов.
 - Нет поддержки Firefox, Safari и мобильных браузеров.
-- Один LLM-вызов на ответ (Gemini, GigaChat, OpenRouter или OpenCode Zen). Rate limiter предотвращает превышение лимитов.
+- Один LLM-вызов на ответ (Gemini, GigaChat, OpenRouter или OpenCode). Rate limiter предотвращает превышение лимитов.
