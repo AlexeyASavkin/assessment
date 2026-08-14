@@ -6,7 +6,7 @@
 
 - **Администратор** через веб-интерфейс (`/admin`) или REST API управляет компетенциями, разделами, темами, сотрудниками и создаёт для каждого сотрудника одноразовую пригласительную ссылку.
 - **Сотрудник** получает ссылку, открывает её в Google Chrome, последовательно отвечает на вопросы из банка, используя голосовой ввод (`SpeechRecognition API`), при необходимости редактирует распознанный текст и отправляет ответ.
-- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter / OpenCode)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
+- **LLM (OpenCode / GigaChat / OpenRouter / Gemini 2.0 Flash)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
 - **По завершении сессии** формируется итоговый отчёт с результатом «Пройден / Не пройден».
 
 ## Стек
@@ -14,7 +14,7 @@
 | Компонент | Технология |
 |-----------|-----------|
 | Бэкенд | Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ |
-| LLM | Spring AI 2.0.0 + Gemini 2.0 Flash (default), GigaChat, OpenRouter, OpenCode, stub |
+| LLM | Spring AI 2.0.0 + OpenCode (default, DeepSeek V4 Flash), GigaChat, OpenRouter, Gemini 2.0 Flash, stub |
 | База данных | PostgreSQL 18 |
 | Миграции | Liquibase |
 | Rate limiting | Resilience4j |
@@ -41,7 +41,7 @@
 - Java 25
 - Docker / Docker Compose
 - (Опционально) Node.js 20+ для локальной разработки фронтенда
-- Ключ `GEMINI_API_KEY` нужен только для генерации вопросов и оценки ответов; без него приложение запустится, но LLM-функции будут возвращать ошибку.
+- Ключ `OPENCODE_API_KEY` нужен только для генерации вопросов и оценки ответов; без него приложение запустится, но LLM-функции будут возвращать ошибку.
 
 ### Быстрый запуск одной командой (Windows)
 
@@ -66,7 +66,7 @@ start-dev.cmd
 
 ```bash
 cp .env.example .env
-# отредактируй .env и добавь GEMINI_API_KEY
+# отредактируй .env и добавь OPENCODE_API_KEY
 docker compose up -d postgres
 ```
 
@@ -92,7 +92,7 @@ npm run dev
 
 ```bash
 cp .env.example .env
-# отредактируй .env и добавь GEMINI_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
+# отредактируй .env и добавь OPENCODE_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
 docker compose up --build
 ```
 
@@ -186,8 +186,20 @@ assessment:
   question:
     max-questions-per-session: 20
   ai:
-    active-provider: ${AI_PROVIDER:gemini}
+    active-provider: ${AI_PROVIDER:opencode}
 ```
+
+### LLM-провайдеры и модели
+
+Активный провайдер задаётся переменной `AI_PROVIDER` (по умолчанию `opencode`) и переключается в рантайме через раздел «Настройки ИИ» в админ-панели. API-ключ читается из окружения (`OPENCODE_API_KEY` и т.д.).
+
+| Провайдер | Модель | Назначение |
+|-----------|--------|------------|
+| `opencode` (default) | `deepseek-v4-flash-free` | Основной провайдер. OpenAI-совместимый API шлюза OpenCode (`https://opencode.ai/zen/v1`), бесплатная модель DeepSeek V4 Flash. Ключ: `OPENCODE_API_KEY` |
+| `gigachat` | `GigaChat 2` | Российская модель Сбера. Ключ: `GIGACHAT_API_KEY` |
+| `openrouter` | `openai/gpt-4o` | Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: `OPENROUTER_API_KEY` |
+| `gemini` | `Gemini 2.0 Flash` | Облачная модель Google. Ключ: `GEMINI_API_KEY` |
+| `stub` | — | Заглушка для тестов без внешних API. Возвращает фиксированные ответы LLM |
 
 ## Как работает сервис
 
@@ -424,4 +436,4 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
 - Голосовой ввод работает только в Google Chrome.
 - Нет серверного распознавания речи и хранения аудиофайлов.
 - Нет поддержки Firefox, Safari и мобильных браузеров.
-- Один LLM-вызов на ответ (Gemini, GigaChat, OpenRouter или OpenCode). Rate limiter предотвращает превышение лимитов.
+- Один LLM-вызов на ответ (OpenCode, GigaChat, OpenRouter или Gemini). Rate limiter предотвращает превышение лимитов.
