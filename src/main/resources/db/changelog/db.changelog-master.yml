@@ -25,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/changes/013-ai-active-provider-env.yml
   - include:
       file: db/changelog/changes/014-ai-prompts.yml
+  - include:
+      file: db/changelog/changes/015-seed-demo-data.yml

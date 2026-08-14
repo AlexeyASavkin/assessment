@@ -1,0 +1,624 @@
+databaseChangeLog:
+  - changeSet:
+      id: '015-seed-demo-data'
+      author: assessment
+      changes:
+        # ---------- Компетенции ----------
+        - insert:
+            tableName: competencies
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: name
+                  value: Java-разработка
+              - column:
+                  name: description
+                  value: 'Оценка знаний Java: Core, Spring Framework, инструменты разработки'
+        - insert:
+            tableName: competencies
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000002'
+              - column:
+                  name: name
+                  value: SQL и базы данных
+              - column:
+                  name: description
+                  value: 'Оценка знаний SQL и реляционных баз данных'
+        - insert:
+            tableName: competencies
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000003'
+              - column:
+                  name: name
+                  value: Frontend-разработка (React)
+              - column:
+                  name: description
+                  value: 'Оценка знаний React: компоненты, состояние, хуки'
+
+        # ---------- Разделы ----------
+        - insert:
+            tableName: sections
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000101'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: name
+                  value: Java Core
+              - column:
+                  name: description
+                  value: 'Базовые знания языка Java'
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: sections
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000102'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: name
+                  value: Spring Framework
+              - column:
+                  name: description
+                  value: 'Знания экосистемы Spring'
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: sections
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000201'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000002'
+              - column:
+                  name: name
+                  value: Основы SQL
+              - column:
+                  name: description
+                  value: 'Написание запросов и работа с данными'
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: sections
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000301'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000003'
+              - column:
+                  name: name
+                  value: React Core
+              - column:
+                  name: description
+                  value: 'Базовые знания React'
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+
+        # ---------- Темы ----------
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000001101'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000101'
+              - column:
+                  name: name
+                  value: Stream API
+              - column:
+                  name: description
+                  value: 'Потоки, промежуточные и терминальные операции'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000001102'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000101'
+              - column:
+                  name: name
+                  value: Коллекции
+              - column:
+                  name: description
+                  value: 'List, Set, Map: реализации и особенности'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000001201'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000102'
+              - column:
+                  name: name
+                  value: Spring Boot
+              - column:
+                  name: description
+                  value: 'Автоконфигурация, стартеры, запуск приложения'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000001202'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000102'
+              - column:
+                  name: name
+                  value: Spring Data JPA
+              - column:
+                  name: description
+                  value: 'Репозитории, маппинг сущностей, загрузка данных'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000002101'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000201'
+              - column:
+                  name: name
+                  value: SELECT и JOIN
+              - column:
+                  name: description
+                  value: 'Выборка данных, соединения таблиц, агрегация'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000002102'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000201'
+              - column:
+                  name: name
+                  value: Индексы и оптимизация
+              - column:
+                  name: description
+                  value: 'Типы индексов, планы запросов, оптимизация производительности'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000003101'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000301'
+              - column:
+                  name: name
+                  value: Компоненты и props
+              - column:
+                  name: description
+                  value: 'Функциональные компоненты, пропсы, ключи'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: topics
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000003102'
+              - column:
+                  name: section_id
+                  value: '00000000-0000-0000-0000-000000000301'
+              - column:
+                  name: name
+                  value: Хуки
+              - column:
+                  name: description
+                  value: 'useState, useEffect, пользовательские хуки'
+              - column:
+                  name: weight
+                  valueNumeric: 1.0
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+
+        # ---------- Банк вопросов (примеры) ----------
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000401'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001101'
+              - column:
+                  name: question_text
+                  value: 'Что такое Stream API и чем поток отличается от коллекции?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000402'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001101'
+              - column:
+                  name: question_text
+                  value: 'Какие промежуточные и терминальные операции Stream API вы знаете и чем они отличаются?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000403'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001101'
+              - column:
+                  name: question_text
+                  value: 'Как работает ленивость (laziness) в Stream API и зачем она нужна?'
+              - column:
+                  name: difficulty
+                  value: SENIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 2
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000404'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001102'
+              - column:
+                  name: question_text
+                  value: 'Чем ArrayList отличается от LinkedList и когда какой использовать?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000405'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001102'
+              - column:
+                  name: question_text
+                  value: 'Как устроен HashMap: bucket, hash, коллизии?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000406'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001201'
+              - column:
+                  name: question_text
+                  value: 'Что такое автоконфигурация в Spring Boot и как она работает?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000407'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001201'
+              - column:
+                  name: question_text
+                  value: 'Что такое стартеры (starters) в Spring Boot и зачем они нужны?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000408'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000001'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000001202'
+              - column:
+                  name: question_text
+                  value: 'Чем отличается LAZY-загрузка от EAGER и какие у неё последствия?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000409'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000002'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000002101'
+              - column:
+                  name: question_text
+                  value: 'Чем INNER JOIN отличается от LEFT JOIN и когда какой использовать?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000410'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000002'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000002101'
+              - column:
+                  name: question_text
+                  value: 'Что такое агрегатные функции и как GROUP BY сочетается с ними?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000411'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000002'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000002102'
+              - column:
+                  name: question_text
+                  value: 'Что такое индекс в БД и зачем он нужен?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000412'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000002'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000002102'
+              - column:
+                  name: question_text
+                  value: 'Какие типы индексов бывают в PostgreSQL и когда какой применять?'
+              - column:
+                  name: difficulty
+                  value: SENIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000413'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000003'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000003101'
+              - column:
+                  name: question_text
+                  value: 'Чем props отличаются от state в React?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000414'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000003'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000003101'
+              - column:
+                  name: question_text
+                  value: 'Что такое ключ (key) в React и зачем он нужен при рендере списков?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000415'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000003'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000003102'
+              - column:
+                  name: question_text
+                  value: 'Что такое useState и как React отслеживает изменения состояния?'
+              - column:
+                  name: difficulty
+                  value: JUNIOR
+              - column:
+                  name: sort_order
+                  valueNumeric: 0
+        - insert:
+            tableName: question_banks
+            columns:
+              - column:
+                  name: id
+                  value: '00000000-0000-0000-0000-000000000416'
+              - column:
+                  name: competency_id
+                  value: '00000000-0000-0000-0000-000000000003'
+              - column:
+                  name: topic_id
+                  value: '00000000-0000-0000-0000-000000003102'
+              - column:
+                  name: question_text
+                  value: 'Для чего нужен useEffect и как управлять его зависимостями?'
+              - column:
+                  name: difficulty
+                  value: MIDDLE
+              - column:
+                  name: sort_order
+                  valueNumeric: 1
