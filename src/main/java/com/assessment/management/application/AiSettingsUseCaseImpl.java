@@ -13,7 +13,7 @@ import java.util.Map;
  * <p>Воспроизводит бизнес-логику {@code AdminController}: все операции чтения
  * и записи активного провайдера и промтов делегируются {@link AiProviderService};
  * список доступных для выбора провайдеров фиксирован
- * (gemini, gigachat, openrouter, opencode, stub).
+ * (opencode, gigachat, openrouter, gemini, stub).
  */
 @Service
 public class AiSettingsUseCaseImpl implements AiSettingsUseCase {
@@ -31,7 +31,7 @@ public class AiSettingsUseCaseImpl implements AiSettingsUseCase {
 
     @Override
     public List<String> getAvailableProviders() {
-        return List.of("gemini", "gigachat", "openrouter", "opencode", "stub");
+        return List.of("opencode", "gigachat", "openrouter", "gemini", "stub");
     }
 
     @Override

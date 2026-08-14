@@ -30,7 +30,7 @@ class AiProviderServiceTest {
     @BeforeEach
     void setUp() {
         aiProviderService = new AiProviderService(settingsRepository, new MockEnvironment());
-        ReflectionTestUtils.setField(aiProviderService, "defaultProvider", "gemini");
+        ReflectionTestUtils.setField(aiProviderService, "defaultProvider", "opencode");
     }
 
     // ---- Active provider ----
@@ -50,7 +50,7 @@ class AiProviderServiceTest {
     void getActiveProviderFallbackToDefault() {
         when(settingsRepository.findBySettingKey("active_provider")).thenReturn(Optional.empty());
 
-        assertEquals("gemini", aiProviderService.getActiveProvider());
+        assertEquals("opencode", aiProviderService.getActiveProvider());
     }
 
     @Test

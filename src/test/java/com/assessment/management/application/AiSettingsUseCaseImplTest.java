@@ -33,7 +33,7 @@ class AiSettingsUseCaseImplTest {
     void getAvailableProvidersReturnsFixedList() {
         List<String> providers = useCase.getAvailableProviders();
 
-        assertEquals(List.of("gemini", "gigachat", "openrouter", "opencode", "stub"), providers);
+        assertEquals(List.of("opencode", "gigachat", "openrouter", "gemini", "stub"), providers);
         verifyNoInteractions(aiProviderService);
     }
 }

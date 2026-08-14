@@ -50,7 +50,7 @@ assessment:
   question:
     max-questions-per-session: 20
   ai:
-    active-provider: ${AI_PROVIDER:gemini}
+    active-provider: ${AI_PROVIDER:opencode}
 
 resilience4j:
   ratelimiter:

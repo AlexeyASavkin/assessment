@@ -68,8 +68,8 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
     public Set<String> availableProviders() {
         Set<String> available = new LinkedHashSet<>();
         available.add("stub");
-        if (hasKey("gemini")) {
-            available.add("gemini");
+        if (hasKey("opencode")) {
+            available.add("opencode");
         }
         if (hasKey("gigachat")) {
             available.add("gigachat");
@@ -77,8 +77,8 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
         if (hasKey("openrouter")) {
             available.add("openrouter");
         }
-        if (hasKey("opencode")) {
-            available.add("opencode");
+        if (hasKey("gemini")) {
+            available.add("gemini");
         }
         return available;
     }

@@ -17,7 +17,7 @@ public interface ChatModelFactory {
     /**
      * Создаёт модель чата для провайдера.
      *
-     * @param provider имя провайдера (gemini, gigachat, openrouter, opencode, stub)
+     * @param provider имя провайдера (opencode, gigachat, openrouter, gemini, stub)
      * @return модель чата или {@code null}, если провайдер не настроен (нет API-ключа)
      */
     ChatModel create(String provider);
