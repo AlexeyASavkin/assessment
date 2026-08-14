@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import QuestionDisplay from '../components/QuestionDisplay'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { getCurrentQuestion, type QuestionResponse, submitAnswer } from '../api/employee'
 import Loader from '../components/Loader'
-import { getCurrentQuestion, submitAnswer, type QuestionResponse } from '../api/employee'
+import QuestionDisplay from '../components/QuestionDisplay'
 
 type Question = QuestionResponse
 
@@ -43,7 +43,7 @@ export default function EmployeeSession() {
       } else {
         setCurrentQuestion(data)
       }
-    } catch (err) {
+    } catch {
       setError('Ошибка загрузки вопроса')
     } finally {
       setIsLoading(false)
@@ -72,7 +72,7 @@ export default function EmployeeSession() {
           followupParentId: data.followupParentId ?? null,
         })
       }
-    } catch (err) {
+    } catch {
       setError('Ошибка отправки ответа')
     } finally {
       setIsLoading(false)
@@ -85,7 +85,9 @@ export default function EmployeeSession() {
         <div className="card">
           <h2>Ошибка</h2>
           <p>{error}</p>
-          <button className="btn btn-primary" onClick={loadQuestion}>Попробовать снова</button>
+          <button className="btn btn-primary" onClick={loadQuestion}>
+            Попробовать снова
+          </button>
         </div>
       </div>
     )
