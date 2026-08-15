@@ -53,8 +53,10 @@ public class SpringAiQuestionGenerationAdapter implements LlmQuestionGenerationP
 
     @Override
     public QuestionResult generateQuestion(String competencyName, String topicName) {
+        logger.info("Начало генерации вопроса: competencyName={}, topicName={}", competencyName, topicName);
         String prompt = new PromptTemplate(aiProviderService.getPrompt(AiProviderService.PROMPT_QUESTION))
                 .format(competencyName, topicName);
+        logger.trace("Промпт генерации вопроса: {}", prompt);
 
         if (chatModel == null) {
             throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для генерации вопросов.");
@@ -62,6 +64,8 @@ public class SpringAiQuestionGenerationAdapter implements LlmQuestionGenerationP
         try {
             String text = chatModel.call(new Prompt(new SystemMessage(SYSTEM_PROMPT), new UserMessage(prompt)))
                     .getResult().getOutput().getText();
+            logger.debug("Получен текст вопроса: {}",
+                    text == null ? "null" : text.substring(0, Math.min(120, text.length())));
             return QuestionResult.of(text);
         } catch (Exception e) {
             logger.error("Ошибка генерации вопроса через LLM: {}", e.getMessage(), e);

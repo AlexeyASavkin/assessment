@@ -59,6 +59,6 @@ resilience4j:
 
 logging:
   level:
-    com.assessment: DEBUG
-    org.springframework.ai: DEBUG
-    io.github.resilience4j: DEBUG
+    com.assessment: ${LOGGING_LEVEL_COM_ASSESSMENT:DEBUG}
+    org.springframework.ai: ${LOGGING_LEVEL_SPRING_AI:DEBUG}
+    io.github.resilience4j: ${LOGGING_LEVEL_RESILIENCE4J:DEBUG}

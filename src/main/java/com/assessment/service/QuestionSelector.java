@@ -6,6 +6,8 @@ import com.assessment.entity.*;
 import com.assessment.repository.TopicRepository;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -19,6 +21,8 @@ import java.util.UUID;
  */
 @Service
 public class QuestionSelector {
+
+    private static final Logger logger = LoggerFactory.getLogger(QuestionSelector.class);
 
     private final LlmQuestionGenerationPort llmQuestionGenerationPort;
     private final TopicRepository topicRepository;
@@ -48,12 +52,21 @@ public class QuestionSelector {
      */
     public String generateQuestion(Session session, UUID topicId) {
         Topic topic = topicRepository.findById(topicId).orElseThrow();
+        logger.info("Генерация вопроса: topicId={}, тема='{}'", topicId, topic.getName());
 
         RateLimiter rateLimiter = rateLimiterRegistry.rateLimiter("geminiApi");
-        QuestionResult result = RateLimiter.decorateSupplier(rateLimiter, () ->
-                llmQuestionGenerationPort.generateQuestion(
-                        topic.getSection().getCompetency().getName(),
-                        topic.getName())).get();
-        return result.getQuestionText();
+        try {
+            QuestionResult result = RateLimiter.decorateSupplier(rateLimiter, () ->
+                    llmQuestionGenerationPort.generateQuestion(
+                            topic.getSection().getCompetency().getName(),
+                            topic.getName())).get();
+            logger.debug("Получен текст вопроса: {}",
+                    result.getQuestionText() == null ? "null"
+                            : result.getQuestionText().substring(0, Math.min(120, result.getQuestionText().length())));
+            return result.getQuestionText();
+        } catch (RuntimeException e) {
+            logger.error("Ошибка генерации вопроса для темы '{}': {}", topic.getName(), e.getMessage(), e);
+            throw e;
+        }
     }
 }

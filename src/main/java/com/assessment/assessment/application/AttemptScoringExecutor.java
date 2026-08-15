@@ -47,8 +47,11 @@ public class AttemptScoringExecutor {
      * @throws RuntimeException      при сбое вызова LLM
      */
     public Attempt scoreNow(Attempt attempt) {
+        logger.debug("Оценка ответа через LLM: sessionId={}, attemptId={}", attempt.getSessionId(), attempt.getId());
         ScoreResult result = sessionLlmRateLimiter.execute(attempt.getSessionId(),
                 () -> llmScoringPort.score(attempt.getQuestionText(), attempt.getFinalTranscript()));
+        logger.info("Ответ оценён: attemptId={}, score={}, confidence={}",
+                attempt.getId(), result.getScore(), result.getConfidence());
         return attemptRepositoryPort.save(
                 attempt.withScore(BigDecimal.valueOf(result.getScore()), result.getConfidence(),
                         result.isValid(), result.getFeedback()));
@@ -71,6 +74,8 @@ public class AttemptScoringExecutor {
                 } catch (Exception e) {
                     logger.error("Batch scoring failed for attempt {}", attempt.getId(), e);
                 }
+            } else if (attempt.getFinalTranscript() == null) {
+                logger.debug("Пропущена попытка без транскрипта: attemptId={}", attempt.getId());
             }
         }
     }

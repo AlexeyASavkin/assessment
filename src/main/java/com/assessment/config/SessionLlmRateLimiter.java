@@ -2,6 +2,9 @@ package com.assessment.config;
 
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -21,6 +24,8 @@ import java.util.function.Supplier;
 @Component
 public class SessionLlmRateLimiter {
 
+    private static final Logger logger = LoggerFactory.getLogger(SessionLlmRateLimiter.class);
+
     private final RateLimiterRegistry rateLimiterRegistry;
 
     public SessionLlmRateLimiter(RateLimiterRegistry rateLimiterRegistry) {
@@ -37,6 +42,12 @@ public class SessionLlmRateLimiter {
      */
     public <T> T execute(UUID sessionId, Supplier<T> call) {
         RateLimiter rateLimiter = rateLimiterRegistry.rateLimiter("session:" + sessionId);
-        return RateLimiter.decorateSupplier(rateLimiter, call).get();
+        logger.debug("LLM-вызов под rate limit'ом: sessionId={}, bucket={}", sessionId, rateLimiter.getName());
+        try {
+            return RateLimiter.decorateSupplier(rateLimiter, call).get();
+        } catch (RequestNotPermitted e) {
+            logger.warn("Лимит LLM-вызовов сессии исчерпан: sessionId={}, bucket={}", sessionId, rateLimiter.getName());
+            throw e;
+        }
     }
 }

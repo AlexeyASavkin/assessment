@@ -51,9 +51,11 @@ public class SpringAiFollowUpAdapter implements LlmFollowUpPort {
         String systemPrompt = aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP_SYSTEM);
         String prompt = new PromptTemplate(aiProviderService.getPrompt(AiProviderService.PROMPT_FOLLOWUP))
                 .format(questionText, answerText);
+        logger.trace("Промпт генерации уточняющего вопроса: {}", prompt);
         try {
             String text = chatModel.call(new Prompt(new SystemMessage(systemPrompt), new UserMessage(prompt)))
                     .getResult().getOutput().getText();
+            logger.info("Сгенерирован уточняющий вопрос, длина ответа LLM: {}", text == null ? 0 : text.length());
             return text == null ? Optional.empty() : Optional.of(FollowUpResult.of(text.trim()));
         } catch (Exception e) {
             logger.error("Ошибка генерации уточняющего вопроса: {}", e.getMessage(), e);
@@ -71,6 +73,7 @@ public class SpringAiFollowUpAdapter implements LlmFollowUpPort {
         String systemPrompt = aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE_SYSTEM);
         String prompt = new PromptTemplate(aiProviderService.getPrompt(AiProviderService.PROMPT_RESCORE))
                 .format(questionText, answerText, followUpQuestionText, followUpAnswerText);
+        logger.trace("Промпт переоценки: {}", prompt);
         try {
             String response = chatModel.call(new Prompt(new SystemMessage(systemPrompt), new UserMessage(prompt)))
                     .getResult().getOutput().getText();
@@ -81,6 +84,7 @@ public class SpringAiFollowUpAdapter implements LlmFollowUpPort {
                 return Optional.empty();
             }
             int score = Math.max(0, Math.min(5, parsedScore.get()));
+            logger.debug("Переоценка: получен score={}", score);
             String confidence = LlmJsonParser.extractJsonValue(response, "confidence");
             String feedback = LlmJsonParser.extractJsonValue(response, "feedback");
             return Optional.of(ScoreResult.of(score, confidence, feedback));

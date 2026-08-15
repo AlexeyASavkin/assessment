@@ -5,6 +5,8 @@ import com.assessment.ai.domain.ScoreResult;
 import com.assessment.ai.port.LlmScoringPort;
 import com.assessment.service.AiProviderService;
 import com.assessment.util.LlmJsonParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -19,6 +21,8 @@ import org.springframework.ai.chat.prompt.Prompt;
  * без изменения семантики (те же fallback-значения и сообщения об ошибках).
  */
 public class SpringAiScoringAdapter implements LlmScoringPort {
+
+    private static final Logger logger = LoggerFactory.getLogger(SpringAiScoringAdapter.class);
 
     /**
      * Системный промпт: закрепляет роль, формат ответа и защиту от prompt injection —
@@ -58,10 +62,17 @@ public class SpringAiScoringAdapter implements LlmScoringPort {
         if (chatModel == null) {
             throw new IllegalStateException("ChatModel не настроен. Укажите GEMINI_API_KEY для оценки ответов.");
         }
+        logger.trace("Отправка промпта на оценку в LLM: {}", prompt);
         String response = chatModel.call(new Prompt(new SystemMessage(SYSTEM_PROMPT), new UserMessage(prompt)))
                 .getResult().getOutput().getText();
+        logger.debug("Получен ответ LLM: длина={}, первые 120 символов: {}",
+                response == null ? 0 : response.length(),
+                response == null ? "null" : response.substring(0, Math.min(120, response.length())));
 
-        return ScoreResult.of(parseScore(response), parseConfidence(response), parseFeedback(response));
+        ScoreResult result = ScoreResult.of(parseScore(response), parseConfidence(response), parseFeedback(response));
+        logger.info("Оценка получена: score={}, confidence={}, valid={}",
+                result.getScore(), result.getConfidence(), result.isValid());
+        return result;
     }
 
     /**

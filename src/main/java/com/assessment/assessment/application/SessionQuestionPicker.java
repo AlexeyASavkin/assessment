@@ -5,6 +5,8 @@ import com.assessment.assessment.domain.QuestionBankQuestion;
 import com.assessment.assessment.domain.TopicInfo;
 import com.assessment.assessment.port.out.QuestionBankRepositoryPort;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
  */
 @Component
 public class SessionQuestionPicker {
+
+    private static final Logger logger = LoggerFactory.getLogger(SessionQuestionPicker.class);
 
     private final QuestionBankRepositoryPort questionBankRepositoryPort;
     private final int maxQuestionsPerSession;
@@ -58,6 +62,7 @@ public class SessionQuestionPicker {
         List<QuestionBankQuestion> bank = questionBankRepositoryPort.findByTopicIdOrderBySortOrderAsc(topicId);
 
         if (bank.isEmpty()) {
+            logger.warn("Банк вопросов для темы пуст: topicId={}", topicId);
             throw new IllegalStateException(
                     "Для темы нет сгенерированных вопросов. Администратор должен сгенерировать вопросы перед началом оценки.");
         }
@@ -67,12 +72,15 @@ public class SessionQuestionPicker {
                 .map(Attempt::getQuestionText)
                 .collect(Collectors.toSet());
 
+        logger.debug("Выбор вопроса: topicId={}, размер банка={}, использовано={}", topicId, bank.size(), usedTexts.size());
+
         for (QuestionBankQuestion bankQuestion : bank) {
             if (!usedTexts.contains(bankQuestion.getQuestionText())) {
                 return bankQuestion.getQuestionText();
             }
         }
 
+        logger.warn("Все вопросы банка для темы использованы: topicId={}, размер банка={}", topicId, bank.size());
         throw new IllegalStateException(
                 "Все вопросы из банка для темы уже использованы. Администратор должен сгенерировать дополнительные вопросы.");
     }
@@ -110,10 +118,13 @@ public class SessionQuestionPicker {
                 .map(Attempt::getTopicId)
                 .collect(Collectors.toSet());
 
-        return allTopics.stream()
+        UUID nextTopicId = allTopics.stream()
                 .map(TopicInfo::getId)
                 .filter(id -> !answeredTopicIds.contains(id))
                 .findFirst()
                 .orElse(null);
+
+        logger.debug("Определена следующая тема: topicId={}", nextTopicId);
+        return nextTopicId;
     }
 }

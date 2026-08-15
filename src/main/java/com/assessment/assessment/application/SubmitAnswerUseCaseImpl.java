@@ -13,6 +13,8 @@ import com.assessment.ai.port.LlmFollowUpPort;
 import com.assessment.common.ForbiddenException;
 import com.assessment.config.SessionLlmRateLimiter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(SubmitAnswerUseCaseImpl.class);
 
     private final SessionRepositoryPort sessionRepositoryPort;
     private final AttemptRepositoryPort attemptRepositoryPort;
@@ -65,10 +69,13 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
     @Override
     @Transactional
     public AnswerOutcome submitAnswer(UUID sessionId, UUID questionAttemptId, String finalTranscript) {
+        logger.debug("Принят ответ: sessionId={}, questionAttemptId={}", sessionId, questionAttemptId);
         AssessmentSession session = sessionRepositoryPort.findById(sessionId).orElseThrow();
 
         // Завершённая сессия не принимает ответы — защита от повторной отправки после отчёта.
         if (session.getStatus() == SessionStatus.COMPLETED) {
+            logger.warn("Попытка ответа в завершённую сессию отклонена: sessionId={}, questionAttemptId={}",
+                    sessionId, questionAttemptId);
             throw new ForbiddenException("Сессия уже завершена");
         }
 
@@ -76,10 +83,12 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
 
         // SEC: IDOR-защита — попытка должна принадлежать текущей сессии, иначе 403.
         if (!sessionId.equals(currentAttempt.getSessionId())) {
+            logger.warn("IDOR-попытка: попытка {} не принадлежит сессии {}", questionAttemptId, sessionId);
             throw new ForbiddenException("Попытка ответа не принадлежит текущей сессии");
         }
 
         currentAttempt = attemptRepositoryPort.save(currentAttempt.withFinalTranscript(finalTranscript));
+        logger.info("Сохранён транскрипт ответа: sessionId={}, attemptId={}", sessionId, currentAttempt.getId());
 
         List<TopicInfo> topics = topicsFor(session);
         UUID currentTopicId = currentAttempt.getTopicId();
@@ -88,6 +97,7 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
         boolean limitReached = questionPicker.hasReachedQuestionLimit(allAttempts);
 
         if (currentDepth > 0) {
+            // Оценка логируется внутри AttemptScoringExecutor.scoreNow (attemptId, score, confidence)
             Attempt scored = scoringExecutor.scoreNow(currentAttempt);
 
             if (currentAttempt.getFollowupParentId() != null) {
@@ -109,6 +119,8 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
                                         candidate.getFollowupDepth() + 1, candidate.getId(), candidate.getTopicId(),
                                         null, null, null, null));
                         sessionRepositoryPort.save(session.withCurrentQuestionId(followUpAttempt.getId()));
+                        logger.info("Создан уточняющий вопрос: sessionId={}, followUpAttemptId={}, parentId={}, depth={}",
+                                sessionId, followUpAttempt.getId(), candidate.getId(), candidate.getFollowupDepth() + 1);
                         return new AnswerOutcome.NextQuestion(followUpAttempt, currentTopicId);
                     }
                 }
@@ -121,12 +133,15 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
                 && questionPicker.hasUnused(currentTopicId, allAttempts);
 
         if (topicHasMore) {
+            // Оценка логируется внутри AttemptScoringExecutor.scoreNow (attemptId, score, confidence)
             scoringExecutor.scoreNow(currentAttempt);
             String nextQuestionText = questionPicker.pickQuestion(currentTopicId, allAttempts);
             Attempt nextAttempt = attemptRepositoryPort.save(
                     Attempt.of(null, sessionId, nextQuestionText, null, null, null, null, null, null,
                             0, null, currentTopicId, null, null, null, null));
             sessionRepositoryPort.save(session.withCurrentQuestionId(nextAttempt.getId()));
+            logger.info("Выдан следующий вопрос: sessionId={}, attemptId={}, topicId={}",
+                    sessionId, nextAttempt.getId(), currentTopicId);
             return new AnswerOutcome.NextQuestion(nextAttempt, currentTopicId);
         }
 
@@ -141,6 +156,8 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
                             Attempt.of(null, sessionId, followUpQuestion, null, null, null, null, null, null,
                                     candidate.getFollowupDepth() + 1, candidate.getId(), candidate.getTopicId(), null, null, null, null));
                     sessionRepositoryPort.save(session.withCurrentQuestionId(followUpAttempt.getId()));
+                    logger.info("Создан уточняющий вопрос: sessionId={}, followUpAttemptId={}, parentId={}, depth={}",
+                            sessionId, followUpAttempt.getId(), candidate.getId(), candidate.getFollowupDepth() + 1);
                     return new AnswerOutcome.NextQuestion(followUpAttempt, currentTopicId);
                 }
             }
@@ -162,6 +179,7 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
         if (questionPicker.hasReachedQuestionLimit(allAttempts)) {
             scoringExecutor.scoreUnscored(session.getId());
             sessionRepositoryPort.save(session.withStatus(SessionStatus.COMPLETED));
+            logger.info("Сессия завершена (достигнут лимит вопросов): sessionId={}", session.getId());
             return new AnswerOutcome.Completed();
         }
 
@@ -170,6 +188,7 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
         if (nextTopicId == null) {
             scoringExecutor.scoreUnscored(session.getId());
             sessionRepositoryPort.save(session.withStatus(SessionStatus.COMPLETED));
+            logger.info("Сессия завершена (все темы пройдены): sessionId={}", session.getId());
             return new AnswerOutcome.Completed();
         }
 
@@ -178,6 +197,8 @@ public class SubmitAnswerUseCaseImpl implements SubmitAnswerUseCase {
                 Attempt.of(null, session.getId(), nextQuestionText, null, null, null, null, null, null,
                         0, null, nextTopicId, null, null, null, null));
         sessionRepositoryPort.save(session.withCurrentQuestionId(nextAttempt.getId()));
+        logger.info("Переход к следующей теме: sessionId={}, topicId={}, attemptId={}",
+                session.getId(), nextTopicId, nextAttempt.getId());
 
         return new AnswerOutcome.NextQuestion(nextAttempt, nextAttempt.getTopicId());
     }
