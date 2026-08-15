@@ -5,6 +5,7 @@ import com.assessment.common.ConflictException;
 import com.assessment.common.ForbiddenException;
 import com.assessment.common.LlmUnavailableException;
 import com.assessment.common.NotFoundException;
+import com.openai.errors.RateLimitException;
 import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
  *   <li>Legacy {@link IllegalArgumentException} → 400</li>
  *   <li>Legacy {@link IllegalStateException} → 503 (сервис временно недоступен)</li>
  *   <li>{@link RequestNotPermitted} (Resilience4j) → 429 + Retry-After</li>
+ *   <li>{@link RateLimitException} (429 от LLM-провайдера) → 429 + Retry-After</li>
  *   <li>{@link MethodArgumentNotValidException} (Bean Validation) → 400 с полями</li>
  *   <li>{@link DataIntegrityViolationException} → 409</li>
  * </ul>
@@ -107,6 +109,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RequestNotPermitted.class)
     public ResponseEntity<Object> handleRateLimit(RequestNotPermitted e) {
         log.warn("Rate limit exceeded: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", "60")
+                .body(new ErrorResponse("Превышен лимит запросов к LLM. Попробуйте через минуту."));
+    }
+
+    /**
+     * 429 от самого LLM-провайдера (OpenAI SDK) — HTTP 429 с Retry-After,
+     * как и при собственном rate limit'е (Resilience4j).
+     */
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<Object> handleProviderRateLimit(RateLimitException e) {
+        log.warn("Rate limit от LLM-провайдера: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header("Retry-After", "60")
                 .body(new ErrorResponse("Превышен лимит запросов к LLM. Попробуйте через минуту."));
