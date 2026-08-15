@@ -16,8 +16,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/changes/008-add-question-sort-order.yml
   - include:
-      file: db/changelog/changes/009-admin-users.yml
-  - include:
       file: db/changelog/changes/010-employee-competencies.yml
   - include:
       file: db/changelog/changes/011-drop-raw-transcript.yml
@@ -27,3 +25,5 @@ databaseChangeLog:
       file: db/changelog/changes/013-ai-active-provider-env.yml
   - include:
       file: db/changelog/changes/014-ai-prompts.yml
+  - include:
+      file: db/changelog/changes/015-seed-demo-data.yml

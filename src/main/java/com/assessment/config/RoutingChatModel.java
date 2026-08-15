@@ -1,6 +1,8 @@
 package com.assessment.config;
 
 import com.assessment.service.AiProviderService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -19,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * активного провайдера в рантайме без перезапуска приложения.
  */
 public class RoutingChatModel implements ChatModel {
+
+    private static final Logger logger = LoggerFactory.getLogger(RoutingChatModel.class);
 
     private final AiProviderService aiProviderService;
     private final ChatModelFactory delegateFactory;
@@ -45,6 +49,7 @@ public class RoutingChatModel implements ChatModel {
     @Override
     public ChatResponse call(Prompt prompt) {
         String provider = aiProviderService.getActiveProvider();
+        logger.debug("Выбран активный AI-провайдер: {}", provider);
         ChatModel delegate = delegates.computeIfAbsent(provider, this::createDelegate);
         return delegate.call(prompt);
     }
@@ -57,8 +62,10 @@ public class RoutingChatModel implements ChatModel {
      * @throws IllegalStateException если фабрика не может создать модель (нет API-ключа)
      */
     private ChatModel createDelegate(String provider) {
+        logger.debug("Создание нового делегата для провайдера: {}", provider);
         ChatModel delegate = delegateFactory.create(provider);
         if (delegate == null) {
+            logger.warn("AI-провайдер '{}' недоступен. Доступные: {}", provider, delegateFactory.availableProviders());
             throw new IllegalStateException(
                     "AI провайдер '" + provider + "' не доступен. Доступные: " + delegateFactory.availableProviders());
         }

@@ -7,6 +7,8 @@ import com.assessment.assessment.port.out.InviteTokenRepositoryPort;
 import com.assessment.assessment.port.out.SessionRepositoryPort;
 import com.assessment.security.HmacTokenValidator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,8 @@ import java.util.UUID;
  */
 @Service
 public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(InviteEmployeeUseCaseImpl.class);
 
     private final InviteTokenRepositoryPort inviteTokenRepositoryPort;
     private final SessionRepositoryPort sessionRepositoryPort;
@@ -55,6 +59,8 @@ public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
                     // Токен уже использован и привязан к сессии — возвращаем существующую сессию
                     if (t.isUsed() && t.getSessionId() != null) {
                         AssessmentSession existing = sessionRepositoryPort.findById(t.getSessionId()).orElseThrow();
+                        logger.warn("Пригласительный токен уже использован — возвращена существующая сессия: sessionId={}, employeeId={}",
+                                existing.getId(), t.getEmployeeId());
                         return new InviteOutcome(existing, true);
                     }
 
@@ -67,15 +73,23 @@ public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
                     if (existing.isPresent()) {
                         session = existing.get();
                         reused = true;
+                        logger.info("Переиспользована существующая сессия сотрудника: sessionId={}, employeeId={}",
+                                session.getId(), t.getEmployeeId());
                     } else {
                         session = sessionRepositoryPort.save(
                                 AssessmentSession.of(null, t.getEmployeeId(), null, null,
                                         SessionStatus.ACTIVE, null, null));
                         reused = false;
+                        logger.info("Создана новая сессия оценки: sessionId={}, employeeId={}",
+                                session.getId(), t.getEmployeeId());
                     }
 
                     inviteTokenRepositoryPort.save(t.markUsed(session.getId()));
                     return new InviteOutcome(session, reused);
+                })
+                .or(() -> {
+                    logger.debug("Пригласительный токен невалиден или истёк — доступ отклонён");
+                    return Optional.empty();
                 });
     }
 }

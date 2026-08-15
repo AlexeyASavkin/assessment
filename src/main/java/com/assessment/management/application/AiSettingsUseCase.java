@@ -15,7 +15,7 @@ public interface AiSettingsUseCase {
     /**
      * Возвращает название активного провайдера LLM.
      *
-     * @return название провайдера (gemini, gigachat, openrouter, opencode, stub)
+     * @return название провайдера (opencode, gigachat, openrouter, gemini, stub)
      */
     String getActiveProvider();
 

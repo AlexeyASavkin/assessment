@@ -6,6 +6,8 @@ import com.assessment.assessment.domain.Attempt;
 import com.assessment.assessment.port.out.AttemptRepositoryPort;
 import com.assessment.assessment.port.out.SessionRepositoryPort;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class GetReportUseCaseImpl implements GetReportUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(GetReportUseCaseImpl.class);
 
     private static final BigDecimal PASS_THRESHOLD = new BigDecimal("3.0");
 
@@ -73,6 +77,7 @@ public class GetReportUseCaseImpl implements GetReportUseCase {
                     .collect(Collectors.toList());
 
             Attempt first = topicAttempts.get(0);
+            logger.debug("Тема отчёта: topicName={}, avgScore={}, passed={}", first.getTopicName(), avgScore, topicPassed);
             topicReports.add(AssessmentResult.TopicReport.of(
                     entry.getKey(),
                     first.getTopicName(),
@@ -91,6 +96,9 @@ public class GetReportUseCaseImpl implements GetReportUseCase {
                 ? totalScore.divide(BigDecimal.valueOf(competencyCount), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
         boolean passed = overallAvg.compareTo(PASS_THRESHOLD) >= 0;
+
+        logger.info("Сформирован отчёт: sessionId={}, attempts={}, passed={}, overallAvg={}",
+                sessionId, attempts.size(), passed, overallAvg);
 
         return AssessmentResult.of(sessionId, session.getEmployeeName(), passed,
                 generateOverallRecommendation(passed), topicReports, attempts);

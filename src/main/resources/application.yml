@@ -17,9 +17,6 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yml
-    parameters:
-      adminUsername: ${ADMIN_USERNAME}
-      adminPasswordHash: ${ADMIN_PASSWORD_HASH}
   ai:
     google:
       genai:
@@ -50,7 +47,7 @@ assessment:
   question:
     max-questions-per-session: 20
   ai:
-    active-provider: ${AI_PROVIDER:gemini}
+    active-provider: ${AI_PROVIDER:opencode}
 
 resilience4j:
   ratelimiter:
@@ -62,6 +59,6 @@ resilience4j:
 
 logging:
   level:
-    com.assessment: DEBUG
-    org.springframework.ai: DEBUG
-    io.github.resilience4j: DEBUG
+    com.assessment: ${LOGGING_LEVEL_COM_ASSESSMENT:DEBUG}
+    org.springframework.ai: ${LOGGING_LEVEL_SPRING_AI:DEBUG}
+    io.github.resilience4j: ${LOGGING_LEVEL_RESILIENCE4J:DEBUG}

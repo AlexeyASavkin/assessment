@@ -843,13 +843,13 @@ paths:
                 properties:
                   activeProvider:
                     type: string
-                    enum: [gemini, gigachat, openrouter, opencode, stub]
-                    example: gemini
+                    enum: [opencode, gigachat, openrouter, gemini, stub]
+                    example: opencode
                   availableProviders:
                     type: array
                     items:
                       type: string
-                    example: [gemini, gigachat, openrouter, opencode, stub]
+                    example: [opencode, gigachat, openrouter, gemini, stub]
     put:
       summary: Обновить AI-провайдера
       operationId: updateAiSettings
@@ -864,7 +864,7 @@ paths:
               properties:
                 activeProvider:
                   type: string
-                  enum: [gemini, gigachat, openrouter, opencode, stub]
+                  enum: [opencode, gigachat, openrouter, gemini, stub]
       responses:
         '200':
           description: Обновлённые настройки

@@ -20,6 +20,8 @@ import com.assessment.security.EmployeeTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -48,6 +50,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/employee")
 public class EmployeeWebAdapter {
+
+    private static final Logger logger = LoggerFactory.getLogger(EmployeeWebAdapter.class);
 
     private final EmployeeTokenService tokenService;
     private final InviteEmployeeUseCase inviteEmployeeUseCase;
@@ -90,8 +94,12 @@ public class EmployeeWebAdapter {
     public ResponseEntity<Void> handleInvite(@PathVariable String token,
                                               HttpServletRequest request,
                                               HttpServletResponse response) {
+        logger.debug("Обработка пригласительной ссылки: tokenSuffix={}",
+                token.length() > 8 ? token.substring(token.length() - 8) : token);
         Optional<InviteOutcome> resultOpt = inviteEmployeeUseCase.validateInvite(token);
         if (resultOpt.isEmpty()) {
+            logger.warn("Невалидный пригласительный токен — доступ отклонён: tokenSuffix={}",
+                    token.length() > 8 ? token.substring(token.length() - 8) : token);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
@@ -143,8 +151,10 @@ public class EmployeeWebAdapter {
     public ResponseEntity<?> getCurrentQuestion(@PathVariable UUID sessionId,
                                                 @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
                                                 HttpServletRequest request) {
+        logger.debug("Запрос текущего вопроса: sessionId={}", sessionId);
         Optional<AssessmentSession> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
+            logger.warn("Несоответствие сессии cookie — доступ отклонён: sessionId={}", sessionId);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -172,8 +182,10 @@ public class EmployeeWebAdapter {
                                           @Valid @RequestBody SubmitAnswerRequestDto requestDto,
                                           @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
                                           HttpServletRequest request) {
+        logger.debug("Принят ответ: sessionId={}", sessionId);
         Optional<AssessmentSession> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
+            logger.warn("Несоответствие сессии cookie — доступ отклонён: sessionId={}", sessionId);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -211,13 +223,16 @@ public class EmployeeWebAdapter {
     public ResponseEntity<Map<String, Object>> getReport(@PathVariable UUID sessionId,
                                                           @CookieValue(value = "SESSION_EMPLOYEE", required = false) String cookieValue,
                                                           HttpServletRequest request) {
+        logger.debug("Запрос отчёта: sessionId={}", sessionId);
         Optional<AssessmentSession> sessionOpt = tokenService.validateSessionCookie(request);
         if (sessionOpt.isEmpty() || !sessionOpt.get().getId().equals(sessionId)) {
+            logger.warn("Несоответствие сессии cookie — доступ отклонён: sessionId={}", sessionId);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         AssessmentSession session = sessionOpt.get();
         if (session.getStatus() != SessionStatus.COMPLETED) {
+            logger.warn("Отчёт запрошен для незавершённой сессии: sessionId={}", sessionId);
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("error", "Session not completed"));
         }

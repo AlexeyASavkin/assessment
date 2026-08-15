@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Сервис управления активным провайдером LLM и промтами.
- * Поддерживает переключение между Gemini, GigaChat, OpenRouter и OpenCode.
+ * Поддерживает переключение между OpenCode, GigaChat, OpenRouter и Gemini.
  * API-ключи читаются из окружения Spring {@link Environment}: это покрывает
  * как системные переменные (Docker env_file, shell), так и файл .env при
  * локальном запуске (springboot4-dotenv грузит его в PropertySource).
@@ -29,7 +29,7 @@ public class AiProviderService {
     public static final String PROMPT_FOLLOWUP_SYSTEM = "prompt_followup_system";
     public static final String PROMPT_RESCORE_SYSTEM = "prompt_rescore_system";
 
-    @Value("${assessment.ai.active-provider:gemini}")
+    @Value("${assessment.ai.active-provider:opencode}")
     private String defaultProvider;
 
     /** Кэш активного провайдера: сбрасывается при setActiveProvider, чтобы не читать БД на каждый LLM-вызов. */
@@ -91,7 +91,7 @@ public class AiProviderService {
      * Читается через {@link Environment#getProperty(String)}, что покрывает
      * системные переменные окружения и файл .env (springboot4-dotenv).
      *
-     * @param provider название провайдера (gemini, gigachat, openrouter, opencode)
+     * @param provider название провайдера (opencode, gigachat, openrouter, gemini)
      * @return API-ключ или пустую строку, если ключ не найден
      */
     public String getApiKey(String provider) {

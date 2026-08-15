@@ -6,7 +6,7 @@
 
 - **Администратор** через веб-интерфейс (`/admin`) или REST API управляет компетенциями, разделами, темами, сотрудниками и создаёт для каждого сотрудника одноразовую пригласительную ссылку.
 - **Сотрудник** получает ссылку, открывает её в Google Chrome, последовательно отвечает на вопросы из банка, используя голосовой ввод (`SpeechRecognition API`), при необходимости редактирует распознанный текст и отправляет ответ.
-- **LLM (Gemini 2.0 Flash / GigaChat / OpenRouter / OpenCode Zen)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
+- **LLM (OpenCode / GigaChat / OpenRouter / Gemini 2.0 Flash)** оценивает ответы по шкале 0–5. Для слабых ответов (≤ 2 балла) задаётся один уточняющий вопрос с переоценкой.
 - **По завершении сессии** формируется итоговый отчёт с результатом «Пройден / Не пройден».
 
 ## Стек
@@ -14,7 +14,7 @@
 | Компонент | Технология |
 |-----------|-----------|
 | Бэкенд | Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ |
-| LLM | Spring AI 2.0.0 + Gemini 2.0 Flash (default), GigaChat, OpenRouter, OpenCode Zen, stub |
+| LLM | Spring AI 2.0.0 + OpenCode (default, DeepSeek V4 Flash), GigaChat, OpenRouter, Gemini 2.0 Flash, stub |
 | База данных | PostgreSQL 18 |
 | Миграции | Liquibase |
 | Rate limiting | Resilience4j |
@@ -23,6 +23,15 @@
 | Тестирование (unit) | JUnit 5, Mockito |
 | Тестирование (component/BDD) | Cucumber 7.21, JUnit 5, OkHttp 4, Allure 2.30 |
 | Деплой | Docker Compose |
+| AI-агентный харнесс | OpenCode + oh-my-openagent (модель GLM-5.2) |
+
+## Разработка с AI-агентным харнессом
+
+Проект разрабатывается с помощью AI-агентного окружения:
+
+- **OpenCode** — агентный харнесс (CLI) для разработки: чтение кода, генерация правок, запуск команд, работа с git.
+- **oh-my-openagent** — плагин оркестрации для OpenCode: субагенты с ролями, делегирование задач и контроль качества. Конфигурация — `~/.omo/omo.jsonc` (включая fallback-модели).
+- **Основная модель** — `GLM-5.2` через провайдер OpenCode; переключение моделей — в конфиге харнесса.
 
 ## Архитектура
 
@@ -41,13 +50,32 @@
 - Java 25
 - Docker / Docker Compose
 - (Опционально) Node.js 20+ для локальной разработки фронтенда
-- Ключ `GEMINI_API_KEY` нужен только для генерации вопросов и оценки ответов; без него приложение запустится, но LLM-функции будут возвращать ошибку.
+- Ключ `OPENCODE_API_KEY` нужен только для генерации вопросов и оценки ответов; без него приложение запустится, но LLM-функции будут возвращать ошибку.
+
+### Быстрый запуск одной командой (Windows)
+
+```bat
+start-dev.cmd
+```
+
+Скрипт поднимает весь dev-стек в трёх окнах:
+
+1. **PostgreSQL** — `docker compose -f compose.db.yml up -d`, ожидание статуса `healthy` (до 60 с).
+2. **Бэкенд** — `gradlew.bat bootRun` в отдельном окне, `http://localhost:8080`.
+3. **Фронтенд** — `npm install` (только если нет `node_modules`) и `npm run dev` в отдельном окне, `http://localhost:3000`.
+
+Дополнительно скрипт:
+
+- проверяет наличие Docker, Java 25 и Node.js;
+- создаёт `.env` из `.env.example`, если его нет, и загружает переменные окружения в процесс бэкенда (в т.ч. разэкранирует `$$` → `$` в `ADMIN_PASSWORD_HASH`);
+- **пропускает запуск компонента, если его порт уже занят**: бэкенд на `8080`, фронтенд на `3000` — скрипт можно перезапускать в любой момент, он поднимет только недостающее;
+- остановка: `Ctrl+C` в окнах бэкенда и фронтенда, затем `docker compose -f compose.db.yml down`.
 
 ### Запуск базы данных
 
 ```bash
 cp .env.example .env
-# отредактируй .env и добавь GEMINI_API_KEY
+# отредактируй .env и добавь OPENCODE_API_KEY
 docker compose up -d postgres
 ```
 
@@ -73,7 +101,7 @@ npm run dev
 
 ```bash
 cp .env.example .env
-# отредактируй .env и добавь GEMINI_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
+# отредактируй .env и добавь OPENCODE_API_KEY и ADMIN_USERNAME / ADMIN_PASSWORD_HASH
 docker compose up --build
 ```
 
@@ -85,7 +113,7 @@ docker compose up --build
 
 | Файл | Сколько | Что проверяет |
 |------|---------|---------------|
-| `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из БД |
+| `AdminUserDetailsServiceTest` | 5 | Загрузка admin-пользователя из переменных окружения |
 | `HmacTokenValidatorTest` | 9 | Генерация и валидация HMAC-токенов |
 | `AiProviderServiceTest` | 20 | Переключение провайдеров, API-ключи, промпты |
 | `LlmJsonParserTest` | 24 | Извлечение значений из JSON-ответов LLM |
@@ -155,9 +183,6 @@ spring:
   liquibase:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yml
-    parameters:
-      adminUsername: ${ADMIN_USERNAME}
-      adminPasswordHash: ${ADMIN_PASSWORD_HASH}
 
 assessment:
   security:
@@ -167,8 +192,20 @@ assessment:
   question:
     max-questions-per-session: 20
   ai:
-    active-provider: ${AI_PROVIDER:gemini}
+    active-provider: ${AI_PROVIDER:opencode}
 ```
+
+### LLM-провайдеры и модели
+
+Активный провайдер задаётся переменной `AI_PROVIDER` (по умолчанию `opencode`) и переключается в рантайме через раздел «Настройки ИИ» в админ-панели. API-ключ читается из окружения (`OPENCODE_API_KEY` и т.д.).
+
+| Провайдер | Модель | Назначение |
+|-----------|--------|------------|
+| `opencode` (default) | `deepseek-v4-flash-free` | Основной провайдер. OpenAI-совместимый API шлюза OpenCode (`https://opencode.ai/zen/v1`), бесплатная модель DeepSeek V4 Flash. Ключ: `OPENCODE_API_KEY` |
+| `gigachat` | `GigaChat 2` | Российская модель Сбера. Ключ: `GIGACHAT_API_KEY` |
+| `openrouter` | `openai/gpt-4o` | Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: `OPENROUTER_API_KEY` |
+| `gemini` | `Gemini 2.0 Flash` | Облачная модель Google. Ключ: `GEMINI_API_KEY` |
+| `stub` | — | Заглушка для тестов без внешних API. Возвращает фиксированные ответы LLM |
 
 ## Как работает сервис
 
@@ -398,11 +435,20 @@ curl http://localhost:8080/api/employee/sessions/{sessionId}/report \
 | `question_attempts` | Вопросы, ответы и оценки (включая уточняющие) |
 | `question_banks` | Банк вопросов (сгенерированных или добавленных вручную) |
 | `ai_settings` | Настройки AI-провайдеров и промптов |
-| `admin_users` | Учётные записи администраторов |
+
+### Демо-данные
+
+При первой миграции БД (changeset `015-seed-demo-data`) сервис автоматически наполняется демо-данными для предварительной настройки и примеров:
+
+- **Компетенции**: «Java-разработка», «SQL и базы данных», «Frontend-разработка (React)»
+- **Разделы и темы**: Java Core (Stream API, Коллекции), Spring Framework (Spring Boot, Spring Data JPA), Основы SQL (SELECT и JOIN, Индексы и оптимизация), React Core (Компоненты и props, Хуки)
+- **Банк вопросов**: 16 примеров вопросов с уровнями сложности `JUNIOR` / `MIDDLE` / `SENIOR` для каждой темы
+
+Демо-данные можно удалить или изменить через админ-панель или REST API.
 
 ## Известные ограничения
 
 - Голосовой ввод работает только в Google Chrome.
 - Нет серверного распознавания речи и хранения аудиофайлов.
 - Нет поддержки Firefox, Safari и мобильных браузеров.
-- Один LLM-вызов на ответ (Gemini, GigaChat, OpenRouter или OpenCode Zen). Rate limiter предотвращает превышение лимитов.
+- Один LLM-вызов на ответ (OpenCode, GigaChat, OpenRouter или Gemini). Rate limiter предотвращает превышение лимитов.

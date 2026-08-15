@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listApplications, type ApplicationSummary } from '../../api/admin'
+import { type ApplicationSummary, listApplications } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 
 /**
@@ -56,9 +56,12 @@ export default function ApplicationsPage() {
   const renderStatus = (status: string | null): string => {
     if (!status) return 'Не начата'
     switch (status) {
-      case 'COMPLETED': return 'Завершена'
-      case 'ACTIVE': return 'Активна'
-      default: return status
+      case 'COMPLETED':
+        return 'Завершена'
+      case 'ACTIVE':
+        return 'Активна'
+      default:
+        return status
     }
   }
 
@@ -109,18 +112,20 @@ export default function ApplicationsPage() {
                     <td>{item.employeeName ?? '—'}</td>
                     <td>{item.competencyName ?? '—'}</td>
                     <td>{renderStatus(item.sessionStatus)}</td>
-                    <td>
-                      {item.averageScore != null ? item.averageScore.toFixed(2) : '—'}
-                    </td>
+                    <td>{item.averageScore != null ? item.averageScore.toFixed(2) : '—'}</td>
                     <td>
                       {item.sessionStatus === 'COMPLETED' ? (
-                        <span style={{
-                          color: item.passed ? '#28a745' : '#dc3545',
-                          fontWeight: 600,
-                        }}>
+                        <span
+                          style={{
+                            color: item.passed ? '#28a745' : '#dc3545',
+                            fontWeight: 600,
+                          }}
+                        >
                           {item.passed ? 'Пройден' : 'Не пройден'}
                         </span>
-                      ) : '—'}
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td>{formatDate(item.createdAt)}</td>
                     <td>{formatDate(item.completedAt)}</td>

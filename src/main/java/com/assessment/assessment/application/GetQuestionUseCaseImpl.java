@@ -8,6 +8,8 @@ import com.assessment.assessment.port.out.AttemptRepositoryPort;
 import com.assessment.assessment.port.out.SessionRepositoryPort;
 import com.assessment.assessment.port.out.TopicQueryPort;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +25,8 @@ import java.util.UUID;
  */
 @Service
 public class GetQuestionUseCaseImpl implements GetQuestionUseCase {
+
+    private static final Logger logger = LoggerFactory.getLogger(GetQuestionUseCaseImpl.class);
 
     private final SessionRepositoryPort sessionRepositoryPort;
     private final AttemptRepositoryPort attemptRepositoryPort;
@@ -42,8 +46,10 @@ public class GetQuestionUseCaseImpl implements GetQuestionUseCase {
     @Override
     public QuestionOutcome getCurrentQuestion(UUID sessionId) {
         AssessmentSession session = sessionRepositoryPort.findById(sessionId).orElseThrow();
+        logger.debug("Запрос текущего вопроса: sessionId={}, status={}", sessionId, session.getStatus());
 
         if (session.getStatus() == SessionStatus.COMPLETED) {
+            logger.info("Сессия уже завершена — вопрос не выдаётся: sessionId={}", sessionId);
             return new QuestionOutcome.Completed();
         }
 
@@ -51,18 +57,21 @@ public class GetQuestionUseCaseImpl implements GetQuestionUseCase {
         if (currentQuestionId != null) {
             Optional<Attempt> current = attemptRepositoryPort.findById(currentQuestionId);
             if (current.isPresent()) {
+                logger.debug("Возвращён текущий вопрос: sessionId={}, attemptId={}", sessionId, current.get().getId());
                 return new QuestionOutcome.Question(current.get());
             }
         }
 
         List<Attempt> attempts = attemptRepositoryPort.findBySessionIdOrderByCreatedAtAsc(sessionId);
         if (questionPicker.hasReachedQuestionLimit(attempts)) {
+            logger.info("Достигнут лимит вопросов сессии — сессия завершена: sessionId={}", sessionId);
             return new QuestionOutcome.Completed();
         }
         List<TopicInfo> topics = topicsFor(session);
         UUID nextTopicId = questionPicker.findNextTopicId(attempts, topics);
 
         if (nextTopicId == null) {
+            logger.info("Все темы пройдены — сессия завершена: sessionId={}", sessionId);
             return new QuestionOutcome.Completed();
         }
 
@@ -72,6 +81,10 @@ public class GetQuestionUseCaseImpl implements GetQuestionUseCase {
                 Attempt.of(null, sessionId, questionText, null, null, null, null, null, null,
                         0, null, nextTopicId, null, null, null, null));
         sessionRepositoryPort.save(session.withCurrentQuestionId(attempt.getId()));
+
+        logger.info("Выдан новый вопрос: sessionId={}, attemptId={}, topicId={}, questionText={}",
+                sessionId, attempt.getId(), nextTopicId,
+                questionText.length() > 60 ? questionText.substring(0, 60) + "..." : questionText);
 
         return new QuestionOutcome.Question(attempt);
     }

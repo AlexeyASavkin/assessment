@@ -1,5 +1,5 @@
-import { useState, FormEvent } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { type FormEvent, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { adminLogin } from '../../api/admin'
 import { useAuth } from '../../context/AuthContext'
 
@@ -18,7 +18,7 @@ export default function AdminLogin() {
 
   const from = (location.state as { from?: string } | null)?.from || '/admin'
 
-/**
+  /**
    * Обрабатывает отправку формы входа.
    * Вызывает API авторизации, обновляет состояние аутентификации и перенаправляет администратора.
    */

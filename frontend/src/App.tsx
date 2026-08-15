@@ -1,16 +1,16 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import EmployeeSession from './pages/EmployeeSession'
-import EmployeeReport from './pages/EmployeeReport'
-import AdminLogin from './pages/admin/AdminLogin'
-import AdminDashboard from './pages/admin/AdminDashboard'
-import AdminCompetenciesTreePage from './pages/admin/AdminCompetenciesTreePage'
-import EmployeesPage from './pages/admin/EmployeesPage'
-import ApplicationsPage from './pages/admin/ApplicationsPage'
-import ApplicationReportPage from './pages/admin/ApplicationReportPage'
-import AiSettingsPage from './pages/admin/AiSettingsPage'
-import QuestionsPage from './pages/admin/QuestionsPage'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AdminLayout, ProtectedRoute } from './components/admin/AdminLayout'
 import { AuthProvider } from './context/AuthContext'
-import { ProtectedRoute, AdminLayout } from './components/admin/AdminLayout'
+import AdminCompetenciesTreePage from './pages/admin/AdminCompetenciesTreePage'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminLogin from './pages/admin/AdminLogin'
+import AiSettingsPage from './pages/admin/AiSettingsPage'
+import ApplicationReportPage from './pages/admin/ApplicationReportPage'
+import ApplicationsPage from './pages/admin/ApplicationsPage'
+import EmployeesPage from './pages/admin/EmployeesPage'
+import QuestionsPage from './pages/admin/QuestionsPage'
+import EmployeeReport from './pages/EmployeeReport'
+import EmployeeSession from './pages/EmployeeSession'
 
 /**
  * Корневой компонент приложения.
@@ -25,7 +25,10 @@ function App() {
     return (
       <div className="container">
         <h1>Предупреждение</h1>
-        <p>Приложение работает лучше в Google Chrome. Пожалуйста, используйте Chrome для голосового ввода.</p>
+        <p>
+          Приложение работает лучше в Google Chrome. Пожалуйста, используйте Chrome для голосового
+          ввода.
+        </p>
       </div>
     )
   }
@@ -46,15 +49,28 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/competencies" element={<AdminCompetenciesTreePage />} />
-              <Route path="/admin/competencies/:competencyId/questions" element={<QuestionsPage />} />
+              <Route
+                path="/admin/competencies/:competencyId/questions"
+                element={<QuestionsPage />}
+              />
               <Route path="/admin/employees" element={<EmployeesPage />} />
               <Route path="/admin/applications" element={<ApplicationsPage />} />
-              <Route path="/admin/applications/:sessionId/report" element={<ApplicationReportPage />} />
+              <Route
+                path="/admin/applications/:sessionId/report"
+                element={<ApplicationReportPage />}
+              />
               <Route path="/admin/settings" element={<AiSettingsPage />} />
             </Route>
           </Route>
 
-          <Route path="*" element={<div className="container"><h1>Ассессмент компетенций</h1></div>} />
+          <Route
+            path="*"
+            element={
+              <div className="container">
+                <h1>Ассессмент компетенций</h1>
+              </div>
+            }
+          />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

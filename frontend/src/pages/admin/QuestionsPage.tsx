@@ -1,17 +1,20 @@
-import { useState, useEffect, useRef, FormEvent } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
-  listQuestions,
-  generateQuestions,
-  updateQuestion,
-  deleteQuestion,
-  getCompetency,
-  type QuestionBankItem,
   type Competency,
+  deleteQuestion,
+  generateQuestions,
+  getCompetency,
+  listQuestions,
+  type QuestionBankItem,
+  updateQuestion,
 } from '../../api/admin'
 import { AdminPageWrapper } from '../../components/admin/AdminLayout'
 import Loader from '../../components/Loader'
-import RichTextEditor, { type RichTextEditorHandle, plainTextToHtml } from '../../components/RichTextEditor'
+import RichTextEditor, {
+  plainTextToHtml,
+  type RichTextEditorHandle,
+} from '../../components/RichTextEditor'
 
 /**
  * Состояние формы генерации вопросов через ИИ.
@@ -42,7 +45,7 @@ export default function QuestionsPage() {
   const [saving, setSaving] = useState(false)
   const editorRef = useRef<RichTextEditorHandle>(null)
 
-/**
+  /**
    * Загружает список вопросов и информацию о компетенции.
    */
   const load = async () => {
@@ -73,7 +76,7 @@ export default function QuestionsPage() {
     return () => clearTimeout(timer)
   }, [success])
 
-/**
+  /**
    * Генерирует новые вопросы через ИИ на основе выбранных параметров и обновляет список.
    */
   const handleGenerate = async (e: FormEvent) => {
@@ -94,7 +97,7 @@ export default function QuestionsPage() {
     }
   }
 
-/**
+  /**
    * Переключает выбранный вопрос в режим редактирования.
    */
   const startEdit = (item: QuestionBankItem) => {
@@ -102,7 +105,7 @@ export default function QuestionsPage() {
     setEditText(item.questionText)
   }
 
-/**
+  /**
    * Отменяет режим редактирования вопроса и сбрасывает изменённый текст.
    */
   const cancelEdit = () => {
@@ -110,7 +113,7 @@ export default function QuestionsPage() {
     setEditText('')
   }
 
-/**
+  /**
    * Сохраняет отредактированный текст вопроса и обновляет список.
    */
   const handleSaveEdit = async (id: string) => {
@@ -129,7 +132,7 @@ export default function QuestionsPage() {
     }
   }
 
-/**
+  /**
    * Удаляет вопрос из банка после подтверждения и обновляет список.
    */
   const handleDelete = async (id: string) => {
@@ -153,7 +156,9 @@ export default function QuestionsPage() {
           subtext="ИИ создаёт вопросы на основе компетенции. Это может занять примерно минуту."
         />
       )}
-      <button className="btn admin-back" onClick={() => navigate('/admin/competencies')}>← К компетенциям</button>
+      <button className="btn admin-back" onClick={() => navigate('/admin/competencies')}>
+        ← К компетенциям
+      </button>
       <h1>{headerTitle}</h1>
       {error && <p className="error-text">{error}</p>}
       {success && <p className="success-text">{success}</p>}
@@ -207,15 +212,15 @@ export default function QuestionsPage() {
                 <div className="admin-list-info">
                   {editingId === item.id ? (
                     <div className="form-field">
-                      <RichTextEditor
-                        ref={editorRef}
-                        content={editText}
-                        minHeight="80px"
-                      />
+                      <RichTextEditor ref={editorRef} content={editText} minHeight="80px" />
                     </div>
                   ) : (
                     <>
-                      <h3 dangerouslySetInnerHTML={{ __html: plainTextToHtml(item.questionText) + ' ' }} />
+                      <h3
+                        dangerouslySetInnerHTML={{
+                          __html: plainTextToHtml(item.questionText) + ' ',
+                        }}
+                      />
                       <span className="badge">{item.difficulty}</span>
                     </>
                   )}
@@ -223,15 +228,25 @@ export default function QuestionsPage() {
                 <div className="admin-list-actions">
                   {editingId === item.id ? (
                     <>
-                      <button className="btn btn-primary" onClick={() => handleSaveEdit(item.id)} disabled={saving}>
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleSaveEdit(item.id)}
+                        disabled={saving}
+                      >
                         {saving ? 'Сохранение...' : 'Сохранить'}
                       </button>
-                      <button className="btn" onClick={cancelEdit}>Отмена</button>
+                      <button className="btn" onClick={cancelEdit}>
+                        Отмена
+                      </button>
                     </>
                   ) : (
                     <>
-                      <button className="btn" onClick={() => startEdit(item)}>Редактировать</button>
-                      <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Удалить</button>
+                      <button className="btn" onClick={() => startEdit(item)}>
+                        Редактировать
+                      </button>
+                      <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>
+                        Удалить
+                      </button>
                     </>
                   )}
                 </div>

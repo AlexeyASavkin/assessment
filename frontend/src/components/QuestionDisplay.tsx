@@ -1,6 +1,6 @@
-import { useRef, useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
-import RichTextEditor, { type RichTextEditorHandle, plainTextToHtml } from './RichTextEditor'
+import RichTextEditor, { plainTextToHtml, type RichTextEditorHandle } from './RichTextEditor'
 
 /**
  * Пропсы компонента отображения вопроса.
@@ -20,7 +20,12 @@ interface QuestionDisplayProps {
  * @param props - пропсы компонента
  * @return JSX-элемент с интерфейсом ответа на вопрос
  */
-export default function QuestionDisplay({ questionText, isFollowUp, onSubmit, isLoading }: QuestionDisplayProps) {
+export default function QuestionDisplay({
+  questionText,
+  isFollowUp,
+  onSubmit,
+  isLoading,
+}: QuestionDisplayProps) {
   const {
     isRecording,
     interimTranscript,
@@ -62,7 +67,10 @@ export default function QuestionDisplay({ questionText, isFollowUp, onSubmit, is
   return (
     <div className="card">
       {isFollowUp && <p style={{ color: '#666', fontStyle: 'italic' }}>Уточняющий вопрос:</p>}
-      <div className="question-text" dangerouslySetInnerHTML={{ __html: plainTextToHtml(questionText) }} />
+      <div
+        className="question-text"
+        dangerouslySetInnerHTML={{ __html: plainTextToHtml(questionText) }}
+      />
 
       <div style={{ marginBottom: '20px' }}>
         <button
@@ -81,19 +89,10 @@ export default function QuestionDisplay({ questionText, isFollowUp, onSubmit, is
       </div>
 
       <div style={{ marginBottom: '20px' }}>
-        <RichTextEditor
-          ref={editorRef}
-          placeholder=""
-          disabled={isLoading}
-          minHeight="150px"
-        />
+        <RichTextEditor ref={editorRef} placeholder="" disabled={isLoading} minHeight="150px" />
       </div>
 
-      <button
-        className="btn btn-success"
-        onClick={handleSubmit}
-        disabled={isLoading}
-      >
+      <button className="btn btn-success" onClick={handleSubmit} disabled={isLoading}>
         {isLoading ? 'Отправка...' : 'Отправить ответ'}
       </button>
     </div>

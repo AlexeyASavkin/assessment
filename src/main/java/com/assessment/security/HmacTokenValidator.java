@@ -1,5 +1,7 @@
 package com.assessment.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +21,8 @@ import java.util.Base64;
  */
 @Component
 public class HmacTokenValidator {
+
+    private static final Logger logger = LoggerFactory.getLogger(HmacTokenValidator.class);
 
     private final String secret;
 
@@ -45,7 +49,9 @@ public class HmacTokenValidator {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
             byte[] hash = mac.doFinal(employeeId.getBytes(StandardCharsets.UTF_8));
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            String token = Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+            logger.trace("Сгенерирован HMAC-токен: employeeId={}, длина токена={}", employeeId, token.length());
+            return token;
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new RuntimeException("Failed to generate HMAC token", e);
         }
@@ -61,7 +67,13 @@ public class HmacTokenValidator {
     public boolean validateToken(String employeeId, String token) {
         try {
             String expected = generateToken(employeeId);
-            return expected.equals(token);
+            boolean valid = expected.equals(token);
+            if (valid) {
+                logger.debug("HMAC-токен валиден: employeeId={}", employeeId);
+            } else {
+                logger.warn("HMAC-токен не совпадает: employeeId={}", employeeId);
+            }
+            return valid;
         } catch (Exception e) {
             return false;
         }

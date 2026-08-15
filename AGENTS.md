@@ -7,7 +7,7 @@ Java/Spring Boot backend + React frontend for employee competency assessment via
 ## Stack & versions
 
 - **Backend**: Java 25, Spring Boot 4.1.0, Spring Security 7, Spring Data JPA, JOOQ, Spring AI 2.0.0
-- **LLM providers**: Google Gemini 2.0 Flash (default), Sber GigaChat, OpenRouter, OpenCode Zen, plus a `stub` provider for tests (5 total; switchable at runtime via `AI_PROVIDER` env / `AiSettings` table)
+- **LLM providers**: OpenCode (default), Sber GigaChat, OpenRouter, Google Gemini 2.0 Flash, plus a `stub` provider for tests (5 total; switchable at runtime via `AI_PROVIDER` env / `AiSettings` table)
 - **Database**: PostgreSQL 18, migrations via Liquibase
 - **Rate limiting**: Resilience4j
 - **Build**: Gradle 9.6.1 (wrapper), Java toolchain 25
@@ -50,7 +50,7 @@ npm run preview
 
 ```bash
 # Start PostgreSQL via Docker (только БД, без бэкенда и фронтенда)
-cp .env.example .env  # then edit GEMINI_API_KEY
+cp .env.example .env  # then edit OPENCODE_API_KEY
 docker compose -f compose.db.yml up -d
 ```
 
@@ -109,13 +109,13 @@ com.assessment/
 
 ### Security model
 
-- **Admin**: Spring Security form-login at `/api/admin/login`. Credentials via env vars `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH`; default seed in `.env.example` uses `admin / admin`. All `/api/admin/**` require `ADMIN` role.
+- **Admin**: Spring Security form-login at `/api/admin/login`. Credentials come from env vars `ADMIN_USERNAME` / `ADMIN_PASSWORD_HASH` (BCrypt hash, read at runtime — NOT stored in DB); default in `.env.example` uses `admin / admin`. All `/api/admin/**` require `ADMIN` role.
 - **Employee**: No password. Access via HMAC-signed invite token at `/api/employee/invite/{token}`. Server validates token, creates session, sets cookie `SESSION_EMPLOYEE`. All subsequent employee API calls use this cookie.
 - **CSRF is disabled** (`SecurityConfig`)
 
 ### AI provider switching
 
-Spring AI auto-configurations for Gemini, GigaChat and OpenAI are **explicitly excluded** in `AssessmentApplication.java` (`@SpringBootApplication(exclude = {...})`). They are loaded manually via `ai/config/ChatClientConfig.java` (bean assembly: provider `ChatModel` beans → `RoutingChatModel` → `ChatClient` / primary `ChatModel`). Active provider is controlled by env var `AI_PROVIDER` (`gemini` | `gigachat` | `openrouter` | `opencode` | `stub`, default `gemini`). Validated hard-coded in `AiProviderService.setActiveProvider`. LLM-вызовы идут через AI-адаптеры (`ai/adapter/SpringAi*Adapter`, `Stub*Adapter`), которые используют `ChatModel` + `AiProviderService` (промпты).
+Spring AI auto-configurations for Gemini, GigaChat and OpenAI are **explicitly excluded** in `AssessmentApplication.java` (`@SpringBootApplication(exclude = {...})`). They are loaded manually via `ai/config/ChatClientConfig.java` (bean assembly: provider `ChatModel` beans → `RoutingChatModel` → `ChatClient` / primary `ChatModel`). Active provider is controlled by env var `AI_PROVIDER` (`opencode` | `gigachat` | `openrouter` | `gemini` | `stub`, default `opencode`). Validated hard-coded in `AiProviderService.setActiveProvider`. LLM-вызовы идут через AI-адаптеры (`ai/adapter/SpringAi*Adapter`, `Stub*Adapter`), которые используют `ChatModel` + `AiProviderService` (промпты).
 
 ### Rate limiting
 
@@ -131,20 +131,20 @@ Resilience4j (15 requests/minute, 10s timeout, `Resilience4jConfig.java`): LLM-�
 
 - PostgreSQL 18. Default local credentials: `assessment / assessment`, database `assessment`.
 - Migrations are **Liquibase YAML** in `src/main/resources/db/changelog/changes/`. Do not use Hibernate DDL auto; `ddl-auto: none` is set.
-- Tables: `competencies`, `sections`, `topics`, `criteria`, `criteria_levels`, `employees`, `employee_competencies`, `sessions`, `assessment_invite_tokens`, `question_attempts`, `ai_settings`, `question_banks`, `admin_users`.
+- Tables: `competencies`, `sections`, `topics`, `criteria`, `criteria_levels`, `employees`, `employee_competencies`, `sessions`, `assessment_invite_tokens`, `question_attempts`, `ai_settings`, `question_banks`.
 
 ## Environment variables
 
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
-| `GEMINI_API_KEY` | Yes for LLM | — | Gemini API key |
+| `OPENCODE_API_KEY` | Yes for LLM | — | OpenCode API key (DeepSeek, Grok, GLM etc.) |
 | `GIGACHAT_API_KEY` | If using GigaChat | — | GigaChat API key |
 | `OPENROUTER_API_KEY` | If using OpenRouter | — | OpenRouter API key (aggregates multiple models) |
-| `OPENCODE_API_KEY` | If using OpenCode Zen | — | OpenCode Zen API key (DeepSeek, Grok, GLM etc.) |
-| `AI_PROVIDER` | No | `gemini` | `gemini` \| `gigachat` \| `openrouter` \| `opencode` \| `stub` |
+| `GEMINI_API_KEY` | If using Gemini | — | Gemini API key |
+| `AI_PROVIDER` | No | `opencode` | `opencode` \| `gigachat` \| `openrouter` \| `gemini` \| `stub` |
 | `HMAC_SECRET` | No | `change-me-in-production` | HMAC signing for invite tokens |
-| `ADMIN_USERNAME` | Yes (seed) | — | Initial admin username (Liquibase seed) |
-| `ADMIN_PASSWORD_HASH` | Yes (seed) | — | Initial admin password hash (BCrypt, Liquibase seed) |
+| `ADMIN_USERNAME` | Yes | — | Admin username (env, not stored in DB) |
+| `ADMIN_PASSWORD_HASH` | Yes | — | Admin password hash (BCrypt, env, not stored in DB) |
 | `POSTGRES_USER` | Yes | — | PostgreSQL username |
 | `POSTGRES_PASSWORD` | Yes | — | PostgreSQL password |
 | `SERVER_PORT` | No | `8080` | Backend HTTP port (tests use 8081) |
@@ -239,7 +239,7 @@ db: добавить колонку base_score в question_attempts
 - Voice input only works in Google Chrome.
 - No server-side speech recognition; browser handles it.
 - No mobile browser support.
-- One LLM call per answer (Gemini or GigaChat). Rate limiter prevents abuse.
+- One LLM call per answer (OpenCode or GigaChat). Rate limiter prevents abuse.
 
 ## Reference docs
 
