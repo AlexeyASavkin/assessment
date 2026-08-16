@@ -1,7 +1,19 @@
 import { HttpResponse, http } from 'msw'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { server } from '../test/server'
-import { adminFetch, adminJson, parseError } from './shared'
+import { adminFetch, adminJson, getXsrfToken, parseError } from './shared'
+
+/** Устанавливает XSRF-TOKEN cookie для теста. */
+function setXsrfCookie(value: string): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: jsdom не поддерживает Cookie Store API
+  document.cookie = `XSRF-TOKEN=${value}`
+}
+
+/** Удаляет XSRF-TOKEN cookie между тестами. */
+function clearXsrfCookie(): void {
+  // biome-ignore lint/suspicious/noDocumentCookie: jsdom не поддерживает Cookie Store API
+  document.cookie = 'XSRF-TOKEN=; Max-Age=0'
+}
 
 describe('parseError', () => {
   it('извлекает текст ошибки из тела ответа', async () => {
@@ -21,7 +33,23 @@ describe('parseError', () => {
   })
 })
 
+describe('getXsrfToken', () => {
+  afterEach(clearXsrfCookie)
+
+  it('возвращает значение токена из cookie', () => {
+    setXsrfCookie('abc-123')
+    expect(getXsrfToken()).toBe('abc-123')
+  })
+
+  it('возвращает пустую строку, когда cookie отсутствует', () => {
+    clearXsrfCookie()
+    expect(getXsrfToken()).toBe('')
+  })
+})
+
 describe('adminFetch', () => {
+  afterEach(clearXsrfCookie)
+
   it('вызывает fetch с базовым путём /api/admin и credentials include', async () => {
     server.use(
       http.get('/api/admin/check', ({ request }) => {
@@ -30,6 +58,42 @@ describe('adminFetch', () => {
       }),
     )
     const response = await adminFetch('/check')
+    expect(response.ok).toBe(true)
+  })
+
+  it('добавляет X-XSRF-TOKEN для POST, когда токен есть в cookie', async () => {
+    setXsrfCookie('test-token-123')
+    server.use(
+      http.post('/api/admin/check', ({ request }) => {
+        expect(request.headers.get('X-XSRF-TOKEN')).toBe('test-token-123')
+        return HttpResponse.json({ ok: true })
+      }),
+    )
+    const response = await adminFetch('/check', { method: 'POST' })
+    expect(response.ok).toBe(true)
+  })
+
+  it('не добавляет X-XSRF-TOKEN для GET, даже когда токен есть в cookie', async () => {
+    setXsrfCookie('test-token-123')
+    server.use(
+      http.get('/api/admin/check', ({ request }) => {
+        expect(request.headers.get('X-XSRF-TOKEN')).toBeNull()
+        return HttpResponse.json({ ok: true })
+      }),
+    )
+    const response = await adminFetch('/check')
+    expect(response.ok).toBe(true)
+  })
+
+  it('не добавляет X-XSRF-TOKEN для POST без токена в cookie', async () => {
+    clearXsrfCookie()
+    server.use(
+      http.post('/api/admin/check', ({ request }) => {
+        expect(request.headers.get('X-XSRF-TOKEN')).toBeNull()
+        return HttpResponse.json({ ok: true })
+      }),
+    )
+    const response = await adminFetch('/check', { method: 'POST' })
     expect(response.ok).toBe(true)
   })
 })
