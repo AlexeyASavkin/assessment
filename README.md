@@ -105,6 +105,14 @@ cp .env.example .env
 docker compose up --build
 ```
 
+Сервис `backend` в `docker-compose.yml` запускается с профилем `prod` (`SPRING_PROFILES_ACTIVE: prod`). Профиль `prod` **не стартует** (fail-fast, `IllegalStateException` при запуске), если в `.env` не заданы реальные секреты:
+
+- `HMAC_SECRET` всё ещё равен значению по умолчанию `change-me-in-production`;
+- `ADMIN_PASSWORD_HASH` содержит хеш пароля по умолчанию из `.env.example`;
+- `ADMIN_USERNAME` пуст.
+
+Перед `docker compose up` обязательно замени в `.env` значения `HMAC_SECRET`, `ADMIN_USERNAME` и `ADMIN_PASSWORD_HASH` на свои (см. `.env.example` — комментарии к этим переменным).
+
 ## Тестирование
 
 ### Unit-тесты
