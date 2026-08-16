@@ -136,10 +136,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # jsdom 30 requires Node ^22.22.2 || ^24.15.0 || >=26.0.0 — Node 20 crashes vitest
+          node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -172,9 +173,16 @@ jobs:
       - name: Generate CycloneDX SBOM
         run: ./gradlew cyclonedxBom
       - name: OWASP dependency-check (aggregate)
+        # NVD API v2 rejects anonymous requests — a free NVD_API_KEY secret is required.
+        # Without it the step is skipped with a warning instead of failing the job.
+        if: ${{ secrets.NVD_API_KEY != '' }}
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: ./gradlew dependencyCheckAggregate
+      - name: "Warn: NVD_API_KEY not configured"
+        if: ${{ secrets.NVD_API_KEY == '' }}
+        run: |
+          echo "::warning title=NVD_API_KEY not set::OWASP dependency-check was skipped. Add a free NVD API key (https://nvd.nist.gov/developers/request-an-api-key) as repository secret NVD_API_KEY to enable vulnerability scanning."
       - name: Upload CycloneDX SBOM
         uses: actions/upload-artifact@v4
         if: always()
