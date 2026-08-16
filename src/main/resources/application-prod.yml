@@ -2,13 +2,20 @@
 # Активируется автоматически при SPRING_PROFILES_ACTIVE=prod (имя файла application-prod.yml)
 # и явно помечен маркером профиля ниже.
 #
-# ВАЖНО: GigaChat НЕ включает unsafe-ssl: true (в базовом application.yml он задан для dev).
-# Подключение корневого CA (НУЦ Минцифры) для GigaChat выполняется отдельной задачей (T14) —
-# здесь намеренно НЕТ блока spring.ai.gigachat, чтобы prod не переопределял SSL-настройки.
+# GigaChat: SSL-проверка включена (unsafe-ssl: false из базового application.yml).
+# Для доверия к корневому CA (НУЦ Минцифры) подключён PEM-бандл через
+# spring.ai.gigachat.auth.certs.ca-certs (задача T14) — путь задаётся переменной
+# GIGACHAT_CA_CERTS (файл монтируется в контейнер). Остальной клиентский конфиг
+# gigachat не дублируется — наследуется из application.yml.
 spring:
   config:
     activate:
       on-profile: prod
+  ai:
+    gigachat:
+      auth:
+        certs:
+          ca-certs: ${GIGACHAT_CA_CERTS:}
 
 # Prod-логирование: INFO вместо DEBUG из базового application.yml.
 logging:

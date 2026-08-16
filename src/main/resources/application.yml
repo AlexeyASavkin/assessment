@@ -29,7 +29,7 @@ spring:
         bearer:
           api-key: ${GIGACHAT_API_KEY}
         scope: GIGACHAT_API_PERS
-        unsafe-ssl: true
+        unsafe-ssl: false
       chat:
         options:
           model: GigaChat-2
