@@ -209,7 +209,7 @@ assessment:
 
 | Провайдер | Модель | Назначение |
 |-----------|--------|------------|
-| `opencode` (default) | `deepseek-v4-flash-free` | Основной провайдер. OpenAI-совместимый API шлюза OpenCode (`https://opencode.ai/zen/v1`), бесплатная модель DeepSeek V4 Flash. Ключ: `OPENCODE_API_KEY` |
+| `opencode` (default) | `opencode-go/deepseek-v4-flash` | Основной провайдер. OpenAI-совместимый API шлюза OpenCode (`https://opencode.ai/zen/v1`), платная модель DeepSeek V4 Flash. Ключ: `OPENCODE_API_KEY` |
 | `gigachat` | `GigaChat 2` | Российская модель Сбера. Ключ: `GIGACHAT_API_KEY` |
 | `openrouter` | `openai/gpt-4o` | Агрегатор моделей (OpenAI, Anthropic и др.). Ключ: `OPENROUTER_API_KEY` |
 | `gemini` | `Gemini 2.0 Flash` | Облачная модель Google. Ключ: `GEMINI_API_KEY` |

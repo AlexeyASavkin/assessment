@@ -219,7 +219,7 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
         OpenAiChatOptions opencodeOptions = OpenAiChatOptions.builder()
                 .apiKey(opencodeKey)
                 .baseUrl("https://opencode.ai/zen/v1")
-                .model("deepseek-v4-flash-free")
+                .model("opencode-go/deepseek-v4-flash")
                 .temperature(0.3)
                 .maxTokens(4000)
                 .build();
