@@ -13,7 +13,8 @@ import org.springframework.security.web.SecurityFilterChain;
  * <p>
  * Определяет правила доступа к API: форма входа для администраторов,
  * открытый доступ для сотрудников по пригласительным ссылкам,
- * отключение CSRF (требуется для REST API).
+ * CSRF-защита админских endpoint'ов по SPA-паттерну (cookie-токен),
+ * запрет всех неизвестных путей.
  */
 @Configuration
 @EnableWebSecurity
@@ -37,10 +38,14 @@ public class SecurityConfig {
     /**
      * Настраивает цепочку фильтров безопасности.
      * <p>
-     * Разрешает доступ к входу администратора без аутентификации,
-     * требует роль ADMIN для остальных админских endpoint'ов,
-     * разрешает доступ к API сотрудников (аутентификация по cookie),
-     * отключает CSRF и настраивает обработку form-login с JSON-ответами.
+ * Разрешает доступ к входу администратора без аутентификации,
+ * требует роль ADMIN для остальных админских endpoint'ов,
+ * разрешает доступ к API сотрудников (аутентификация по cookie),
+ * включает CSRF-защиту для админских endpoint'ов по SPA-паттерну
+ * ({@code CookieCsrfTokenRepository.withHttpOnlyFalse()} + deferred-token
+ * request handler, см. {@code CsrfConfigurer.spa()}), оставляя API
+ * сотрудников без CSRF (SameSite=Lax cookie уже смягчает риск),
+ * и запрещает все неизвестные пути.
      *
      * @param http объект конфигурации HTTP-безопасности
      * @return настроенная цепочка фильтров {@link SecurityFilterChain}
@@ -49,12 +54,16 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers("/api/employee/**")
+                .spa()
+            )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/admin/login").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/employee/**").permitAll()
-                .anyRequest().permitAll()
+                .requestMatchers("/actuator/health").permitAll()
+                .anyRequest().denyAll()
             )
             .formLogin(form -> form
                 .loginProcessingUrl("/api/admin/login")
