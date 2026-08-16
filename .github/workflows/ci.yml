@@ -1,0 +1,253 @@
+# CI pipeline for the Assessment service (p0-prod-hardening, T16)
+#
+# Triggers:
+#   - push to main                  -> all jobs; docker job builds AND pushes images
+#   - pull_request against main     -> test jobs only (no image push)
+#   - push of any git tag           -> docker job pushes tag-named images
+#   - nightly cron 02:00 UTC        -> security job (SBOM + OWASP dependency-check)
+#   - workflow_dispatch             -> manual run
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ '**' ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Backend unit tests (170 tests, JUnit Platform)
+  # ---------------------------------------------------------------------------
+  backend-test:
+    name: Backend unit tests
+    runs-on: ubuntu-latest
+    # nightly cron is reserved for the security job
+    if: github.event_name != 'schedule'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Java (Temurin 25)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Run unit tests
+        run: ./gradlew test
+
+  # ---------------------------------------------------------------------------
+  # BDD component tests (black-box, real backend on :8081 with AI_PROVIDER=stub)
+  # Env block mirrors tests/component/run-bdd-tests.bat lines 33-41 (Linux port)
+  # ---------------------------------------------------------------------------
+  bdd:
+    name: BDD component tests
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: assessment
+          POSTGRES_USER: assessment
+          POSTGRES_PASSWORD: assessment
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U assessment"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Java (Temurin 25)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Build backend jar
+        run: ./gradlew bootJar -x test
+      - name: Start backend (stub AI, port 8081)
+        env:
+          # Mirrors run-bdd-tests.bat:33-41 — the proven local BDD configuration
+          AI_PROVIDER: stub
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/assessment
+          POSTGRES_USER: assessment
+          POSTGRES_PASSWORD: assessment
+          SERVER_PORT: 8081
+          HMAC_SECRET: change-me-in-production
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD_HASH: '{bcrypt}$2a$10$8NNlBPU28aAmz520dwwSw.1emitHPCfYoQv9XyK0j6qWPSvHHCPHO'
+        run: |
+          nohup java -jar build/libs/assessment-service-0.0.1-SNAPSHOT.jar > backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null http://localhost:8081/api/admin/competencies; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Backend did not become ready in time"
+          tail -n 200 backend.log
+          exit 1
+      - name: Run BDD tests
+        run: ./gradlew -p tests/component test
+      - name: Generate Allure report
+        run: ./gradlew -p tests/component allureReport -x test
+      - name: Upload Allure report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-report
+          path: tests/component/build/reports/allure-report
+          if-no-files-found: ignore
+      - name: Upload backend log (on failure)
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: bdd-backend-log
+          path: backend.log
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Frontend: biome check, tsc + vite build, vitest
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend check/build/test
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule'
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint (biome check)
+        run: npm run check
+      - name: Build (tsc + vite)
+        run: npm run build
+      - name: Test (vitest)
+        run: npm run test
+
+  # ---------------------------------------------------------------------------
+  # Security: CycloneDX SBOM + OWASP dependency-check.
+  # Also runs nightly via on.schedule. NVD_API_KEY is a repository secret —
+  # anonymous NVD API v2 is rejected (verified in T15).
+  # ---------------------------------------------------------------------------
+  security:
+    name: SBOM and dependency check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Java (Temurin 25)
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Generate CycloneDX SBOM
+        run: ./gradlew cyclonedxBom
+      - name: OWASP dependency-check (aggregate)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+        run: ./gradlew dependencyCheckAggregate
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cyclonedx-bom
+          path: build/reports/cyclonedx
+          if-no-files-found: ignore
+      - name: Upload dependency-check report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: build/reports/dependency-check
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Docker: build backend + frontend images, push to GHCR.
+  # PUSH ONLY on push to main (sha-<short> + latest) and tags (tag name).
+  # Never runs on pull_requests.
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Build and push Docker images to GHCR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute backend image metadata
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/assessment-backend
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=tag
+      - name: Compute frontend image metadata
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/assessment-frontend
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=tag
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
