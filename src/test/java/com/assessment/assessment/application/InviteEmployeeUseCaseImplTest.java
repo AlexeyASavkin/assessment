@@ -5,7 +5,7 @@ import com.assessment.assessment.domain.InviteToken;
 import com.assessment.assessment.domain.SessionStatus;
 import com.assessment.assessment.port.out.InviteTokenRepositoryPort;
 import com.assessment.assessment.port.out.SessionRepositoryPort;
-import com.assessment.security.HmacTokenValidator;
+import com.assessment.security.TokenHasher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,20 +37,20 @@ class InviteEmployeeUseCaseImplTest {
     private SessionRepositoryPort sessionRepositoryPort;
 
     @Mock
-    private HmacTokenValidator hmacValidator;
+    private TokenHasher tokenHasher;
 
     private InviteEmployeeUseCaseImpl useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new InviteEmployeeUseCaseImpl(inviteTokenRepositoryPort, sessionRepositoryPort, hmacValidator);
+        useCase = new InviteEmployeeUseCaseImpl(inviteTokenRepositoryPort, sessionRepositoryPort, tokenHasher);
     }
 
     @Test
     @DisplayName("Неиспользованный токен без существующей сессии создаёт новую сессию и помечает токен")
     void unusedTokenWithoutExistingSessionCreatesNewSession() {
         InviteToken inviteToken = inviteToken(false, null, Instant.now().plus(1, ChronoUnit.DAYS));
-        when(hmacValidator.generateToken(TOKEN)).thenReturn(HASH);
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
         when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.of(inviteToken));
         when(sessionRepositoryPort.findFirstByEmployeeIdOrderByCreatedAtDesc(EMPLOYEE_ID))
                 .thenReturn(Optional.empty());
@@ -73,7 +73,7 @@ class InviteEmployeeUseCaseImplTest {
     void unusedTokenWithExistingSessionReusesIt() {
         InviteToken inviteToken = inviteToken(false, null, Instant.now().plus(1, ChronoUnit.DAYS));
         AssessmentSession existing = session(UUID.randomUUID());
-        when(hmacValidator.generateToken(TOKEN)).thenReturn(HASH);
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
         when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.of(inviteToken));
         when(sessionRepositoryPort.findFirstByEmployeeIdOrderByCreatedAtDesc(EMPLOYEE_ID))
                 .thenReturn(Optional.of(existing));
@@ -89,49 +89,65 @@ class InviteEmployeeUseCaseImplTest {
     }
 
     @Test
-    @DisplayName("Использованный токен с привязанной сессией возвращает её без повторного сохранения токена")
-    void usedTokenWithSessionReturnsExistingSessionWithoutResave() {
+    @DisplayName("Использованный токен с привязанной сессией отклоняется — возвращается пустой результат")
+    void usedTokenWithSessionReturnsEmpty() {
         UUID sessionId = UUID.randomUUID();
         InviteToken inviteToken = inviteToken(true, sessionId, Instant.now().plus(1, ChronoUnit.DAYS));
-        AssessmentSession existing = session(sessionId);
-        when(hmacValidator.generateToken(TOKEN)).thenReturn(HASH);
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
         when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.of(inviteToken));
-        when(sessionRepositoryPort.findById(sessionId)).thenReturn(Optional.of(existing));
 
         Optional<InviteOutcome> result = useCase.validateInvite(TOKEN);
 
-        assertTrue(result.isPresent());
-        assertTrue(result.get().reused());
-        assertEquals(sessionId, result.get().session().getId());
-        verify(inviteTokenRepositoryPort, never()).save(any());
+        assertTrue(result.isEmpty());
+        verify(sessionRepositoryPort, never()).findById(any());
         verify(sessionRepositoryPort, never()).findFirstByEmployeeIdOrderByCreatedAtDesc(any());
+        verify(inviteTokenRepositoryPort, never()).save(any());
     }
 
     @Test
-    @DisplayName("Использованный токен без привязки к сессии обрабатывается как первое использование")
-    void usedTokenWithoutSessionIdIsTreatedAsFirstUse() {
+    @DisplayName("Использованный токен без привязки к сессии также отклоняется")
+    void usedTokenWithoutSessionIdReturnsEmpty() {
         InviteToken inviteToken = inviteToken(true, null, Instant.now().plus(1, ChronoUnit.DAYS));
-        when(hmacValidator.generateToken(TOKEN)).thenReturn(HASH);
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
         when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.of(inviteToken));
+
+        Optional<InviteOutcome> result = useCase.validateInvite(TOKEN);
+
+        assertTrue(result.isEmpty());
+        verify(sessionRepositoryPort, never()).findFirstByEmployeeIdOrderByCreatedAtDesc(any());
+        verify(inviteTokenRepositoryPort, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Повторное открытие ссылки отклоняется: второй вызов с тем же токеном возвращает пустой результат")
+    void secondCallWithSameTokenReturnsEmpty() {
+        // Первый вызов — токен не использован, создаётся сессия и токен помечается использованным
+        InviteToken unused = inviteToken(false, null, Instant.now().plus(1, ChronoUnit.DAYS));
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
+        when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.of(unused));
         when(sessionRepositoryPort.findFirstByEmployeeIdOrderByCreatedAtDesc(EMPLOYEE_ID))
                 .thenReturn(Optional.empty());
         UUID newSessionId = UUID.randomUUID();
         when(sessionRepositoryPort.save(any())).thenAnswer(inv -> withId(inv.getArgument(0), newSessionId));
 
-        Optional<InviteOutcome> result = useCase.validateInvite(TOKEN);
+        Optional<InviteOutcome> first = useCase.validateInvite(TOKEN);
+        assertTrue(first.isPresent());
 
-        assertTrue(result.isPresent());
-        assertFalse(result.get().reused());
-        assertEquals(newSessionId, result.get().session().getId());
-        verify(inviteTokenRepositoryPort).save(argThat(t ->
-                t.isUsed() && newSessionId.equals(t.getSessionId())));
+        // Второй вызов — токен уже использован (как после markUsed), доступ отклоняется
+        when(inviteTokenRepositoryPort.findByTokenHash(HASH))
+                .thenReturn(Optional.of(inviteToken(true, newSessionId, Instant.now().plus(1, ChronoUnit.DAYS))));
+
+        Optional<InviteOutcome> second = useCase.validateInvite(TOKEN);
+
+        assertTrue(second.isEmpty());
+        verify(sessionRepositoryPort, never()).findById(any());
     }
 
     @Test
     @DisplayName("Истёкший токен возвращает пустой результат без создания сессии")
     void expiredTokenReturnsEmpty() {
         InviteToken inviteToken = inviteToken(false, null, Instant.now().minus(1, ChronoUnit.DAYS));
-        when(hmacValidator.generateToken(TOKEN)).thenReturn(HASH);
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
         when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.of(inviteToken));
 
         Optional<InviteOutcome> result = useCase.validateInvite(TOKEN);
@@ -144,7 +160,7 @@ class InviteEmployeeUseCaseImplTest {
     @Test
     @DisplayName("Неизвестный токен возвращает пустой результат без обращения к сессиям")
     void unknownTokenReturnsEmpty() {
-        when(hmacValidator.generateToken(TOKEN)).thenReturn(HASH);
+        when(tokenHasher.hash(TOKEN)).thenReturn(HASH);
         when(inviteTokenRepositoryPort.findByTokenHash(HASH)).thenReturn(Optional.empty());
 
         Optional<InviteOutcome> result = useCase.validateInvite(TOKEN);
