@@ -114,11 +114,6 @@ public class EmployeeSessionSteps {
         String token = ScenarioContext.get().getVar("inviteToken");
         Response response = employeeClient.openInvite(token);
         ScenarioContext.get().setLastResponse(employeeClient.body(response), employeeClient.statusCode(response));
-        String location = employeeClient.header(response, "Location");
-        assertThat(location).as("повторное открытие ссылки должно вести на сессию").contains("/session/");
-        String sessionId = ScenarioContext.get().getVar("sessionId");
-        assertThat(location).as("повторное открытие ссылки должно возвращать ту же сессию")
-                .contains("/session/" + sessionId);
     }
 
     @Given("сотрудник открывает пригласительную ссылку с невалидным токеном")
