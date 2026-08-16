@@ -5,7 +5,7 @@ import com.assessment.assessment.domain.InviteToken;
 import com.assessment.assessment.domain.SessionStatus;
 import com.assessment.assessment.port.out.InviteTokenRepositoryPort;
 import com.assessment.assessment.port.out.SessionRepositoryPort;
-import com.assessment.security.HmacTokenValidator;
+import com.assessment.security.TokenHasher;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +18,10 @@ import java.util.UUID;
 /**
  * Реализация use case валидации одноразового пригласительного токена сотрудника.
  *
- * <p>Проверяет HMAC-подпись токена и срок действия, при первом использовании
- * создаёт или находит сессию сотрудника и помечает токен как использованный.
- * Зависит от выходных портов и {@link HmacTokenValidator}.
+ * <p>Вычисляет SHA-256 хеш предоставленного токена и ищет его в БД, проверяет
+ * срок действия, при первом использовании создаёт или находит сессию сотрудника
+ * и помечает токен как использованный. Повторное использование токена
+ * отклоняется. Зависит от выходных портов и {@link TokenHasher}.
  */
 @Service
 public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
@@ -29,14 +30,14 @@ public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
 
     private final InviteTokenRepositoryPort inviteTokenRepositoryPort;
     private final SessionRepositoryPort sessionRepositoryPort;
-    private final HmacTokenValidator hmacValidator;
+    private final TokenHasher tokenHasher;
 
     public InviteEmployeeUseCaseImpl(InviteTokenRepositoryPort inviteTokenRepositoryPort,
                                      SessionRepositoryPort sessionRepositoryPort,
-                                     HmacTokenValidator hmacValidator) {
+                                     TokenHasher tokenHasher) {
         this.inviteTokenRepositoryPort = inviteTokenRepositoryPort;
         this.sessionRepositoryPort = sessionRepositoryPort;
-        this.hmacValidator = hmacValidator;
+        this.tokenHasher = tokenHasher;
     }
 
     /**
@@ -47,23 +48,17 @@ public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
      * одновременном открытии одной и той же пригласительной ссылки.
      *
      * @param token пригласительный токен
-     * @return результат валидации или {@link Optional#empty()} если токен невалиден/истёк
+     * @return результат валидации или {@link Optional#empty()} если токен невалиден,
+     *         истёк или уже использован
      */
     @Override
     @Transactional
     public Optional<InviteOutcome> validateInvite(String token) {
-        String hash = hmacValidator.generateToken(token);
+        String hash = tokenHasher.hash(token);
         return inviteTokenRepositoryPort.findByTokenHash(hash)
                 .filter(InviteToken::isNotExpired)
+                .filter(t -> !t.isUsed())
                 .map(t -> {
-                    // Токен уже использован и привязан к сессии — возвращаем существующую сессию
-                    if (t.isUsed() && t.getSessionId() != null) {
-                        AssessmentSession existing = sessionRepositoryPort.findById(t.getSessionId()).orElseThrow();
-                        logger.warn("Пригласительный токен уже использован — возвращена существующая сессия: sessionId={}, employeeId={}",
-                                existing.getId(), t.getEmployeeId());
-                        return new InviteOutcome(existing, true);
-                    }
-
                     // Первое использование — ищем существующую сессию сотрудника или создаём новую
                     Optional<AssessmentSession> existing = sessionRepositoryPort
                             .findFirstByEmployeeIdOrderByCreatedAtDesc(t.getEmployeeId());
@@ -88,7 +83,7 @@ public class InviteEmployeeUseCaseImpl implements InviteEmployeeUseCase {
                     return new InviteOutcome(session, reused);
                 })
                 .or(() -> {
-                    logger.debug("Пригласительный токен невалиден или истёк — доступ отклонён");
+                    logger.debug("Пригласительный токен невалиден, истёк или уже использован — доступ отклонён");
                     return Optional.empty();
                 });
     }

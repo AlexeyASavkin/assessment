@@ -25,14 +25,15 @@ public class TestHttpClient {
     private final OkHttpClient adminClient;
     private final OkHttpClient employeeClient;
     private final OkHttpClient noRedirectClient;
+    private final SessionCookieJar cookieJar;
 
     public TestHttpClient() {
         // Shared cookie jar so adminClient, employeeClient, and noRedirectClient
         // all share session cookies within the same TestHttpClient instance.
-        CookieJar sharedJar = new SessionCookieJar();
-        this.adminClient = buildClient(true, sharedJar);
-        this.employeeClient = buildClient(true, sharedJar);
-        this.noRedirectClient = buildClient(false, sharedJar);
+        this.cookieJar = new SessionCookieJar();
+        this.adminClient = buildClient(true, cookieJar);
+        this.employeeClient = buildClient(true, cookieJar);
+        this.noRedirectClient = buildClient(false, cookieJar);
     }
 
     private static OkHttpClient buildClient(boolean followRedirects, CookieJar cookieJar) {
@@ -49,11 +50,41 @@ public class TestHttpClient {
     public Response postForm(String path, Map<String, String> formParams) {
         FormBody.Builder form = new FormBody.Builder();
         formParams.forEach(form::add);
-        Request request = new Request.Builder()
+        Request.Builder builder = new Request.Builder()
                 .url(BASE_URL + path)
-                .post(form.build())
-                .build();
-        return execute(adminClient, request);
+                .post(form.build());
+        withXsrfHeader(builder, xsrfToken());
+        return execute(adminClient, builder.build());
+    }
+
+    /**
+     * POST с form-параметрами без следования редиректам (для login bootstrap).
+     * Использует тот же общий cookie jar, поэтому видит XSRF-TOKEN, полученный
+     * при первом (отклонённом CSRF) POST.
+     */
+    public Response postFormNoRedirect(String path, Map<String, String> formParams) {
+        FormBody.Builder form = new FormBody.Builder();
+        formParams.forEach(form::add);
+        Request.Builder builder = new Request.Builder()
+                .url(BASE_URL + path)
+                .post(form.build());
+        withXsrfHeader(builder, xsrfToken());
+        return execute(noRedirectClient, builder.build());
+    }
+
+    /**
+     * Вход администратора с учётом deferred-token CSRF bootstrap (T6/T8):
+     * первый POST на /api/admin/login без XSRF-TOKEN отклоняется CSRF-фильтром
+     * (302 + Set-Cookie XSRF-TOKEN), повторный POST с заголовком X-XSRF-TOKEN
+     * проходит (200 + JSESSIONID при успехе, 401 при неверном пароле).
+     * Если первый POST уже прошёл (токен в jar есть), возвращается его ответ.
+     */
+    public Response adminLogin(Map<String, String> formParams) {
+        Response first = postFormNoRedirect("/api/admin/login", formParams);
+        if (first.code() == 302) {
+            return postFormNoRedirect("/api/admin/login", formParams);
+        }
+        return first;
     }
 
     public Response adminPost(String path, Object body) {
@@ -73,11 +104,11 @@ public class TestHttpClient {
     }
 
     public Response adminDelete(String path) {
-        Request request = new Request.Builder()
+        Request.Builder builder = new Request.Builder()
                 .url(BASE_URL + path)
-                .delete()
-                .build();
-        return execute(adminClient, request);
+                .delete();
+        withXsrfHeader(builder, xsrfToken());
+        return execute(adminClient, builder.build());
     }
 
     private Response adminJson(String method, String path, Object body) {
@@ -88,6 +119,7 @@ public class TestHttpClient {
 
             Request.Builder builder = new Request.Builder()
                     .url(BASE_URL + path);
+            withXsrfHeader(builder, xsrfToken());
 
             switch (method) {
                 case "POST" -> builder.post(requestBody);
@@ -194,7 +226,35 @@ public class TestHttpClient {
         return val != null ? val : "";
     }
 
+    /**
+     * Все значения заголовка (например, несколько Set-Cookie в одном ответе).
+     * OkHttp {@link Response#header(String)} возвращает только ПОСЛЕДНЕЕ значение,
+     * поэтому для заголовков, отправляемых несколько раз, нужна эта форма.
+     */
+    public List<String> headers(Response response, String name) {
+        return response.headers(name);
+    }
+
+    /**
+     * Значение CSRF-токена из общего cookie jar (cookie XSRF-TOKEN, JS-readable,
+     * устанавливается CookieCsrfTokenRepository.withHttpOnlyFalse()).
+     * Пустая строка, если токен ещё не получен (первый POST до bootstrap).
+     */
+    public String xsrfToken() {
+        return cookieJar.cookieValue("XSRF-TOKEN");
+    }
+
     // ---- Internal ----
+
+    /**
+     * Добавляет заголовок X-XSRF-TOKEN, если токен уже получен из cookie jar.
+     * Мутирующие админские вызовы обязаны его слать (CSRF включён для /api/admin/**).
+     */
+    private static void withXsrfHeader(Request.Builder builder, String xsrfToken) {
+        if (xsrfToken != null && !xsrfToken.isEmpty()) {
+            builder.header("X-XSRF-TOKEN", xsrfToken);
+        }
+    }
 
     private static Response execute(OkHttpClient client, Request request) {
         try {
@@ -211,6 +271,18 @@ public class TestHttpClient {
      */
     private static class SessionCookieJar implements CookieJar {
         private final List<Cookie> cookies = new ArrayList<>();
+
+        /**
+         * Возвращает значение cookie по имени (если она ещё не истекла), иначе "".
+         */
+        public String cookieValue(String name) {
+            for (Cookie cookie : cookies) {
+                if (cookie.name().equals(name) && cookie.expiresAt() > System.currentTimeMillis()) {
+                    return cookie.value();
+                }
+            }
+            return "";
+        }
 
         @Override
         public void saveFromResponse(@NotNull HttpUrl url, @NotNull List<Cookie> newCookies) {

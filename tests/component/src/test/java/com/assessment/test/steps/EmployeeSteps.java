@@ -83,8 +83,9 @@ public class EmployeeSteps {
     @Then("cookie как сотрудник {string} установлена")
     public void employeeCookieIsSet(String cookieName) {
         assertThat(lastResponse).isNotNull();
-        String setCookie = client.header(lastResponse, "Set-Cookie");
-        assertThat(setCookie).contains(cookieName);
+        // Set-Cookie может приходить несколько раз — проверяем все значения заголовка.
+        List<String> setCookies = client.headers(lastResponse, "Set-Cookie");
+        assertThat(setCookies).anyMatch(sc -> sc.contains(cookieName));
     }
 
     @Then("сохраняю sessionId из Location")

@@ -55,11 +55,35 @@ class AdminUserDetailsServiceTest {
     }
 
     @Test
-    @DisplayName("null-логин вызывает UsernameNotFoundException")
+    @DisplayName("null-логин возвращает UsernameNotFoundException")
     void loadUserByUsernameNullUsername() {
         AdminUserDetailsService service = new AdminUserDetailsService("admin", "{bcrypt}hash");
 
         assertThrows(UsernameNotFoundException.class,
             () -> service.loadUserByUsername(null));
+    }
+
+    @Test
+    @DisplayName("Двойные $$ в BCrypt-хэше разэкранируются (docker compose env_file)")
+    void loadUserByUsernameUnescapesDoubleDollarInPasswordHash() {
+        AdminUserDetailsService service = new AdminUserDetailsService("admin",
+                "{bcrypt}$$2a$$12$$3bgslYyY8l4jFEUHSNTsxe53SzKCU93CuHf.fFF4MaVTlK1RBATR2");
+
+        UserDetails details = service.loadUserByUsername("admin");
+
+        assertEquals("{bcrypt}$2a$12$3bgslYyY8l4jFEUHSNTsxe53SzKCU93CuHf.fFF4MaVTlK1RBATR2",
+                details.getPassword());
+    }
+
+    @Test
+    @DisplayName("Одинарные $ в BCrypt-хэше не изменяются")
+    void loadUserByUsernameKeepsSingleDollarPasswordHash() {
+        AdminUserDetailsService service = new AdminUserDetailsService("admin",
+                "{bcrypt}$2a$12$3bgslYyY8l4jFEUHSNTsxe53SzKCU93CuHf.fFF4MaVTlK1RBATR2");
+
+        UserDetails details = service.loadUserByUsername("admin");
+
+        assertEquals("{bcrypt}$2a$12$3bgslYyY8l4jFEUHSNTsxe53SzKCU93CuHf.fFF4MaVTlK1RBATR2",
+                details.getPassword());
     }
 }

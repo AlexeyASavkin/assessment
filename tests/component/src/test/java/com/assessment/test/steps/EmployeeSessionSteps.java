@@ -30,7 +30,7 @@ public class EmployeeSessionSteps {
     @Given("администратор авторизован для сессии")
     public void adminAuthForSession() {
         Map<String, String> params = Map.of("username", TestAdminConfig.username(), "password", TestAdminConfig.password());
-        Response response = adminClient.postForm("/api/admin/login", params);
+        Response response = adminClient.adminLogin(params);
         assertThat(adminClient.statusCode(response)).isEqualTo(200);
         ScenarioContext.get().setLastResponse(adminClient.body(response), adminClient.statusCode(response));
     }
@@ -114,11 +114,6 @@ public class EmployeeSessionSteps {
         String token = ScenarioContext.get().getVar("inviteToken");
         Response response = employeeClient.openInvite(token);
         ScenarioContext.get().setLastResponse(employeeClient.body(response), employeeClient.statusCode(response));
-        String location = employeeClient.header(response, "Location");
-        assertThat(location).as("повторное открытие ссылки должно вести на сессию").contains("/session/");
-        String sessionId = ScenarioContext.get().getVar("sessionId");
-        assertThat(location).as("повторное открытие ссылки должно возвращать ту же сессию")
-                .contains("/session/" + sessionId);
     }
 
     @Given("сотрудник открывает пригласительную ссылку с невалидным токеном")

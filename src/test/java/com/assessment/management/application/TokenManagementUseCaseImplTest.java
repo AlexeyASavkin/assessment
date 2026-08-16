@@ -5,6 +5,8 @@ import com.assessment.entity.Employee;
 import com.assessment.management.port.out.EmployeeRepositoryPort;
 import com.assessment.management.port.out.TokenRepositoryPort;
 import com.assessment.security.HmacTokenValidator;
+import com.assessment.security.RandomTokenGenerator;
+import com.assessment.security.TokenHasher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,7 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,23 +36,27 @@ class TokenManagementUseCaseImplTest {
     private TokenRepositoryPort tokenRepositoryPort;
 
     @Mock
-    private HmacTokenValidator hmacValidator;
+    private RandomTokenGenerator randomTokenGenerator;
+
+    @Mock
+    private TokenHasher tokenHasher;
 
     private TokenManagementUseCaseImpl useCase;
 
     @BeforeEach
     void setUp() {
-        useCase = new TokenManagementUseCaseImpl(employeeRepositoryPort, tokenRepositoryPort, hmacValidator);
+        useCase = new TokenManagementUseCaseImpl(employeeRepositoryPort, tokenRepositoryPort,
+                randomTokenGenerator, tokenHasher);
     }
 
     @Test
-    @DisplayName("generateInviteLink возвращает ссылку с токеном и сохраняет его хеш")
+    @DisplayName("generateInviteLink возвращает ссылку со случайным токеном и сохраняет его хеш")
     void generateInviteLinkSuccess() {
         UUID employeeId = UUID.randomUUID();
         Employee employee = Employee.builder().id(employeeId).fullName("Иванов Иван").build();
         when(employeeRepositoryPort.findById(employeeId)).thenReturn(Optional.of(employee));
-        when(hmacValidator.generateToken(employeeId.toString())).thenReturn("raw-token");
-        when(hmacValidator.generateToken("raw-token")).thenReturn("token-hash");
+        when(randomTokenGenerator.generate()).thenReturn("raw-token");
+        when(tokenHasher.hash("raw-token")).thenReturn("token-hash");
 
         Optional<String> link = useCase.generateInviteLink(employeeId);
 
@@ -69,12 +74,30 @@ class TokenManagementUseCaseImplTest {
     }
 
     @Test
+    @DisplayName("Возвращённый токен не равен HMAC-подписи employeeId (токен теперь случайный)")
+    void returnedTokenIsNotHmacOfEmployeeId() {
+        UUID employeeId = UUID.randomUUID();
+        Employee employee = Employee.builder().id(employeeId).build();
+        when(employeeRepositoryPort.findById(employeeId)).thenReturn(Optional.of(employee));
+        when(randomTokenGenerator.generate()).thenReturn("random-256-bit-token");
+        when(tokenHasher.hash("random-256-bit-token")).thenReturn("token-hash");
+
+        Optional<String> link = useCase.generateInviteLink(employeeId);
+
+        assertTrue(link.isPresent());
+        String token = link.get().substring(link.get().lastIndexOf('/') + 1);
+        String hmacOfEmployeeId = new HmacTokenValidator("test-secret").generateToken(employeeId.toString());
+        assertNotEquals(hmacOfEmployeeId, token);
+    }
+
+    @Test
     @DisplayName("generateInviteLink удаляет старые токены сотрудника перед сохранением нового")
     void generateInviteLinkDeletesOldTokensFirst() {
         UUID employeeId = UUID.randomUUID();
         Employee employee = Employee.builder().id(employeeId).build();
         when(employeeRepositoryPort.findById(employeeId)).thenReturn(Optional.of(employee));
-        when(hmacValidator.generateToken(anyString())).thenReturn("raw-token", "token-hash");
+        when(randomTokenGenerator.generate()).thenReturn("raw-token");
+        when(tokenHasher.hash(anyString())).thenReturn("token-hash");
 
         useCase.generateInviteLink(employeeId);
 
@@ -92,6 +115,6 @@ class TokenManagementUseCaseImplTest {
         Optional<String> link = useCase.generateInviteLink(employeeId);
 
         assertTrue(link.isEmpty());
-        verifyNoInteractions(tokenRepositoryPort, hmacValidator);
+        verifyNoInteractions(tokenRepositoryPort, randomTokenGenerator, tokenHasher);
     }
 }

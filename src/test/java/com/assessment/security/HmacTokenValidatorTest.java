@@ -89,4 +89,16 @@ class HmacTokenValidatorTest {
         // SecretKeySpec отклоняет пустой ключ IllegalArgumentException'ом
         assertThrows(IllegalArgumentException.class, () -> v.generateToken(EMPLOYEE_ID));
     }
+
+    @Test
+    @DisplayName("Константное сравнение: валидная подпись принимается, неверная отклоняется")
+    void validateTokenConstantTimePathAcceptsValidAndRejectsWrong() {
+        String token = validator.generateToken(EMPLOYEE_ID);
+        // Валидная подпись принимается
+        assertTrue(validator.validateToken(EMPLOYEE_ID, token));
+        // Неверная подпись той же длины отклоняется
+        assertFalse(validator.validateToken(EMPLOYEE_ID, token.substring(0, token.length() - 1) + "x"));
+        // Полностью посторонняя подпись отклоняется
+        assertFalse(validator.validateToken(EMPLOYEE_ID, "wrong-signature"));
+    }
 }

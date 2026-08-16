@@ -71,14 +71,38 @@ export async function parseError(response: Response): Promise<string> {
 }
 
 /**
+ * Читает XSRF-токен из cookie (устанавливается сервером, доступен JS).
+ * @return значение токена или пустая строка, если cookie отсутствует
+ */
+export function getXsrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)
+  const raw = match?.[1]
+  if (!raw) return ''
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+/**
  * Выполняет fetch-запрос к административному API с передачей cookie.
+ * Для мутирующих методов (POST/PUT/DELETE/PATCH) добавляет заголовок X-XSRF-TOKEN
+ * из cookie — CSRF-защита включена для /api/admin/**.
  * @param path - относительный путь
  * @param init - дополнительные параметры fetch
  * @return HTTP-ответ
  */
 export async function adminFetch(path: string, init?: RequestInit): Promise<Response> {
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const headers = new Headers(init?.headers)
+  if (method !== 'GET' && method !== 'HEAD') {
+    const token = getXsrfToken()
+    if (token) headers.set('X-XSRF-TOKEN', token)
+  }
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
+    headers,
     credentials: 'include',
     redirect: 'manual',
   })

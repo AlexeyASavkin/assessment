@@ -59,7 +59,10 @@ tasks.register('allureReport') {
     dependsOn test
     doLast {
         def allureDir = file('build/allure-cli')
-        def allureBin = file("${allureDir}/allure-${allureVersion}/bin/allure.bat")
+        // Allure CLI ships both bin/allure (Unix shell) and bin/allure.bat (Windows).
+        // On Linux CI the .bat cannot be executed (Permission denied), so pick by OS.
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('win')
+        def allureBin = file("${allureDir}/allure-${allureVersion}/bin/${isWindows ? 'allure.bat' : 'allure'}")
         if (!allureBin.exists()) {
             allureDir.mkdirs()
             def zipFile = file("${allureDir}/allure-${allureVersion}.zip")
@@ -68,6 +71,10 @@ tasks.register('allureReport') {
             println "Extracting Allure CLI..."
             ant.unzip(src: zipFile, dest: allureDir.absolutePath)
             zipFile.delete()
+            if (!isWindows) {
+                // ant.unzip doesn't preserve the exec bit from the zip — restore it
+                ant.chmod(file: allureBin, perm: '755')
+            }
         }
         def pb = new ProcessBuilder(allureBin.absolutePath, 'generate', '--clean', 'allure-results', '--output', 'reports/allure-report')
         pb.directory(layout.buildDirectory.asFile.get())

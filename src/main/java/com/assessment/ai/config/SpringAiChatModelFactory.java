@@ -5,12 +5,16 @@ import com.assessment.config.StubChatModel;
 import com.assessment.service.AiProviderService;
 import com.google.genai.Client;
 import io.micrometer.observation.ObservationRegistry;
+import nl.altindag.ssl.pem.util.PemUtils;
+import nl.altindag.ssl.util.TrustManagerUtils;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +26,10 @@ import chat.giga.springai.api.auth.GigaChatApiScope;
 import chat.giga.springai.api.auth.GigaChatAuthProperties;
 import chat.giga.springai.api.chat.GigaChatApi;
 
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509ExtendedTrustManager;
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -41,15 +49,33 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
     private final ToolCallingManager toolCallingManager;
     private final RetryTemplate retryTemplate;
     private final ObservationRegistry observationRegistry;
+    private final boolean unsafeSsl;
+    private final Resource caCerts;
 
+    /**
+     * Конструктор фабрики.
+     *
+     * @param aiProviderService     сервис API-ключей провайдеров
+     * @param toolCallingManager    менеджер вызова инструментов
+     * @param retryTemplate         шаблон повторов
+     * @param observationRegistry   реестр наблюдений
+     * @param unsafeSsl             отключение проверки SSL для GigaChat
+     *                              ({@code spring.ai.gigachat.auth.unsafe-ssl}, по умолчанию {@code false})
+     * @param caCerts               PEM-бандл корневых CA для GigaChat
+     *                              ({@code spring.ai.gigachat.auth.certs.ca-certs}, по умолчанию не задан)
+     */
     public SpringAiChatModelFactory(AiProviderService aiProviderService,
                                     ToolCallingManager toolCallingManager,
                                     RetryTemplate retryTemplate,
-                                    ObservationRegistry observationRegistry) {
+                                    ObservationRegistry observationRegistry,
+                                    @Value("${spring.ai.gigachat.auth.unsafe-ssl:false}") boolean unsafeSsl,
+                                    @Value("${spring.ai.gigachat.auth.certs.ca-certs:}") Resource caCerts) {
         this.aiProviderService = aiProviderService;
         this.toolCallingManager = toolCallingManager;
         this.retryTemplate = retryTemplate;
         this.observationRegistry = observationRegistry;
+        this.unsafeSsl = unsafeSsl;
+        this.caCerts = caCerts;
     }
 
     @Override
@@ -115,7 +141,7 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
                         .apiKey(gigachatKey)
                         .build())
                 .scope(GigaChatApiScope.GIGACHAT_API_PERS)
-                .unsafeSsl(true)
+                .unsafeSsl(unsafeSsl)
                 .build();
 
         GigaChatInternalProperties internal = new GigaChatInternalProperties();
@@ -127,7 +153,7 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
                 .internal(internal)
                 .build();
 
-        GigaChatApi api = new GigaChatApi(props);
+        GigaChatApi api = buildGigaChatApi(props);
         GigaChatOptions options = GigaChatOptions.builder()
                 .model(GigaChatApi.ChatModel.GIGA_CHAT_2)
                 .temperature(0.3)
@@ -139,6 +165,31 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
                 .retryTemplate(retryTemplate)
                 .observationRegistry(observationRegistry)
                 .build();
+    }
+
+    /**
+     * Строит {@link GigaChatApi} с учётом SSL-настроек.
+     * <p>
+     * Если задан PEM-бандл корневых CA ({@code spring.ai.gigachat.auth.certs.ca-certs}),
+     * из него строится {@link TrustManagerFactory} (аналогично тому, как это делает
+     * {@code GigaChatAutoConfiguration} стартера) — GigaChat доверяет только указанным CA.
+     * Если бандл не задан, используется стандартный trust store JVM.
+     *
+     * @param props свойства GigaChat API
+     * @return сконфигурированный клиент GigaChat
+     */
+    private GigaChatApi buildGigaChatApi(GigaChatApiProperties props) {
+        if (caCerts == null) {
+            return new GigaChatApi(props);
+        }
+        try (InputStream in = caCerts.getInputStream()) {
+            X509ExtendedTrustManager trustManager = PemUtils.loadTrustMaterial(in);
+            TrustManagerFactory trustManagerFactory = TrustManagerUtils.createTrustManagerFactory(trustManager);
+            return new GigaChatApi(props, null, trustManagerFactory);
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "Не удалось загрузить CA-сертификаты GigaChat из " + caCerts.getDescription(), e);
+        }
     }
 
     private ChatModel openrouterDelegate() {
@@ -168,7 +219,7 @@ public class SpringAiChatModelFactory implements ChatModelFactory {
         OpenAiChatOptions opencodeOptions = OpenAiChatOptions.builder()
                 .apiKey(opencodeKey)
                 .baseUrl("https://opencode.ai/zen/v1")
-                .model("deepseek-v4-flash-free")
+                .model("deepseek-v4-flash")
                 .temperature(0.3)
                 .maxTokens(4000)
                 .build();

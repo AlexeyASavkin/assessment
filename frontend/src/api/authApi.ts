@@ -1,7 +1,9 @@
-import { API_BASE, adminFetch } from './shared'
+import { API_BASE, adminFetch, getXsrfToken } from './shared'
 
 /**
  * Аутентифицирует администратора по логину и паролю.
+ * Первый POST без XSRF-токена отклоняется CSRF-фильтром (302 + Set-Cookie XSRF-TOKEN),
+ * поэтому запрос повторяется один раз с токеном из cookie (deferred-token bootstrap).
  * @param username - имя пользователя
  * @param password - пароль
  * @throws Error при неверных учетных данных или ошибке сервера
@@ -10,12 +12,25 @@ export async function adminLogin(username: string, password: string): Promise<vo
   const body = new URLSearchParams()
   body.append('username', username)
   body.append('password', password)
-  const response = await fetch(`${API_BASE}/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    credentials: 'include',
-    body: body.toString(),
-  })
+
+  const doLogin = (token: string): Promise<Response> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/x-www-form-urlencoded' }
+    if (token) headers['X-XSRF-TOKEN'] = token
+    return fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      redirect: 'manual',
+      body: body.toString(),
+    })
+  }
+
+  let response = await doLogin(getXsrfToken())
+  // CSRF-фильтр отклоняет первый POST без токена: 302 + Set-Cookie XSRF-TOKEN.
+  if (response.type === 'opaqueredirect' || response.status === 302) {
+    const retryToken = getXsrfToken()
+    if (retryToken) response = await doLogin(retryToken)
+  }
   if (response.ok) {
     return
   }
