@@ -1,0 +1,3 @@
+# Нормализация переводов строк: в индексе git — LF, рабочая копия — LF на всех платформах.
+# biome.json использует lineEnding: lf; без eol=lf Windows (core.autocrlf=true) разворачивал CRLF.
+* text=auto eol=lf
