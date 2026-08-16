@@ -3,7 +3,8 @@ package com.assessment.management.application;
 import com.assessment.entity.AssessmentInviteToken;
 import com.assessment.management.port.out.EmployeeRepositoryPort;
 import com.assessment.management.port.out.TokenRepositoryPort;
-import com.assessment.security.HmacTokenValidator;
+import com.assessment.security.RandomTokenGenerator;
+import com.assessment.security.TokenHasher;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,23 +19,26 @@ import java.util.UUID;
  *
  * <p>Воспроизводит бизнес-логику {@code AdminController}: перед генерацией удаляет
  * предыдущие токены сотрудника (во избежание нарушения уникального ограничения),
- * создаёт HMAC-подписанный токен со сроком действия 72 часа, в БД сохраняется
- * только его хеш. Зависит от выходных портов {@link EmployeeRepositoryPort},
- * {@link TokenRepositoryPort} и {@link HmacTokenValidator}.
+ * создаёт случайный 256-битный токен со сроком действия 72 часа, в БД сохраняется
+ * только его SHA-256 хеш. Зависит от выходных портов {@link EmployeeRepositoryPort},
+ * {@link TokenRepositoryPort}, {@link RandomTokenGenerator} и {@link TokenHasher}.
  */
 @Service
 public class TokenManagementUseCaseImpl implements TokenManagementUseCase {
 
     private final EmployeeRepositoryPort employeeRepositoryPort;
     private final TokenRepositoryPort tokenRepositoryPort;
-    private final HmacTokenValidator hmacValidator;
+    private final RandomTokenGenerator randomTokenGenerator;
+    private final TokenHasher tokenHasher;
 
     public TokenManagementUseCaseImpl(EmployeeRepositoryPort employeeRepositoryPort,
                                       TokenRepositoryPort tokenRepositoryPort,
-                                      HmacTokenValidator hmacValidator) {
+                                      RandomTokenGenerator randomTokenGenerator,
+                                      TokenHasher tokenHasher) {
         this.employeeRepositoryPort = employeeRepositoryPort;
         this.tokenRepositoryPort = tokenRepositoryPort;
-        this.hmacValidator = hmacValidator;
+        this.randomTokenGenerator = randomTokenGenerator;
+        this.tokenHasher = tokenHasher;
     }
 
     @Override
@@ -43,8 +47,8 @@ public class TokenManagementUseCaseImpl implements TokenManagementUseCase {
         return employeeRepositoryPort.findById(employeeId)
                 .map(employee -> {
                     tokenRepositoryPort.deleteByEmployeeId(employeeId);
-                    String token = hmacValidator.generateToken(employeeId.toString());
-                    String hash = hmacValidator.generateToken(token);
+                    String token = randomTokenGenerator.generate();
+                    String hash = tokenHasher.hash(token);
                     AssessmentInviteToken inviteToken = AssessmentInviteToken.builder()
                             .tokenHash(hash)
                             .employee(employee)

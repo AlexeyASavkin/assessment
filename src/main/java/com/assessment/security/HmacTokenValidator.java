@@ -9,6 +9,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
@@ -59,6 +60,9 @@ public class HmacTokenValidator {
 
     /**
      * Проверяет соответствие токена ожидаемой HMAC-подписи для идентификатора.
+     * <p>
+     * Сравнение выполняется через {@link MessageDigest#isEqual} — константное
+     * по времени, не подверженное timing-атакам.
      *
      * @param employeeId идентификатор сотрудника или сессии
      * @param token предоставленный токен для проверки
@@ -67,7 +71,9 @@ public class HmacTokenValidator {
     public boolean validateToken(String employeeId, String token) {
         try {
             String expected = generateToken(employeeId);
-            boolean valid = expected.equals(token);
+            boolean valid = MessageDigest.isEqual(
+                    expected.getBytes(StandardCharsets.UTF_8),
+                    token.getBytes(StandardCharsets.UTF_8));
             if (valid) {
                 logger.debug("HMAC-токен валиден: employeeId={}", employeeId);
             } else {
