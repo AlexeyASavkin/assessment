@@ -34,7 +34,12 @@ public class AdminUserDetailsService implements UserDetailsService {
             @Value("${ADMIN_USERNAME:}") String adminUsername,
             @Value("${ADMIN_PASSWORD_HASH:}") String adminPasswordHash) {
         this.adminUsername = adminUsername;
-        this.adminPasswordHash = adminPasswordHash;
+        // docker compose env_file НЕ интерполирует значения: BCrypt-хэш из .env приходит
+        // в виде {bcrypt}$$2a$$12$$... (двойные $ — escaping для compose-файла). Разэкранируем
+        // здесь, чтобы приложение работало при любом способе запуска (compose / start-dev.cmd /
+        // bootRun / jar). Для валидного BCrypt-хэша замена безопасна: формат $2a$12$... не
+        // содержит подряд идущих '$'.
+        this.adminPasswordHash = adminPasswordHash.replace("$$", "$");
     }
 
     /**
