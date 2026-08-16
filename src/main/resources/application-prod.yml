@@ -1,0 +1,18 @@
+# Prod-профиль: переопределения поверх application.yml.
+# Активируется автоматически при SPRING_PROFILES_ACTIVE=prod (имя файла application-prod.yml)
+# и явно помечен маркером профиля ниже.
+#
+# ВАЖНО: GigaChat НЕ включает unsafe-ssl: true (в базовом application.yml он задан для dev).
+# Подключение корневого CA (НУЦ Минцифры) для GigaChat выполняется отдельной задачей (T14) —
+# здесь намеренно НЕТ блока spring.ai.gigachat, чтобы prod не переопределял SSL-настройки.
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+# Prod-логирование: INFO вместо DEBUG из базового application.yml.
+logging:
+  level:
+    com.assessment: INFO
+    org.springframework.ai: INFO
+    io.github.resilience4j: INFO
