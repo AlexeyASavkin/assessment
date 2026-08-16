@@ -67,7 +67,7 @@ public class ReportSteps {
 
     private void setupFullSession(boolean complete) {
         Map<String, String> loginParams = Map.of("username", TestAdminConfig.username(), "password", TestAdminConfig.password());
-        Response loginResp = adminClient.postForm("/api/admin/login", loginParams);
+        Response loginResp = adminClient.adminLogin(loginParams);
         assertThat(adminClient.statusCode(loginResp)).isEqualTo(200);
 
         String uniqueName = "Java Report " + UUID.randomUUID().toString().substring(0, 8);

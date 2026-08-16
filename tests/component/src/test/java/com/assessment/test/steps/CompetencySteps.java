@@ -25,7 +25,7 @@ public class CompetencySteps {
     @Given("администратор авторизован")
     public void adminIsAuthenticated() {
         Map<String, String> params = Map.of("username", TestAdminConfig.username(), "password", TestAdminConfig.password());
-        Response response = client.postForm("/api/admin/login", params);
+        Response response = client.adminLogin(params);
         assertThat(client.statusCode(response)).isEqualTo(200);
         ScenarioContext.get().setLastResponse(client.body(response), client.statusCode(response));
     }

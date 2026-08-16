@@ -30,7 +30,7 @@ public class EmployeeSessionSteps {
     @Given("администратор авторизован для сессии")
     public void adminAuthForSession() {
         Map<String, String> params = Map.of("username", TestAdminConfig.username(), "password", TestAdminConfig.password());
-        Response response = adminClient.postForm("/api/admin/login", params);
+        Response response = adminClient.adminLogin(params);
         assertThat(adminClient.statusCode(response)).isEqualTo(200);
         ScenarioContext.get().setLastResponse(adminClient.body(response), adminClient.statusCode(response));
     }
